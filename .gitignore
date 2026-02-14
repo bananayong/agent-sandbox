@@ -1,0 +1,25 @@
+# AI agent local settings (per-user, not shared)
+.claude/settings.local.json
+.codex/
+.gemini/
+.opencode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+
+# Docker build artifacts
+*.tar
+*.tar.gz
