@@ -32,13 +32,20 @@ docker build -t agent-sandbox:latest .
 
 **Dockerfile (`runtime` stage):**
 - Base: `debian:bookworm-slim`
-- Installs core packages via apt, Node.js 22, Bun, GitHub CLI
+- Installs core packages via apt, Node.js 22, Bun, GitHub CLI, Docker CLI (docker-ce-cli, docker-compose-plugin, docker-buildx-plugin)
 - Installs additional CLI tools from pinned GitHub release binaries
 - Installs coding agents via npm
 
-**Mount strategy (two volumes):**
+**Mount strategy (three volumes):**
 - `$TARGET_DIR` -> `/workspace` (the user's project)
 - `~/.agent-sandbox/home` -> `/home/sandbox` (persists all agent auth, shell history, caches, and configs across container restarts)
+- Host Docker socket -> `/var/run/docker.sock` (DooD — enables `docker`, `docker compose`, `docker buildx` inside the container)
+
+**Docker-out-of-Docker (DooD):**
+- Container mounts host Docker socket instead of running its own daemon — lightweight, shares host image cache
+- `run.sh` auto-detects socket from: `DOCKER_HOST` env var (unix://), `/var/run/docker.sock`, `~/.docker/run/docker.sock`
+- Socket access is granted via `--group-add <GID>` (kernel-level group assignment), not `sudo chmod`
+- **IMPORTANT:** `run.sh` sets `--security-opt no-new-privileges:true`, which blocks all setuid binaries including `sudo`. Never use `sudo` in `start.sh`. Handle all permission needs in `run.sh` via Docker flags (`--group-add`, `--user`, `--cap-add`)
 
 **Entrypoint flow (`scripts/start.sh`):**
 1. Copies default configs from `/etc/skel/` to `$HOME` only if they don't already exist (first-run)
@@ -56,7 +63,7 @@ docker build -t agent-sandbox:latest .
 
 ## Key Conventions
 
-- Container runs as non-root user `sandbox` (UID/GID 1000) with passwordless sudo
+- Container runs as non-root user `sandbox` (UID/GID 1000). `sudo` is configured (NOPASSWD) but blocked at runtime by `no-new-privileges` — do not rely on `sudo` in entrypoint or runtime scripts
 - API keys are passed via environment variables, never baked into the image
 - `run.sh` auto-builds the image if it doesn't exist, and attaches to a running container instead of creating a new one
 - Shell aliases in `configs/zshrc` replace standard commands (cat->bat, ls->eza, find->fd, etc.) but only when the binary is available
