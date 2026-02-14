@@ -103,6 +103,25 @@ run_container() {
     -v "$SANDBOX_HOME:/home/sandbox"
   )
 
+  # Docker socket forwarding (DooD)
+  local docker_sock=""
+  if [[ -n "${DOCKER_HOST:-}" && "${DOCKER_HOST}" == unix://* ]]; then
+    docker_sock="${DOCKER_HOST#unix://}"
+  elif [[ -S /var/run/docker.sock ]]; then
+    docker_sock="/var/run/docker.sock"
+  elif [[ -S "$HOME/.docker/run/docker.sock" ]]; then
+    docker_sock="$HOME/.docker/run/docker.sock"
+  fi
+  if [[ -n "$docker_sock" ]]; then
+    docker_args+=(-v "$docker_sock:/var/run/docker.sock")
+    # Add socket's group so sandbox user can access without sudo
+    local sock_gid
+    sock_gid=$(stat -f '%g' "$docker_sock" 2>/dev/null || stat -c '%g' "$docker_sock" 2>/dev/null)
+    if [[ -n "$sock_gid" ]]; then
+      docker_args+=(--group-add "$sock_gid")
+    fi
+  fi
+
   # SSH agent forwarding
   if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
     docker_args+=(-v "$SSH_AUTH_SOCK:/tmp/ssh-agent.sock:ro")

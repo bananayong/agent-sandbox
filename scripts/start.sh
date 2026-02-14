@@ -48,6 +48,8 @@ fi
 # One-time tool setup
 # ============================================================
 
+# Docker socket access is handled by --group-add in run.sh (no sudo needed)
+
 # Git delta integration (only if delta is available and not yet configured)
 if command -v delta &>/dev/null; then
   if [[ "$(git config --global core.pager 2>/dev/null)" != "delta" ]]; then
