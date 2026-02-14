@@ -65,6 +65,7 @@ docker build -t agent-sandbox:latest .
 
 - Container runs as non-root user `sandbox` (UID/GID 1000). `sudo` is configured (NOPASSWD) but blocked at runtime by `no-new-privileges` — do not rely on `sudo` in entrypoint or runtime scripts
 - API keys are passed via environment variables, never baked into the image
+- All commits must be signed. Always create commits with a verified signature (for example, `git commit -S`)
 - `run.sh` auto-builds the image if it doesn't exist, and attaches to a running container instead of creating a new one
 - Shell aliases in `configs/zshrc` replace standard commands (cat->bat, ls->eza, find->fd, etc.) but only when the binary is available
 - The `configs/zimrc` has ordering constraints: `zsh-completions` must come before `completion`, `zsh-syntax-highlighting` must come after `completion`, `zsh-history-substring-search` must come after `syntax-highlighting`
