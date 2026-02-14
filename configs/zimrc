@@ -1,0 +1,28 @@
+# Zim Framework configuration
+# https://zimfw.sh/
+
+# Core modules
+zmodule environment
+zmodule input
+zmodule utility
+
+# Git
+zmodule git
+
+# Archive utilities
+zmodule archive
+
+# Completions (must be before completion module)
+zmodule zsh-users/zsh-completions --fpath src
+
+# Completion
+zmodule completion
+
+# Autosuggestions
+zmodule zsh-users/zsh-autosuggestions
+
+# Syntax highlighting (must be after completion)
+zmodule zsh-users/zsh-syntax-highlighting
+
+# History substring search (must be after syntax-highlighting)
+zmodule zsh-users/zsh-history-substring-search

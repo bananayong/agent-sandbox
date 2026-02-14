@@ -1,0 +1,129 @@
+# ============================================================
+# Agent Sandbox - Zsh Configuration
+# ============================================================
+
+# ----- History -----
+HISTFILE=~/.zsh_history
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_VERIFY
+setopt SHARE_HISTORY
+setopt APPEND_HISTORY
+
+# ----- Zimfw -----
+ZIM_HOME=~/.zim
+if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
+  echo "Zimfw not found. Run start.sh to initialize."
+fi
+if [[ -s ${ZIM_HOME}/init.zsh ]]; then
+  source ${ZIM_HOME}/init.zsh
+fi
+
+# ----- Key bindings for history-substring-search -----
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down
+
+# ----- Aliases: Modern CLI replacements -----
+# bat -> cat
+if command -v bat &>/dev/null; then
+  alias cat='bat --paging=never'
+  alias catp='bat --plain --paging=never'
+fi
+
+# eza -> ls
+if command -v eza &>/dev/null; then
+  alias ls='eza --icons --group-directories-first'
+  alias ll='eza --icons --group-directories-first -la'
+  alias lt='eza --icons --tree --level=2'
+  alias la='eza --icons --group-directories-first -a'
+fi
+
+# fd -> find
+if command -v fd &>/dev/null; then
+  alias find='fd'
+fi
+
+# dust -> du
+if command -v dust &>/dev/null; then
+  alias du='dust'
+fi
+
+# procs -> ps
+if command -v procs &>/dev/null; then
+  alias ps='procs'
+fi
+
+# bottom -> top
+if command -v btm &>/dev/null; then
+  alias top='btm'
+fi
+
+# xh -> curl (for API testing)
+if command -v xh &>/dev/null; then
+  alias http='xh'
+  alias https='xh --https'
+fi
+
+# ----- Git aliases (complementing delta) -----
+alias g='git'
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git pull'
+alias gd='git diff'
+alias glog='git log --oneline --graph --decorate'
+
+# ----- General aliases -----
+alias cls='clear'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias mkdir='mkdir -p'
+
+# ----- Environment -----
+export EDITOR='micro'
+export VISUAL='micro'
+export PAGER='less'
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# ----- Tool integrations -----
+# zoxide (smart cd)
+if command -v zoxide &>/dev/null; then
+  eval "$(zoxide init zsh)"
+fi
+
+# fzf (load BEFORE mcfly so mcfly's Ctrl+R takes priority)
+if command -v fzf &>/dev/null; then
+  # Use fd for fzf if available
+  if command -v fd &>/dev/null; then
+    export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+  fi
+  export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
+  # Shell integration (Ctrl+T, Alt+C; Ctrl+R will be overridden by mcfly)
+  source <(fzf --zsh 2>/dev/null) || true
+fi
+
+# mcfly (smart history search - must be after fzf to override Ctrl+R)
+if command -v mcfly &>/dev/null; then
+  eval "$(mcfly init zsh)"
+  export MCFLY_RESULTS=30
+  export MCFLY_FUZZY=2
+fi
+
+# broot
+if command -v broot &>/dev/null && [[ -f ~/.config/broot/launcher/bash/br ]]; then
+  source ~/.config/broot/launcher/bash/br
+fi
+
+# ----- Starship prompt (must be last) -----
+if command -v starship &>/dev/null; then
+  eval "$(starship init zsh)"
+fi

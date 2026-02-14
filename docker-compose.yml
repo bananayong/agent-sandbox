@@ -1,0 +1,42 @@
+services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-sandbox:latest
+    container_name: agent-sandbox
+    hostname: sandbox
+    stdin_open: true
+    tty: true
+
+    # Mount strategy
+    volumes:
+      # User's project directory → /workspace
+      - ${TARGET_DIR:-.}:/workspace
+      # Entire $HOME for sandbox user → persists all configs/auth/history
+      - ${SANDBOX_HOME:-~/.agent-sandbox/home}:/home/sandbox
+      # SSH agent forwarding (optional, host must have SSH_AUTH_SOCK)
+      - ${SSH_AUTH_SOCK:-/dev/null}:/tmp/ssh-agent.sock:ro
+
+    environment:
+      - SSH_AUTH_SOCK=/tmp/ssh-agent.sock
+      # API keys passed from host (never baked into image)
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
+      - GEMINI_API_KEY
+      - GITHUB_TOKEN
+      - OPENCODE_API_KEY
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits (deploy syntax works with docker compose v2+)
+    mem_limit: 8g
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+    # Network
+    network_mode: bridge
