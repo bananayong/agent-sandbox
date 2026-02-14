@@ -1,2 +1,136 @@
 # agent-sandbox
-My own agent sandbox for quick start
+
+> AI 코딩 에이전트를 위한 로컬 Docker 샌드박스  
+> 빠르게 띄우고, 안전하게 격리하고, 설정은 계속 유지합니다.
+
+## Why This?
+
+`agent-sandbox`는 Claude Code, Codex CLI, Gemini CLI, OpenCode, Copilot CLI 같은 에이전트를
+호스트 환경과 분리된 컨테이너에서 실행하기 위한 개발용 런타임입니다.
+
+- 프로젝트는 `/workspace`로 마운트
+- 에이전트 로그인/히스토리/쉘 설정은 `~/.agent-sandbox/home`에 영구 저장
+- Docker socket을 연결해 컨테이너 안에서도 `docker` 명령 사용 가능 (DooD)
+
+## TL;DR (30초 시작)
+
+### 1) 준비물
+
+- Docker Desktop 또는 Docker Engine
+- macOS/Linux 쉘 환경
+
+### 2) 실행
+
+```bash
+# 현재 폴더를 워크스페이스로 실행
+./run.sh .
+```
+
+이미지가 없으면 자동으로 빌드하고, 이미 실행 중이면 새 컨테이너를 만들지 않고 바로 attach 합니다.
+
+## Quick Start
+
+```bash
+# 이미지 빌드
+docker build -t agent-sandbox:latest .
+
+# 현재 폴더 실행
+./run.sh .
+
+# 빌드 후 실행
+./run.sh -b .
+
+# 특정 프로젝트 폴더 실행
+./run.sh ~/projects/myapp
+
+# 컨테이너 중지
+./run.sh -s
+
+# 샌드박스 홈 초기화 (로그인/히스토리/설정 삭제)
+./run.sh -r
+```
+
+## Runtime Flow
+
+컨테이너 시작 시 `scripts/start.sh`가 자동 실행됩니다.
+
+1. 첫 실행일 때만 기본 dotfiles를 `$HOME`으로 복사
+2. `zimfw` 부트스트랩 및 모듈 설치
+3. git delta, 기본 에디터(micro), gh-copilot 등 1회성 세팅
+4. `/bin/zsh` 실행
+
+## Mount & Persistence
+
+기본 마운트는 아래 3가지입니다.
+
+- `WORKSPACE_DIR` -> `/workspace`
+- `~/.agent-sandbox/home` -> `/home/sandbox`
+- host Docker socket -> `/var/run/docker.sock` (존재 시 자동 연결)
+
+핵심 포인트:
+
+- 컨테이너를 지워도 `~/.agent-sandbox/home`은 유지됩니다.
+- 따라서 CLI 로그인 상태, shell history, 개인 설정이 살아있습니다.
+
+## Environment Variables
+
+`run.sh`는 아래 키가 호스트에 설정되어 있으면 컨테이너로 전달합니다.
+
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+- `GITHUB_TOKEN`
+- `OPENCODE_API_KEY`
+
+## Included Tools (요약)
+
+- Base: Debian bookworm-slim, zsh, tmux, git, python3, node 22, bun
+- Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq
+- UX: starship, eza, bat, zoxide, micro, delta, lazygit, gitui, tokei
+- Agents: claude, codex, gemini, opencode
+
+참고: `broot`는 현재 빌드 안정성 이슈로 비활성화되어 있습니다.
+
+## Security Notes
+
+- 컨테이너는 `sandbox` 사용자(UID/GID 1000)로 동작
+- `--security-opt no-new-privileges:true` 적용
+- `sudo`에 의존하는 엔트리포인트/런타임 스크립트는 동작하지 않도록 설계됨
+- API 키는 이미지에 bake 하지 않고 환경변수로만 전달
+
+## Troubleshooting
+
+### Docker 명령이 컨테이너 안에서 권한 오류가 날 때
+
+- `run.sh`가 socket GID를 자동으로 `--group-add` 하므로, 일반적으로 재실행으로 해결됩니다.
+- 그래도 실패하면 host Docker socket 경로(`DOCKER_HOST` 또는 `/var/run/docker.sock`)를 확인하세요.
+
+### 설정을 완전히 초기화하고 싶을 때
+
+```bash
+./run.sh -r
+```
+
+주의: `~/.agent-sandbox/home`이 삭제되어 로그인/히스토리/설정이 모두 초기화됩니다.
+
+## Optional: docker compose
+
+`docker-compose.yml`도 포함되어 있어 compose 기반 실행이 가능합니다.
+다만 기본 사용은 자동 처리(빌드/attach/socket 처리)가 더 많은 `run.sh`를 권장합니다.
+
+## Project Files
+
+- `run.sh`: 메인 실행/정지/초기화 스크립트
+- `Dockerfile`: 런타임 이미지 정의
+- `scripts/start.sh`: 컨테이너 시작 시 초기화 로직
+- `configs/`: 기본 zsh/zim/tmux/starship 설정
+- `MEMORY.md`: 장기 의사결정 기록
+- `AGENTS.md`: 에이전트 작업 규칙
+
+---
+
+빠른 한 줄:
+
+```bash
+./run.sh .
+```
