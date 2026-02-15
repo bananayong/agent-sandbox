@@ -60,6 +60,23 @@ docker build -t agent-sandbox:latest .
 4. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 5. `/bin/zsh` 실행
 
+## Shared Skills (Anthropic)
+
+루트 `skills/` 폴더에는 `https://github.com/anthropics/skills/tree/main/skills`의 스킬이 포함되어 있습니다.
+
+컨테이너 시작 시 `scripts/start.sh`가 아래 경로에 스킬을 자동 설치합니다.
+
+- `~/.claude/skills`
+- `~/.codex/skills`
+- `~/.gemini/skills`
+
+동작 원칙:
+
+- 같은 이름의 스킬 폴더가 이미 있으면 덮어쓰지 않습니다(사용자 커스텀 보존).
+- 아직 없는 스킬만 추가 설치됩니다.
+- Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
+- 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
+
 ## Mount & Persistence
 
 기본 마운트는 아래 3가지입니다.
@@ -234,6 +251,8 @@ docker compose up
 - `Dockerfile`: 런타임 이미지 정의
 - `scripts/start.sh`: 컨테이너 시작 시 초기화 로직
 - `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
+- `skills/`: 공유 스킬 번들(Anthropic skills vendored)
+- `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
 - `CLAUDE.md`: Claude Code 에이전트 가이드
 - `AGENTS.md`: 범용 에이전트 작업 규칙

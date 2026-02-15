@@ -1,0 +1,10 @@
+repository: https://github.com/anthropics/skills
+path: skills/
+branch: main
+commit: 1ed29a03dc852d30fa6ef2ca53a67dc2c2c2c563
+synced_at_utc: 2026-02-15T12:19:49Z
+
+# Refresh checklist:
+# 1) git clone --depth 1 https://github.com/anthropics/skills.git <tmp>
+# 2) cp -R <tmp>/skills/. ./skills/
+# 3) Update commit and synced_at_utc in this file

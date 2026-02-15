@@ -62,6 +62,7 @@ Optionally tag with priority and category:
 
 ## Done
 
+- [x] [P1] (setup) 공용 `skills/` 폴더 구성 및 자동 로딩 — Anthropic `skills` 전체 벤더링, 컨테이너 시작 시 `~/.claude/skills`, `~/.codex/skills`, `~/.gemini/skills`로 자동 설치 (`skill-creator`는 Codex/Gemini 내장 스킬 충돌 방지를 위해 제외)
 - [x] [P1] (setup) zshrc에 alias된 미설치 도구 추가 — dust, procs, btm, xh, mcfly 바이너리 설치
 - [x] [P1] (security) 커밋 전 보안 민감 정보 유출 방지 장치 도입 — gitleaks + pre-commit hook으로 자동 검사
 - [x] [P1] (setup) pre-commit 프레임워크 자동 구성 — pre-commit 설치 + `.pre-commit-config.yaml` 템플릿 제공

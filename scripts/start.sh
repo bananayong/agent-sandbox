@@ -26,6 +26,56 @@ copy_default() {
   fi
 }
 
+# Install shared skills from image into one agent's skill directory.
+# Behavior is additive: existing skills are never overwritten.
+# Optional 3rd arg is a comma-separated exclude list by skill folder name.
+install_shared_skills() {
+  local source_root="$1"
+  local target_root="$2"
+  local exclude_csv="${3:-}"
+
+  if [[ ! -d "$source_root" ]]; then
+    return
+  fi
+
+  mkdir -p "$target_root"
+
+  local source_skill
+  for source_skill in "$source_root"/*; do
+    if [[ ! -d "$source_skill" ]] || [[ ! -f "$source_skill/SKILL.md" ]]; then
+      continue
+    fi
+
+    local skill_name
+    local target_skill
+    skill_name="$(basename "$source_skill")"
+    target_skill="$target_root/$skill_name"
+
+    if [[ -n "$exclude_csv" ]]; then
+      local exclude_name
+      local should_skip=0
+      IFS=',' read -r -a exclude_list <<< "$exclude_csv"
+      for exclude_name in "${exclude_list[@]}"; do
+        if [[ "$skill_name" == "$exclude_name" ]]; then
+          should_skip=1
+          break
+        fi
+      done
+      if [[ "$should_skip" -eq 1 ]]; then
+        continue
+      fi
+    fi
+
+    # Respect user-managed/customized skills with the same name.
+    if [[ -e "$target_skill" ]]; then
+      continue
+    fi
+
+    echo "[init] Installing shared skill: $target_skill"
+    cp -r "$source_skill" "$target_skill"
+  done
+}
+
 copy_default /etc/skel/.default.zshrc        "$HOME_DIR/.zshrc"
 copy_default /etc/skel/.default.zimrc         "$HOME_DIR/.zimrc"
 copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
@@ -39,9 +89,11 @@ copy_default /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config
 # forcing users to reset their sandbox home or manually edit dotfiles.
 AUTO_APPROVE_HOOK='[[ -f ~/.config/agent-sandbox/auto-approve.zsh ]] && source ~/.config/agent-sandbox/auto-approve.zsh'
 if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$AUTO_APPROVE_HOOK" "$HOME_DIR/.zshrc"; then
-  echo "" >> "$HOME_DIR/.zshrc"
-  echo "# Agent auto-approve wrappers (managed by agent-sandbox)." >> "$HOME_DIR/.zshrc"
-  echo "$AUTO_APPROVE_HOOK" >> "$HOME_DIR/.zshrc"
+  {
+    echo ""
+    echo "# Agent auto-approve wrappers (managed by agent-sandbox)."
+    echo "$AUTO_APPROVE_HOOK"
+  } >> "$HOME_DIR/.zshrc"
 fi
 
 # Claude CLI reads this file very early. Ensure it exists to avoid repeated
@@ -64,6 +116,14 @@ if [[ ! -d "$HOME_DIR/.claude/skills" ]] || [[ -z "$(ls -A "$HOME_DIR/.claude/sk
   mkdir -p "$HOME_DIR/.claude/skills"
   cp -r /etc/skel/.claude/skills/* "$HOME_DIR/.claude/skills/" 2>/dev/null || true
 fi
+
+# Install vendored shared skills for coding agents.
+# Codex/Gemini keep their native "skill-creator" to avoid overriding
+# built-in workflow behavior with a third-party variant.
+SHARED_SKILLS_ROOT="/opt/agent-sandbox/skills"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator"
 
 # Copy MCP server config template if not already present.
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
@@ -109,7 +169,8 @@ if [[ -f "$ZIM_HOME/zimfw.zsh" ]]; then
   if [[ ! -f "$ZIM_HOME/init.zsh" ]]; then
     echo "[init] Installing zim modules..."
     # Keep startup resilient: do not fail entire container start on transient network errors.
-    ZIM_HOME="$ZIM_HOME" zsh "$ZIM_HOME/zimfw.zsh" install -q || true
+    zim_home_path="$ZIM_HOME"
+    ZIM_HOME="$zim_home_path" zsh "$zim_home_path/zimfw.zsh" install -q || true
   fi
 fi
 

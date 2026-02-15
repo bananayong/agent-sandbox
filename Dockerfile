@@ -286,6 +286,10 @@ COPY configs/claude/commands/ /etc/skel/.claude/commands/
 COPY configs/claude/skills/ /etc/skel/.claude/skills/
 COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
 
+# Shared skills bundle (Anthropic skills repo vendored under ./skills).
+# start.sh installs these into each agent's user skill directory on startup.
+COPY skills/ /opt/agent-sandbox/skills/
+
 # TOOLS.md reference for agents working on other projects.
 # .dockerignore needs !TOOLS.md exception (after *.md) to include this file.
 COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md

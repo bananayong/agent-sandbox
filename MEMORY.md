@@ -9,6 +9,42 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Refine skills install scope: only `skill-creator` is Claude-only
+- Context: Previous policy temporarily disabled all Codex/Gemini shared-skill installs, but intended behavior was narrower: only avoid overriding built-in `skill-creator`.
+- Decision:
+  - Keep shared skill auto-install for Claude/Codex/Gemini.
+  - Exclude only `skill-creator` when installing into `~/.codex/skills` and `~/.gemini/skills`.
+  - Keep full install (including `skill-creator`) for `~/.claude/skills`.
+- Impact:
+  - Codex/Gemini continue to receive Anthropic shared skills while preserving native `skill-creator`.
+  - Claude receives the complete vendored skill set.
+
+### 2026-02-15 - Limit shared skill auto-install to Claude and track upstream SHA (superseded)
+- Context: Initial rollout auto-installed vendored Anthropic skills into Claude/Codex/Gemini, but this can override built-in skills in Codex/Gemini (for example `skill-creator`) and change default behavior unintentionally.
+- Decision:
+  - Keep vendored Anthropic skills in repository `skills/`.
+  - Restrict automatic startup installation to `~/.claude/skills` only.
+  - Do not auto-install into `~/.codex/skills` and `~/.gemini/skills`.
+  - Add `skills/UPSTREAM.txt` to record source repo/path/commit/sync timestamp for reproducible updates.
+- Impact:
+  - Prevents built-in skill override regressions in Codex/Gemini.
+  - Maintains deterministic provenance for future skill syncs.
+
+### 2026-02-15 - Bundle Anthropic skills and auto-install for Claude/Codex/Gemini
+- Context: User requested a repository-level `skills/` folder containing all skills from `anthropics/skills`, and automatic loading in containerized coding agents.
+- Decision:
+  - Vendored `https://github.com/anthropics/skills/tree/main/skills` into repository `skills/`.
+  - Updated `.dockerignore` to include `skills/**` in build context.
+  - Updated `Dockerfile` to bake shared skills into `/opt/agent-sandbox/skills`.
+  - Added `install_shared_skills` flow in `scripts/start.sh` to auto-install missing skills into:
+    - `~/.claude/skills`
+    - `~/.codex/skills`
+    - `~/.gemini/skills`
+  - Implemented additive sync only (do not overwrite existing same-name user skills).
+- Impact:
+  - Claude/Codex/Gemini discover the same shared skill catalog automatically in container sessions.
+  - Existing user-customized skills are preserved while new bundled skills are added.
+
 ### 2026-02-15 - Default agent CLIs to maximum autonomy mode in sandbox shell
 - Context: User requested Codex/Claude/Gemini/Copilot to run without interactive permission prompts inside the container.
 - Decision:
