@@ -81,6 +81,8 @@ docker build -t agent-sandbox:latest .
 - `GEMINI_API_KEY`
 - `GITHUB_TOKEN`
 - `OPENCODE_API_KEY`
+- `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (및 소문자/`ALL_PROXY`)
+- `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`
 
 ## Included Tools (요약)
 
@@ -105,6 +107,13 @@ docker build -t agent-sandbox:latest .
 
 - `run.sh`가 socket GID를 자동으로 `--group-add` 하므로, 일반적으로 재실행으로 해결됩니다.
 - 그래도 실패하면 host Docker socket 경로(`DOCKER_HOST` 또는 `/var/run/docker.sock`)를 확인하세요.
+
+### Claude에서 `Unable to connect to API (UND_ERR_SOCKET)`가 날 때
+
+- 가장 먼저 컨테이너를 재시작하세요: `./run.sh -s` 후 `./run.sh .`
+- 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
+- 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
+- `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1400으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
 
 ### 설정을 완전히 초기화하고 싶을 때
 

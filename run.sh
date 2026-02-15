@@ -84,15 +84,25 @@ reset_home() {
 }
 
 ensure_network() {
-  # Create a custom bridge network with MTU 1400 if it doesn't already exist.
-  # Why? Docker's default bridge uses MTU 1500, but the actual network path
-  # (especially through Docker Desktop's VM, VPNs, or tunneled networks) may
-  # have a lower MTU. When large TLS packets exceed the real MTU, they get
-  # silently corrupted, causing SSL errors like ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC.
-  # MTU 1400 is a safe value that works across virtually all network configurations.
-  if ! docker network inspect "$NETWORK_NAME" &>/dev/null; then
-    echo "Creating Docker network $NETWORK_NAME (MTU 1400)..."
-    docker network create --driver bridge --opt com.docker.network.driver.mtu=1400 "$NETWORK_NAME"
+  # Ensure a custom bridge network with MTU 1400.
+  # Why? Host path MTU can be lower than 1500 (VPN/VM/tunnels), which may
+  # break TLS streams and surface as socket/SSL errors in Node-based CLIs.
+  local desired_mtu="1400"
+  local current_mtu=""
+  current_mtu="$(docker network inspect -f '{{index .Options "com.docker.network.driver.mtu"}}' "$NETWORK_NAME" 2>/dev/null || true)"
+
+  if [[ -z "$current_mtu" ]]; then
+    echo "Creating Docker network $NETWORK_NAME (MTU ${desired_mtu})..."
+    docker network create --driver bridge --opt "com.docker.network.driver.mtu=${desired_mtu}" "$NETWORK_NAME"
+    return
+  fi
+
+  # Existing networks keep old options. Recreate when MTU differs so fixes
+  # apply even for users who created this network before MTU hardening.
+  if [[ "$current_mtu" != "$desired_mtu" ]]; then
+    echo "Recreating Docker network $NETWORK_NAME (MTU ${current_mtu} -> ${desired_mtu})..."
+    docker network rm "$NETWORK_NAME" >/dev/null 2>&1 || true
+    docker network create --driver bridge --opt "com.docker.network.driver.mtu=${desired_mtu}" "$NETWORK_NAME"
   fi
 }
 
@@ -111,9 +121,6 @@ run_container() {
     build_image
   fi
 
-  # Ensure custom network with safe MTU exists.
-  ensure_network
-
   # If already running, attach instead of creating another container.
   # This keeps one stable sandbox state and avoids duplicate names.
   if is_container_running; then
@@ -124,6 +131,10 @@ run_container() {
 
   # If a stopped container with same name exists, remove it first.
   docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+  # Ensure custom network with safe MTU exists.
+  # Do this after removing stale container to avoid "active endpoints" on rm.
+  ensure_network
 
   echo "Starting agent sandbox..."
   echo "  Workspace: $workspace_dir"
@@ -180,6 +191,20 @@ run_container() {
   # Forward selected API tokens only when set on host.
   # Values are not hardcoded in image.
   for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GITHUB_TOKEN OPENCODE_API_KEY; do
+    if [[ -n "${!key:-}" ]]; then
+      docker_args+=(-e "$key")
+    fi
+  done
+
+  # Forward common proxy and TLS trust environment variables.
+  # This is important in corporate/VPN setups where direct internet is blocked
+  # and Node CLIs (claude/codex/gemini) must use proxy/custom CA settings.
+  for key in \
+    HTTP_PROXY HTTPS_PROXY NO_PROXY \
+    http_proxy https_proxy no_proxy \
+    ALL_PROXY all_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR \
+    NODE_EXTRA_CA_CERTS; do
     if [[ -n "${!key:-}" ]]; then
       docker_args+=(-e "$key")
     fi

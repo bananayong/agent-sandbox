@@ -9,6 +9,18 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Harden network handling for Node CLI API connectivity
+- Context: Users saw recurring `Unable to connect to API (UND_ERR_SOCKET)` when running agent CLIs (notably Claude) in the container.
+- Decision:
+  - Updated `run.sh` to forward proxy/trust environment variables (`HTTP[S]_PROXY`, `NO_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`).
+  - Updated `run.sh` network logic to reconcile MTU drift: if `agent-sandbox-net` exists with non-1400 MTU, recreate it with MTU 1400.
+  - Moved network ensure step to after stale container removal to reduce "active endpoint" failures during network recreation.
+  - Added troubleshooting guidance to `README.md` for `UND_ERR_SOCKET`.
+- Impact:
+  - Corporate proxy and custom CA environments now work without manual `docker run -e ...` overrides.
+  - Existing users with old network settings receive MTU fix automatically on next run.
+  - Reduced frequency of TLS/socket-level API connectivity failures in Node-based agent CLIs.
+
 ### 2026-02-15 - Keep Git SSH signing config out of repository files
 - Context: `allowed_signers` was briefly created in repository root, which could be accidentally committed via broad staging commands.
 - Decision:
