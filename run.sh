@@ -164,13 +164,13 @@ reset_home() {
 }
 
 ensure_network() {
-  # Ensure a custom bridge network with MTU 1400.
+  # Ensure a custom bridge network with MTU 1280.
   # Why? Host path MTU can be lower than 1500 (VPN/VM/tunnels), which may
   # break TLS streams and surface as socket/SSL errors in Node-based CLIs.
-  local desired_mtu="${AGENT_SANDBOX_NET_MTU:-1400}"
+  local desired_mtu="${AGENT_SANDBOX_NET_MTU:-1280}"
   if [[ ! "$desired_mtu" =~ ^[0-9]+$ ]]; then
-    echo "Warning: invalid AGENT_SANDBOX_NET_MTU='$desired_mtu', using 1400"
-    desired_mtu="1400"
+    echo "Warning: invalid AGENT_SANDBOX_NET_MTU='$desired_mtu', using 1280"
+    desired_mtu="1280"
   fi
   local current_mtu=""
   current_mtu="$(docker network inspect -f '{{index .Options "com.docker.network.driver.mtu"}}' "$NETWORK_NAME" 2>/dev/null || true)"

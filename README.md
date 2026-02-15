@@ -90,7 +90,7 @@ docker build -t agent-sandbox:latest .
 - `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
 - `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (docker-compose 전용, 기본 `/var/run/docker.sock`)
 - `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
-- `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1400`)
+- `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
 - `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
 
 ## Included Tools (요약)
@@ -127,7 +127,7 @@ docker build -t agent-sandbox:latest .
 - 가장 먼저 컨테이너를 재시작하세요: `./run.sh -s` 후 `./run.sh .`
 - 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
 - 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
-- `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1400으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
+- `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1280으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
 - `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면 텔레메트리 경로를 함께 끄고 실행해 보세요.
   - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_ERROR_REPORTING=1 DISABLE_TELEMETRY=1 ./run.sh .`
 - 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
@@ -145,7 +145,7 @@ docker build -t agent-sandbox:latest .
 ## Optional: docker compose
 
 `docker-compose.yml`도 포함되어 있어 compose 기반 실행이 가능합니다.
-Docker socket, 프록시/TLS 환경변수, MTU 1400 네트워크를 `run.sh`와 동일하게 지원합니다.
+Docker socket, 프록시/TLS 환경변수, MTU 1280 네트워크를 `run.sh`와 동일하게 지원합니다.
 rootless Docker를 쓸 때는 아래처럼 host UID/GID와 소켓 경로를 함께 넘기세요.
 
 ```bash

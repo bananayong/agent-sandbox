@@ -85,7 +85,7 @@ services:
         limits:
           memory: 8g
 
-    # Network: custom bridge with MTU 1400 to prevent TLS packet corruption
+    # Network: custom bridge with MTU 1280 to prevent TLS packet corruption
     # on VPN/VM/tunnel networks where path MTU < 1500.
     networks:
       - sandbox-net
@@ -94,4 +94,4 @@ networks:
   sandbox-net:
     driver: bridge
     driver_opts:
-      com.docker.network.driver.mtu: "1400"
+      com.docker.network.driver.mtu: "1280"

@@ -61,7 +61,7 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 - Context: Users saw recurring `Unable to connect to API (UND_ERR_SOCKET)` when running agent CLIs (notably Claude) in the container.
 - Decision:
   - Updated `run.sh` to forward proxy/trust environment variables (`HTTP[S]_PROXY`, `NO_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`).
-  - Updated `run.sh` network logic to reconcile MTU drift: if `agent-sandbox-net` exists with non-1400 MTU, recreate it with MTU 1400.
+  - Updated `run.sh` network logic to reconcile MTU drift: if `agent-sandbox-net` exists with non-1280 MTU, recreate it with MTU 1280.
   - Moved network ensure step to after stale container removal to reduce "active endpoint" failures during network recreation.
   - Added troubleshooting guidance to `README.md` for `UND_ERR_SOCKET`.
 - Impact:
