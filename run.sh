@@ -19,6 +19,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="agent-sandbox:latest"
 CONTAINER_NAME="agent-sandbox"
+NETWORK_NAME="agent-sandbox-net"
 SANDBOX_HOME="${HOME}/.agent-sandbox/home"
 
 usage() {
@@ -82,6 +83,19 @@ reset_home() {
   fi
 }
 
+ensure_network() {
+  # Create a custom bridge network with MTU 1400 if it doesn't already exist.
+  # Why? Docker's default bridge uses MTU 1500, but the actual network path
+  # (especially through Docker Desktop's VM, VPNs, or tunneled networks) may
+  # have a lower MTU. When large TLS packets exceed the real MTU, they get
+  # silently corrupted, causing SSL errors like ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC.
+  # MTU 1400 is a safe value that works across virtually all network configurations.
+  if ! docker network inspect "$NETWORK_NAME" &>/dev/null; then
+    echo "Creating Docker network $NETWORK_NAME (MTU 1400)..."
+    docker network create --driver bridge --opt com.docker.network.driver.mtu=1400 "$NETWORK_NAME"
+  fi
+}
+
 run_container() {
   local workspace_dir="$1"
 
@@ -96,6 +110,9 @@ run_container() {
     echo "Image $IMAGE_NAME not found. Building..."
     build_image
   fi
+
+  # Ensure custom network with safe MTU exists.
+  ensure_network
 
   # If already running, attach instead of creating another container.
   # This keeps one stable sandbox state and avoids duplicate names.
@@ -118,6 +135,8 @@ run_container() {
     docker run -it
     --name "$CONTAINER_NAME"
     --hostname sandbox
+    # Use custom network with safe MTU to prevent SSL/TLS packet corruption.
+    --network "$NETWORK_NAME"
     # Block privilege escalation inside container.
     # This intentionally makes setuid/sudo elevation unavailable.
     --security-opt no-new-privileges:true
