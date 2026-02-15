@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bat zoxide tealdeer \
     dnsutils iputils-ping net-tools openssh-client \
     less file man-db htop \
+    procps \
     shellcheck \
     && rm -rf /var/lib/apt/lists/*
 
@@ -254,6 +255,16 @@ RUN bun install -g \
     typescript \
     oh-my-opencode
 
+# Install LSP servers for code intelligence.
+# These provide autocomplete, go-to-definition, and diagnostics for coding agents.
+RUN bun install -g \
+    typescript-language-server \
+    bash-language-server \
+    dockerfile-language-server-nodejs \
+    vscode-langservers-extracted \
+    yaml-language-server \
+    pyright
+
 # Build-time sanity check: fail early if key CLIs are missing.
 # Each check is separate so the error message identifies the missing binary.
 RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
@@ -269,7 +280,15 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v gitleaks || { echo "ERROR: gitleaks not found"; exit 1; } \
     && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
     && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
-    && command -v direnv || { echo "ERROR: direnv not found"; exit 1; }
+    && command -v direnv || { echo "ERROR: direnv not found"; exit 1; } \
+    && command -v ps || { echo "ERROR: ps not found"; exit 1; } \
+    && command -v pkill || { echo "ERROR: pkill not found"; exit 1; } \
+    && command -v typescript-language-server || { echo "ERROR: typescript-language-server not found"; exit 1; } \
+    && command -v bash-language-server || { echo "ERROR: bash-language-server not found"; exit 1; } \
+    && command -v docker-langserver || { echo "ERROR: docker-langserver not found"; exit 1; } \
+    && command -v vscode-json-language-server || { echo "ERROR: vscode-json-language-server not found"; exit 1; } \
+    && command -v yaml-language-server || { echo "ERROR: yaml-language-server not found"; exit 1; } \
+    && command -v pyright || { echo "ERROR: pyright not found"; exit 1; }
 
 # Default dotfiles are copied to /etc/skel.
 # start.sh later copies them into user home only when missing.
@@ -285,6 +304,13 @@ COPY configs/pre-commit-config.yaml /etc/skel/.default.pre-commit-config.yaml
 COPY configs/claude/commands/ /etc/skel/.claude/commands/
 COPY configs/claude/skills/ /etc/skel/.claude/skills/
 COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
+COPY configs/claude/settings.json /etc/skel/.claude/settings.json
+
+# Deploy LSP config to Codex and Gemini CLI as well.
+# start.sh will copy these to user home on first run.
+RUN mkdir -p /etc/skel/.codex /etc/skel/.gemini \
+    && cp /etc/skel/.claude/settings.json /etc/skel/.codex/settings.json \
+    && cp /etc/skel/.claude/settings.json /etc/skel/.gemini/settings.json
 
 # Shared skills bundle (Anthropic skills repo vendored under ./skills).
 # start.sh installs these into each agent's user skill directory on startup.
