@@ -18,34 +18,72 @@ services:
       - ${TARGET_DIR:-.}:/workspace
       # Entire $HOME for sandbox user → persists all configs/auth/history
       - ${SANDBOX_HOME:-~/.agent-sandbox/home}:/home/sandbox
+      # Docker socket forwarding (DooD — Docker-out-of-Docker):
+      # Lets container use host Docker engine without running its own daemon.
+      # Override DOCKER_SOCK if your socket is in a non-standard location.
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
       # SSH agent forwarding (optional):
       # - If host has SSH_AUTH_SOCK, container can reuse host SSH auth.
       # - Fallback /dev/null keeps compose config valid when not set.
       - ${SSH_AUTH_SOCK:-/dev/null}:/tmp/ssh-agent.sock:ro
 
+    # Grant sandbox user access to Docker socket inside the container.
+    # Find your Docker socket GID with: stat -c '%g' /var/run/docker.sock
+    # Then run: DOCKER_GID=<gid> docker compose up
+    # On macOS Docker Desktop this is typically 0; on Linux often 999 or 998.
+    group_add:
+      - ${DOCKER_GID:-0}
+
     environment:
       # Point tools to forwarded SSH agent socket.
       - SSH_AUTH_SOCK=/tmp/ssh-agent.sock
-      # API keys passed from host (never baked into image)
+      # API keys passed from host (never baked into image).
       - ANTHROPIC_API_KEY
       - OPENAI_API_KEY
       - GEMINI_API_KEY
       - GITHUB_TOKEN
       - OPENCODE_API_KEY
+      # Proxy / TLS trust (important for corporate/VPN networks).
+      - HTTP_PROXY
+      - HTTPS_PROXY
+      - NO_PROXY
+      - http_proxy
+      - https_proxy
+      - no_proxy
+      - ALL_PROXY
+      - all_proxy
+      - SSL_CERT_FILE
+      - SSL_CERT_DIR
+      - NODE_EXTRA_CA_CERTS
+      # Node TLS compatibility: cap TLS to 1.2 and prefer IPv4 to avoid
+      # UND_ERR_SOCKET / BAD_RECORD_MAC on unstable network paths.
+      # Set AGENT_SANDBOX_NODE_TLS_COMPAT=0 on host to disable.
+      - AGENT_SANDBOX_NODE_TLS_COMPAT
+      - NODE_OPTIONS
+      # Disable Claude telemetry/error reporting by default to reduce
+      # network failure surface. Set to 0 on host to re-enable.
+      - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}
+      - DISABLE_ERROR_REPORTING=${DISABLE_ERROR_REPORTING:-1}
 
     # Security
     # Block privilege escalation inside container.
     security_opt:
       - no-new-privileges:true
 
-    # Resource limits (deploy syntax works with docker compose v2+)
-    # mem_limit is broadly supported; deploy.limits is compose-v2 style.
+    # Resource limits (deploy syntax works with docker compose v2+).
     mem_limit: 8g
     deploy:
       resources:
         limits:
           memory: 8g
 
-    # Network
-    # Default isolated bridge network.
-    network_mode: bridge
+    # Network: custom bridge with MTU 1400 to prevent TLS packet corruption
+    # on VPN/VM/tunnel networks where path MTU < 1500.
+    networks:
+      - sandbox-net
+
+networks:
+  sandbox-net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"

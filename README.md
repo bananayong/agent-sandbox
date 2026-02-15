@@ -74,15 +74,21 @@ docker build -t agent-sandbox:latest .
 
 ## Environment Variables
 
-`run.sh`는 아래 키가 호스트에 설정되어 있으면 컨테이너로 전달합니다.
+`run.sh`/`docker-compose.yml`은 아래 키가 호스트에 설정되어 있으면 컨테이너로 전달합니다.
 
-- `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
-- `GEMINI_API_KEY`
-- `GITHUB_TOKEN`
-- `OPENCODE_API_KEY`
+**API 키:**
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`, `OPENCODE_API_KEY`
+
+**프록시 / TLS:**
 - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (및 소문자/`ALL_PROXY`)
 - `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`
+
+**샌드박스 설정 (기본값 자동 적용):**
+- `AGENT_SANDBOX_NODE_TLS_COMPAT` — Node TLS 호환 모드 (기본 `1`, `0`으로 비활성화)
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` — Claude 텔레메트리 비활성화 (기본 `1`)
+- `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
+- `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (docker-compose 전용, 기본 `/var/run/docker.sock`)
+- `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
 
 ## Included Tools (요약)
 
@@ -117,7 +123,7 @@ docker build -t agent-sandbox:latest .
 - `curl`/`node fetch`는 정상인데 Claude만 `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR`가 나면 host에서 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`로 실행해 보세요.
   - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 ./run.sh .`
 - 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
-  - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (start.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
+  - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (run.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
   - 비활성화: `AGENT_SANDBOX_NODE_TLS_COMPAT=0 ./run.sh .`
 
 ### 설정을 완전히 초기화하고 싶을 때
@@ -131,16 +137,28 @@ docker build -t agent-sandbox:latest .
 ## Optional: docker compose
 
 `docker-compose.yml`도 포함되어 있어 compose 기반 실행이 가능합니다.
-다만 기본 사용은 자동 처리(빌드/attach/socket 처리)가 더 많은 `run.sh`를 권장합니다.
+Docker socket, 프록시/TLS 환경변수, MTU 1400 네트워크를 `run.sh`와 동일하게 지원합니다.
+
+```bash
+# 기본 실행
+docker compose up
+
+# Docker socket GID 지정 (Linux에서 권한 오류 시)
+DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) docker compose up
+```
+
+다만 `run.sh`는 자동 빌드/attach/socket GID 감지 등 추가 편의 기능이 있어 기본 사용을 권장합니다.
 
 ## Project Files
 
 - `run.sh`: 메인 실행/정지/초기화 스크립트
+- `docker-compose.yml`: compose 기반 실행 설정
 - `Dockerfile`: 런타임 이미지 정의
 - `scripts/start.sh`: 컨테이너 시작 시 초기화 로직
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
+- `CLAUDE.md`: Claude Code 에이전트 가이드
+- `AGENTS.md`: 범용 에이전트 작업 규칙
 - `MEMORY.md`: 장기 의사결정 기록
-- `AGENTS.md`: 에이전트 작업 규칙
 
 ## Documentation Convention (주석 원칙)
 

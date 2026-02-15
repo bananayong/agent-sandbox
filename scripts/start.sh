@@ -71,8 +71,6 @@ fi
 # ============================================================
 # These are idempotent checks: safe across repeated container starts.
 
-# Docker socket access is handled by --group-add in run.sh (no sudo needed)
-
 # Configure git-delta as pager when available.
 # We avoid re-writing config every run by checking existing value first.
 if command -v delta &>/dev/null; then
