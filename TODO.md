@@ -58,6 +58,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
+- [ ] [P2] (setup) Claude MEMORY/AGENT TEAMS 기능 활성화 환경변수 지원 — `run.sh`/`docker-compose.yml`에 관련 env 전달·기본값 옵션 추가 및 README 사용법 문서화
 
 ## Done
 
