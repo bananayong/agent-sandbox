@@ -174,15 +174,26 @@ RUN groupadd -g 1000 sandbox \
     && echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sandbox \
     && chmod 0440 /etc/sudoers.d/sandbox
 
-# Install coding-agent CLIs globally.
+# Install remaining coding-agent CLIs globally via npm.
 RUN npm install -g \
     npm@11.10.0 \
-    @anthropic-ai/claude-code \
     @openai/codex \
     @google/gemini-cli \
     opencode-ai \
     typescript \
     oh-my-opencode
+
+# Install Claude Code via native installer (npm package is deprecated).
+# The installer runs as root, placing binary in /root/.local/bin and data
+# in /root/.local/share/claude. Move both to system-wide /usr/local/ paths
+# so the sandbox user can use claude without depending on /root paths.
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && mv /root/.local/bin/claude /usr/local/bin/claude \
+    && if [ -d /root/.local/share/claude ]; then \
+         mkdir -p /usr/local/share/claude \
+         && cp -a /root/.local/share/claude/. /usr/local/share/claude/ \
+         && rm -rf /root/.local/share/claude; \
+       fi
 
 # Build-time sanity check: fail early if key CLIs are missing.
 RUN command -v claude && command -v codex && command -v gemini && command -v opencode
