@@ -38,9 +38,24 @@ if [[ ! -f "$HOME_DIR/.claude/remote-settings.json" ]]; then
   printf '{}\n' > "$HOME_DIR/.claude/remote-settings.json"
 fi
 
-# Node TLS compatibility (--tls-max-v1.2, --dns-result-order=ipv4first) is
-# applied by run.sh via the NODE_OPTIONS env var before the container starts.
-# No duplication needed here; run.sh is the single source of truth.
+# Runtime safety defaults for Claude network stability.
+# Keep these here (entrypoint) as a final fallback so they still apply even
+# when container is launched via a path that bypasses run.sh defaults.
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
+export DISABLE_ERROR_REPORTING="${DISABLE_ERROR_REPORTING:-1}"
+export DISABLE_TELEMETRY="${DISABLE_TELEMETRY:-1}"
+export AGENT_SANDBOX_NODE_TLS_COMPAT="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
+if [[ "${AGENT_SANDBOX_NODE_TLS_COMPAT}" == "1" ]]; then
+  if [[ "${NODE_OPTIONS:-}" != *"--tls-max-v1.2"* ]]; then
+    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-max-v1.2"
+  fi
+  if [[ "${NODE_OPTIONS:-}" != *"--tls-min-v1.2"* ]]; then
+    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-min-v1.2"
+  fi
+  if [[ "${NODE_OPTIONS:-}" != *"--dns-result-order=ipv4first"* ]]; then
+    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
+  fi
+fi
 
 # ============================================================
 # Zimfw bootstrap

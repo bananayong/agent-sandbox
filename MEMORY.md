@@ -9,18 +9,39 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
-### 2026-02-15 - Switch agent installs from npm to bun, Claude Code to native installer
-- Context: npm installation of `@anthropic-ai/claude-code` is deprecated in favor of native installer. Also, bun is already present in the image and is faster than npm for global package installs.
+### 2026-02-15 - Enforce telemetry-off defaults on all runtime paths
+- Context: Claude debug logs still showed `BigQuery metrics export failed ... bad record mac` and `Metrics opt-out API response: enabled=true` even after partial mitigations, indicating telemetry paths were still active in some launch paths.
 - Decision:
-  - Replaced `npm install -g` with `bun install -g` for Codex, Gemini CLI, OpenCode, typescript, oh-my-opencode.
+  - Added `DISABLE_TELEMETRY` forwarding/defaults in `run.sh` alongside `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` and `DISABLE_ERROR_REPORTING`.
+  - Added `DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}` to `docker-compose.yml`.
+  - Added `DISABLE_TELEMETRY` default export in `scripts/start.sh` as entrypoint fallback (applies even when launch bypasses `run.sh`).
+  - Updated `README.md` environment/troubleshooting docs to include the telemetry flag.
+- Impact:
+  - Reduces TLS failure surface by disabling additional metrics export endpoints by default.
+  - Keeps behavior consistent across `run.sh`, compose, and alternate container launch paths.
+
+### 2026-02-15 - Harden Docker permission handling in run/compose paths
+- Context: Users could still hit `permission denied while trying to connect to the docker API` depending on host socket type (rootful vs rootless) and UID/GID mismatch.
+- Decision:
+  - Added `run.sh` preflight check (`ensure_host_docker_access`) with actionable diagnostics before running Docker commands.
+  - Added rootless socket auto-detection in `run.sh` (`/run/user/<uid>/docker.sock`).
+  - Added host UID/GID compatibility mode in `run.sh` for user-owned sockets (`AGENT_SANDBOX_MATCH_HOST_USER`, default `auto`).
+  - Updated `docker-compose.yml` with host user mapping support and explicit `DOCKER_HOST=unix:///var/run/docker.sock`.
+  - Expanded README troubleshooting and compose examples for rootless Docker.
+- Impact:
+  - Fewer opaque docker permission failures.
+  - Faster recovery with clear host-side actions and safer defaults across socket variants.
+
+### 2026-02-15 - Switch agent installs from npm to bun
+- Context: bun is already present in the image and is faster than npm for global package installs.
+- Decision:
+  - Replaced `npm install -g` with `bun install -g` for all agent CLIs (Claude Code, Codex, Gemini CLI, OpenCode, typescript, oh-my-opencode).
   - Dropped `npm@11.10.0` upgrade (no longer needed).
-  - Removed unnecessary `npm uninstall -g @anthropic-ai/claude-code` step (never installed via npm in fresh build).
-  - Claude Code installed via `curl -fsSL https://claude.ai/install.sh | bash`, binary moved from `/root/.local/bin` to `/usr/local/bin`.
   - Added `$HOME/.local/bin` to PATH in `configs/zshrc` so runtime Claude updates (`~/.local/bin/claude`) are found.
   - Removed duplicate Node TLS compat logic from `start.sh` (single source of truth is `run.sh`).
+  - Added default compose env values for TLS compatibility (`AGENT_SANDBOX_NODE_TLS_COMPAT=1`, default `NODE_OPTIONS` TLS flags) to align compose behavior with `run.sh`.
 - Impact:
   - Faster image builds (bun vs npm).
-  - Claude Code uses official native installer path.
   - Cleaner Dockerfile with fewer unnecessary layers.
 
 ### 2026-02-15 - Stabilize Claude startup for telemetry/TLS edge cases

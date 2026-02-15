@@ -34,7 +34,7 @@ docker build -t agent-sandbox:latest .
 - Base: `debian:bookworm-slim`
 - Installs core packages via apt, Node.js 22, Bun, GitHub CLI, Docker CLI (docker-ce-cli, docker-compose-plugin, docker-buildx-plugin)
 - Installs additional CLI tools from pinned GitHub release binaries
-- Installs coding agents via bun (Codex, Gemini, OpenCode) and native installer (Claude Code)
+- Installs coding agents via bun (Claude Code, Codex, Gemini, OpenCode)
 
 **Mount strategy (three volumes):**
 - `$TARGET_DIR` -> `/workspace` (the user's project)
@@ -43,7 +43,7 @@ docker build -t agent-sandbox:latest .
 
 **Docker-out-of-Docker (DooD):**
 - Container mounts host Docker socket instead of running its own daemon — lightweight, shares host image cache
-- `run.sh` auto-detects socket from: `DOCKER_HOST` env var (unix://), `/var/run/docker.sock`, `~/.docker/run/docker.sock`
+- `run.sh` auto-detects socket from: `DOCKER_HOST` env var (unix://), `/var/run/docker.sock`, `/run/user/<uid>/docker.sock` (rootless), `~/.docker/run/docker.sock`
 - Socket access is granted via `--group-add <GID>` (kernel-level group assignment), not `sudo chmod`
 - **IMPORTANT:** `run.sh` sets `--security-opt no-new-privileges:true`, which blocks all setuid binaries including `sudo`. Never use `sudo` in `start.sh`. Handle all permission needs in `run.sh` via Docker flags (`--group-add`, `--user`, `--cap-add`)
 
@@ -54,6 +54,14 @@ docker build -t agent-sandbox:latest .
 4. `exec "$@"` -> runs CMD (`/bin/zsh`)
 
 **Config files in `configs/`** are baked into the image at `/etc/skel/` and copied to the user's persisted home on first run. After that, the user's copies take precedence.
+
+## Task Management
+
+- All pending and completed tasks are tracked in `TODO.md`.
+- Before starting work, check `TODO.md` for pending tasks related to the current request.
+- When a new task is identified but not immediately actionable, add it to the **Pending** section of `TODO.md`.
+- When a task is completed, mark it with `[x]` and move it to the **Done** section.
+- Do not duplicate task details across `TODO.md` and `MEMORY.md` — use `TODO.md` for actionable items and `MEMORY.md` for decision history.
 
 ## Project Memory
 

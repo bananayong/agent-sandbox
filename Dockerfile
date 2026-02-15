@@ -174,29 +174,22 @@ RUN groupadd -g 1000 sandbox \
     && echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sandbox \
     && chmod 0440 /etc/sudoers.d/sandbox
 
-# Install remaining coding-agent CLIs globally via bun (faster than npm).
+# Install coding-agent CLIs globally via bun (faster than npm).
 # BUN_INSTALL=/usr/local means global binaries land in /usr/local/bin/.
 RUN bun install -g \
+    @anthropic-ai/claude-code \
     @openai/codex \
     @google/gemini-cli \
     opencode-ai \
     typescript \
     oh-my-opencode
 
-# Install Claude Code via native installer (npm package is deprecated).
-# The installer runs as root, placing binary in /root/.local/bin and data
-# in /root/.local/share/claude. Move both to system-wide /usr/local/ paths
-# so the sandbox user can use claude without depending on /root paths.
-RUN curl -fsSL https://claude.ai/install.sh | bash \
-    && mv /root/.local/bin/claude /usr/local/bin/claude \
-    && if [ -d /root/.local/share/claude ]; then \
-         mkdir -p /usr/local/share/claude \
-         && cp -a /root/.local/share/claude/. /usr/local/share/claude/ \
-         && rm -rf /root/.local/share/claude; \
-       fi
-
 # Build-time sanity check: fail early if key CLIs are missing.
-RUN command -v claude && command -v codex && command -v gemini && command -v opencode
+# Each check is separate so the error message identifies the missing binary.
+RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
+    && command -v codex || { echo "ERROR: codex not found"; exit 1; } \
+    && command -v gemini || { echo "ERROR: gemini not found"; exit 1; } \
+    && command -v opencode || { echo "ERROR: opencode not found"; exit 1; }
 
 # Default dotfiles are copied to /etc/skel.
 # start.sh later copies them into user home only when missing.

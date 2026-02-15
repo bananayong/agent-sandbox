@@ -87,7 +87,10 @@ docker build -t agent-sandbox:latest .
 - `AGENT_SANDBOX_NODE_TLS_COMPAT` — Node TLS 호환 모드 (기본 `1`, `0`으로 비활성화)
 - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` — Claude 텔레메트리 비활성화 (기본 `1`)
 - `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
+- `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
 - `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (docker-compose 전용, 기본 `/var/run/docker.sock`)
+- `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
+- `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1400`)
 - `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
 
 ## Included Tools (요약)
@@ -113,6 +116,11 @@ docker build -t agent-sandbox:latest .
 
 - `run.sh`가 socket GID를 자동으로 `--group-add` 하므로, 일반적으로 재실행으로 해결됩니다.
 - 그래도 실패하면 host Docker socket 경로(`DOCKER_HOST` 또는 `/var/run/docker.sock`)를 확인하세요.
+- rootless Docker(사용자 소유 소켓, 예: `/run/user/<uid>/docker.sock`)에서는 UID 불일치로 실패할 수 있습니다.
+  - `run.sh`는 이 경우 host UID/GID로 자동 실행을 시도합니다.
+  - 수동 강제: `AGENT_SANDBOX_MATCH_HOST_USER=1 ./run.sh .`
+- host 자체에서 `docker` 명령이 권한 오류라면 먼저 host 권한을 해결해야 합니다.
+  - Linux 예: `sudo usermod -aG docker "$USER" && newgrp docker`
 
 ### Claude에서 `Unable to connect to API (UND_ERR_SOCKET)`가 날 때
 
@@ -120,8 +128,8 @@ docker build -t agent-sandbox:latest .
 - 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
 - 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1400으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
-- `curl`/`node fetch`는 정상인데 Claude만 `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR`가 나면 host에서 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`로 실행해 보세요.
-  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 ./run.sh .`
+- `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면 텔레메트리 경로를 함께 끄고 실행해 보세요.
+  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_ERROR_REPORTING=1 DISABLE_TELEMETRY=1 ./run.sh .`
 - 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
   - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (run.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
   - 비활성화: `AGENT_SANDBOX_NODE_TLS_COMPAT=0 ./run.sh .`
@@ -138,6 +146,7 @@ docker build -t agent-sandbox:latest .
 
 `docker-compose.yml`도 포함되어 있어 compose 기반 실행이 가능합니다.
 Docker socket, 프록시/TLS 환경변수, MTU 1400 네트워크를 `run.sh`와 동일하게 지원합니다.
+rootless Docker를 쓸 때는 아래처럼 host UID/GID와 소켓 경로를 함께 넘기세요.
 
 ```bash
 # 기본 실행
@@ -145,6 +154,12 @@ docker compose up
 
 # Docker socket GID 지정 (Linux에서 권한 오류 시)
 DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) docker compose up
+
+# Rootless Docker 예시
+HOST_UID=$(id -u) HOST_GID=$(id -g) \
+DOCKER_SOCK=/run/user/$(id -u)/docker.sock \
+DOCKER_GID=$(stat -c '%g' /run/user/$(id -u)/docker.sock) \
+docker compose up
 ```
 
 다만 `run.sh`는 자동 빌드/attach/socket GID 감지 등 추가 편의 기능이 있어 기본 사용을 권장합니다.
@@ -158,6 +173,7 @@ DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) docker compose up
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
 - `CLAUDE.md`: Claude Code 에이전트 가이드
 - `AGENTS.md`: 범용 에이전트 작업 규칙
+- `TODO.md`: 작업 목록 (모든 에이전트가 공유)
 - `MEMORY.md`: 장기 의사결정 기록
 
 ## Documentation Convention (주석 원칙)

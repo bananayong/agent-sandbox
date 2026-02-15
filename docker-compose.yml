@@ -11,6 +11,10 @@ services:
     # Keep stdin/tty open for interactive shell use.
     stdin_open: true
     tty: true
+    # Keep container user aligned with host user when needed.
+    # This helps rootless Docker socket setups where socket mode is 0600.
+    # Defaults to sandbox UID/GID (1000:1000) for normal setups.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
 
     # Mount strategy
     volumes:
@@ -21,6 +25,7 @@ services:
       # Docker socket forwarding (DooD — Docker-out-of-Docker):
       # Lets container use host Docker engine without running its own daemon.
       # Override DOCKER_SOCK if your socket is in a non-standard location.
+      # Rootless example: DOCKER_SOCK=/run/user/<uid>/docker.sock
       - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
       # SSH agent forwarding (optional):
       # - If host has SSH_AUTH_SOCK, container can reuse host SSH auth.
@@ -35,6 +40,8 @@ services:
       - ${DOCKER_GID:-0}
 
     environment:
+      # Docker CLI inside container always talks to mounted socket path.
+      - DOCKER_HOST=unix:///var/run/docker.sock
       # Point tools to forwarded SSH agent socket.
       - SSH_AUTH_SOCK=/tmp/ssh-agent.sock
       # API keys passed from host (never baked into image).
@@ -58,12 +65,13 @@ services:
       # Node TLS compatibility: cap TLS to 1.2 and prefer IPv4 to avoid
       # UND_ERR_SOCKET / BAD_RECORD_MAC on unstable network paths.
       # Set AGENT_SANDBOX_NODE_TLS_COMPAT=0 on host to disable.
-      - AGENT_SANDBOX_NODE_TLS_COMPAT
-      - NODE_OPTIONS
+      - AGENT_SANDBOX_NODE_TLS_COMPAT=${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}
+      - "NODE_OPTIONS=${NODE_OPTIONS:---tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first}"
       # Disable Claude telemetry/error reporting by default to reduce
       # network failure surface. Set to 0 on host to re-enable.
       - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}
       - DISABLE_ERROR_REPORTING=${DISABLE_ERROR_REPORTING:-1}
+      - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}
 
     # Security
     # Block privilege escalation inside container.

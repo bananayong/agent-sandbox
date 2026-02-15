@@ -22,6 +22,84 @@ CONTAINER_NAME="agent-sandbox"
 NETWORK_NAME="agent-sandbox-net"
 SANDBOX_HOME="${HOME}/.agent-sandbox/home"
 
+detect_host_docker_socket() {
+  # Pick the most likely host Docker socket path.
+  # Priority:
+  # 1) DOCKER_HOST=unix://...
+  # 2) /var/run/docker.sock
+  # 3) rootless docker socket (/run/user/<uid>/docker.sock)
+  # 4) Docker Desktop user socket (~/.docker/run/docker.sock)
+  if [[ -n "${DOCKER_HOST:-}" && "${DOCKER_HOST}" == unix://* ]]; then
+    echo "${DOCKER_HOST#unix://}"
+    return
+  fi
+  if [[ -S /var/run/docker.sock ]]; then
+    echo "/var/run/docker.sock"
+    return
+  fi
+  local rootless_sock="/run/user/$(id -u)/docker.sock"
+  if [[ -S "$rootless_sock" ]]; then
+    echo "$rootless_sock"
+    return
+  fi
+  if [[ -S "$HOME/.docker/run/docker.sock" ]]; then
+    echo "$HOME/.docker/run/docker.sock"
+    return
+  fi
+}
+
+ensure_host_docker_access() {
+  # Fail fast with actionable diagnostics when host docker daemon is
+  # unreachable, instead of surfacing opaque "permission denied" later.
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: docker CLI is not installed or not in PATH."
+    return 1
+  fi
+
+  if docker version >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local sock
+  sock="$(detect_host_docker_socket || true)"
+
+  echo "Error: cannot access host Docker daemon."
+  if [[ -n "$sock" ]]; then
+    echo "  Socket: $sock"
+    # Print owner/group/mode to help diagnose permission mismatch quickly.
+    local sock_owner sock_group sock_mode
+    portable_stat() {
+      local darwin_fmt="$1"
+      local linux_fmt="$2"
+      local target="$3"
+      if stat -c "$linux_fmt" "$target" >/dev/null 2>&1; then
+        stat -c "$linux_fmt" "$target"
+        return
+      fi
+      if stat -f "$darwin_fmt" "$target" >/dev/null 2>&1; then
+        stat -f "$darwin_fmt" "$target"
+        return
+      fi
+      echo "?"
+    }
+    sock_owner="$(portable_stat '%u' '%u' "$sock")"
+    sock_group="$(portable_stat '%g' '%g' "$sock")"
+    sock_mode="$(portable_stat '%Sp' '%A' "$sock")"
+    echo "  Owner UID: $sock_owner"
+    echo "  Group GID: $sock_group"
+    echo "  Mode:      $sock_mode"
+  else
+    echo "  No docker socket found at common paths."
+  fi
+
+  echo "Try one of these fixes:"
+  local shell_user="${USER:-$(id -un 2>/dev/null || echo '<your-user>')}"
+  echo "  1) Linux group fix: sudo usermod -aG docker \"$shell_user\" && newgrp docker"
+  echo "  2) Rootless docker: export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock"
+  echo "  3) Docker Desktop: ensure Docker app/daemon is running"
+  return 1
+}
+
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS] [WORKSPACE_DIR]
@@ -48,6 +126,7 @@ EOF
 build_image() {
   # Build from the directory where this script lives.
   # This avoids issues when user runs ./run.sh from another path.
+  ensure_host_docker_access
   echo "Building agent-sandbox image..."
   docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
 }
@@ -61,6 +140,7 @@ is_container_running() {
 stop_container() {
   # Stop and remove only this sandbox container.
   # Other containers are untouched.
+  ensure_host_docker_access
   if is_container_running; then
     echo "Stopping $CONTAINER_NAME..."
     docker stop "$CONTAINER_NAME"
@@ -112,6 +192,7 @@ ensure_network() {
 
 run_container() {
   local workspace_dir="$1"
+  ensure_host_docker_access
 
   # Resolve to absolute path so docker -v always receives a stable path.
   workspace_dir="$(cd "$workspace_dir" && pwd)"
@@ -190,13 +271,7 @@ run_container() {
   # Prefer DOCKER_HOST unix:// socket when configured.
   # Fallback to common local socket paths.
   local docker_sock=""
-  if [[ -n "${DOCKER_HOST:-}" && "${DOCKER_HOST}" == unix://* ]]; then
-    docker_sock="${DOCKER_HOST#unix://}"
-  elif [[ -S /var/run/docker.sock ]]; then
-    docker_sock="/var/run/docker.sock"
-  elif [[ -S "$HOME/.docker/run/docker.sock" ]]; then
-    docker_sock="$HOME/.docker/run/docker.sock"
-  fi
+  docker_sock="$(detect_host_docker_socket || true)"
   if [[ -n "$docker_sock" ]]; then
     # Mount socket to default in-container path expected by docker CLI.
     docker_args+=(-v "$docker_sock:/var/run/docker.sock")
@@ -206,6 +281,20 @@ run_container() {
     sock_gid=$(stat -f '%g' "$docker_sock" 2>/dev/null || stat -c '%g' "$docker_sock" 2>/dev/null)
     if [[ -n "$sock_gid" ]]; then
       docker_args+=(--group-add "$sock_gid")
+    fi
+
+    # Rootless docker sockets are often user-owned (0600). In that case,
+    # sandbox UID 1000 may not match host UID and docker access fails.
+    # Auto-switch to host UID:GID unless explicitly disabled.
+    local host_uid host_gid sock_uid
+    host_uid="$(id -u)"
+    host_gid="$(id -g)"
+    sock_uid="$(stat -f '%u' "$docker_sock" 2>/dev/null || stat -c '%u' "$docker_sock" 2>/dev/null || echo '')"
+    local match_host_user="${AGENT_SANDBOX_MATCH_HOST_USER:-auto}"
+    if [[ "$match_host_user" == "1" ]] || [[ "$match_host_user" == "auto" && -n "$sock_uid" && "$sock_uid" == "$host_uid" && "$host_uid" != "1000" ]]; then
+      echo "Using host UID:GID (${host_uid}:${host_gid}) for docker socket compatibility."
+      docker_args+=(--user "${host_uid}:${host_gid}")
+      docker_args+=(-e HOME=/home/sandbox)
     fi
   fi
 
@@ -235,7 +324,8 @@ run_container() {
     NODE_EXTRA_CA_CERTS \
     AGENT_SANDBOX_NODE_TLS_COMPAT \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC \
-    DISABLE_ERROR_REPORTING; do
+    DISABLE_ERROR_REPORTING \
+    DISABLE_TELEMETRY; do
     if [[ -n "${!key:-}" ]]; then
       docker_args+=(-e "$key")
     fi
@@ -249,6 +339,9 @@ run_container() {
   # Keep error reporting off by default for the same network stability reason.
   local disable_error_reporting="${DISABLE_ERROR_REPORTING:-1}"
   docker_args+=(-e "DISABLE_ERROR_REPORTING=$disable_error_reporting")
+  # Disable telemetry exports by default (BigQuery/metrics path).
+  local disable_telemetry="${DISABLE_TELEMETRY:-1}"
+  docker_args+=(-e "DISABLE_TELEMETRY=$disable_telemetry")
 
   # Apply Node TLS compatibility defaults at container runtime (no image rebuild
   # required). This protects Node-based CLIs on networks where TLS 1.3 records
