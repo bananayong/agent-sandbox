@@ -23,6 +23,7 @@ Optionally tag with priority and category:
 ## Pending
 
 - [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
+- [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P2] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 - [ ] [P2] (usability) `run.sh` 상태 확인 명령 추가 — `run.sh --status`로 컨테이너 상태, 리소스 사용량, 마운트 볼륨 확인
 - [ ] [P2] (security) 컨테이너 헬스체크 — docker-compose.yml에 healthcheck 정의, 주요 프로세스 상태를 주기적으로 확인
