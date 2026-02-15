@@ -114,6 +114,11 @@ docker build -t agent-sandbox:latest .
 - 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
 - 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1400으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
+- `curl`/`node fetch`는 정상인데 Claude만 `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR`가 나면 host에서 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`로 실행해 보세요.
+  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 ./run.sh .`
+- 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
+  - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (start.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
+  - 비활성화: `AGENT_SANDBOX_NODE_TLS_COMPAT=0 ./run.sh .`
 
 ### 설정을 완전히 초기화하고 싶을 때
 

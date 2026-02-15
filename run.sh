@@ -87,7 +87,11 @@ ensure_network() {
   # Ensure a custom bridge network with MTU 1400.
   # Why? Host path MTU can be lower than 1500 (VPN/VM/tunnels), which may
   # break TLS streams and surface as socket/SSL errors in Node-based CLIs.
-  local desired_mtu="1400"
+  local desired_mtu="${AGENT_SANDBOX_NET_MTU:-1400}"
+  if [[ ! "$desired_mtu" =~ ^[0-9]+$ ]]; then
+    echo "Warning: invalid AGENT_SANDBOX_NET_MTU='$desired_mtu', using 1400"
+    desired_mtu="1400"
+  fi
   local current_mtu=""
   current_mtu="$(docker network inspect -f '{{index .Options "com.docker.network.driver.mtu"}}' "$NETWORK_NAME" 2>/dev/null || true)"
 
@@ -124,6 +128,15 @@ run_container() {
   # If already running, attach instead of creating another container.
   # This keeps one stable sandbox state and avoids duplicate names.
   if is_container_running; then
+    # If running container is attached to a different network, attaching hides
+    # stale networking issues. Ask user to recreate container explicitly.
+    local running_network
+    running_network="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$CONTAINER_NAME" 2>/dev/null || true)"
+    if [[ -n "$running_network" && "$running_network" != "$NETWORK_NAME" ]]; then
+      echo "Container is running on network '$running_network' (expected '$NETWORK_NAME')."
+      echo "Run './run.sh -s' then './run.sh .' to recreate with updated network settings."
+      return 1
+    fi
     echo "Attaching to running container..."
     docker exec -it "$CONTAINER_NAME" /bin/zsh
     return
@@ -157,6 +170,21 @@ run_container() {
     # Persisted sandbox home mount.
     -v "$SANDBOX_HOME:/home/sandbox"
   )
+
+  # Mount a host path into the container at the same absolute path.
+  # This is used for trust stores referenced by env vars so Node/OpenSSL can
+  # actually read the files from inside the container.
+  mount_host_path_ro_if_exists() {
+    local host_path="$1"
+    if [[ -z "$host_path" ]]; then
+      return
+    fi
+    if [[ ! -e "$host_path" ]]; then
+      return
+    fi
+    # Keep the same path in container to match env var value exactly.
+    docker_args+=(-v "$host_path:$host_path:ro")
+  }
 
   # Docker socket forwarding (DooD):
   # Prefer DOCKER_HOST unix:// socket when configured.
@@ -204,11 +232,50 @@ run_container() {
     http_proxy https_proxy no_proxy \
     ALL_PROXY all_proxy \
     SSL_CERT_FILE SSL_CERT_DIR \
-    NODE_EXTRA_CA_CERTS; do
+    NODE_EXTRA_CA_CERTS \
+    AGENT_SANDBOX_NODE_TLS_COMPAT \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC \
+    DISABLE_ERROR_REPORTING; do
     if [[ -n "${!key:-}" ]]; then
       docker_args+=(-e "$key")
     fi
   done
+
+  # Default-disable Claude nonessential traffic (telemetry/event export), which
+  # is a common failure point on networks that trigger TLS BAD_RECORD_MAC.
+  # Users can opt out by explicitly setting CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=0.
+  local nonessential_traffic="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
+  docker_args+=(-e "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=$nonessential_traffic")
+  # Keep error reporting off by default for the same network stability reason.
+  local disable_error_reporting="${DISABLE_ERROR_REPORTING:-1}"
+  docker_args+=(-e "DISABLE_ERROR_REPORTING=$disable_error_reporting")
+
+  # Apply Node TLS compatibility defaults at container runtime (no image rebuild
+  # required). This protects Node-based CLIs on networks where TLS 1.3 records
+  # intermittently fail with BAD_RECORD_MAC, while keeping user overrides.
+  local node_options_effective="${NODE_OPTIONS:-}"
+  local tls_compat="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
+  if [[ "$tls_compat" == "1" ]]; then
+    if [[ "$node_options_effective" != *"--tls-max-v1.2"* ]]; then
+      node_options_effective="${node_options_effective:+$node_options_effective }--tls-max-v1.2"
+    fi
+    if [[ "$node_options_effective" != *"--tls-min-v1.2"* ]]; then
+      node_options_effective="${node_options_effective:+$node_options_effective }--tls-min-v1.2"
+    fi
+    if [[ "$node_options_effective" != *"--dns-result-order=ipv4first"* ]]; then
+      node_options_effective="${node_options_effective:+$node_options_effective }--dns-result-order=ipv4first"
+    fi
+  fi
+  if [[ -n "$node_options_effective" ]]; then
+    docker_args+=(-e "NODE_OPTIONS=$node_options_effective")
+  fi
+
+  # If host cert paths are provided, also mount them so they exist inside
+  # container. Without this, only env var values are forwarded and TLS clients
+  # may fail with SSL/TLS handshake errors.
+  mount_host_path_ro_if_exists "${SSL_CERT_FILE:-}"
+  mount_host_path_ro_if_exists "${SSL_CERT_DIR:-}"
+  mount_host_path_ro_if_exists "${NODE_EXTRA_CA_CERTS:-}"
 
   docker_args+=("$IMAGE_NAME")
 

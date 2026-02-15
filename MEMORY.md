@@ -9,6 +9,19 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Stabilize Claude startup for telemetry/TLS edge cases
+- Context: Even after API connectivity hardening, some users still saw `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR` while `curl` and plain Node HTTPS requests succeeded.
+- Decision:
+  - Updated `scripts/start.sh` to create `~/.claude/remote-settings.json` (`{}`) on first run when missing, preventing repeated startup `ENOENT` exceptions.
+  - Added default Node TLS compatibility guard in `scripts/start.sh` (`AGENT_SANDBOX_NODE_TLS_COMPAT=1`) to apply `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` for unstable TLS 1.3 paths.
+  - Updated `run.sh` env forwarding to include `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` and `DISABLE_ERROR_REPORTING` so host-side troubleshooting flags can reach containerized Claude CLI.
+  - Updated `run.sh` env forwarding to include `NODE_OPTIONS` and `AGENT_SANDBOX_NODE_TLS_COMPAT` so users can explicitly control Node TLS behavior from host.
+  - Added README troubleshooting note for running with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` when only Claude fails.
+- Impact:
+  - Reduced noisy startup exceptions from missing `remote-settings.json`.
+  - Enabled quick host-driven mitigation when nonessential telemetry/event export traffic hits TLS edge failures.
+  - Improved reliability on networks where Node TLS 1.3 sessions intermittently fail with `bad record mac`.
+
 ### 2026-02-15 - Harden network handling for Node CLI API connectivity
 - Context: Users saw recurring `Unable to connect to API (UND_ERR_SOCKET)` when running agent CLIs (notably Claude) in the container.
 - Decision:
