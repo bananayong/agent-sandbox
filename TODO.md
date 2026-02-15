@@ -27,6 +27,23 @@ Optionally tag with priority and category:
 - [ ] [P1] (setup) MCP 서버 설정 자동 구성 — `.mcp.json` 또는 `.claude/mcp.json`에 유용한 MCP 서버 등록
 - [ ] [P1] (setup) Claude skills 자동 구성 — 프로젝트에 맞는 Claude skills 정의 및 등록
 - [ ] [P2] (quality) Dockerfile/shell script lint 및 검증 도구 도입 — hadolint(Dockerfile), shellcheck(sh/bash/zsh) 등을 이미지에 설치하고 CI 또는 pre-commit hook으로 적용
+- [ ] [P1] (security) 커밋 전 보안 민감 정보 유출 방지 장치 도입 — pre-commit hook 또는 도구(예: gitleaks, detect-secrets)를 활용하여 API 키, 비밀번호, 토큰 등 민감 정보가 커밋에 포함되지 않도록 자동 검사
+- [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
+- [ ] [P1] (setup) zshrc에 alias된 미설치 도구 추가 — dust, procs, btm, xh, mcfly 바이너리 설치 (현재 alias만 있고 바이너리가 없어 동작하지 않음)
+- [ ] [P1] (setup) pre-commit 프레임워크 자동 구성 — pre-commit(Python) 프레임워크를 이미지에 설치하고 기본 `.pre-commit-config.yaml` 템플릿 제공 (secret 검사, lint, 포맷 등 hook 통합 관리)
+- [ ] [P2] (build) 이미지 빌드 smoke test — 빌드 후 주요 도구(claude, codex, gemini, docker, git 등)가 정상 실행되는지 자동 검증하는 스크립트 추가
+- [ ] [P2] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
+- [ ] [P2] (setup) direnv 설치 — 프로젝트 디렉토리 진입 시 `.envrc` 기반 환경변수 자동 로드, 에이전트가 프로젝트별 설정을 자동 인식
+- [ ] [P2] (usability) `run.sh` 상태 확인 명령 추가 — `run.sh --status`로 컨테이너 상태, 리소스 사용량, 마운트 볼륨 확인
+- [ ] [P2] (security) 컨테이너 헬스체크 — docker-compose.yml에 healthcheck 정의, 주요 프로세스 상태를 주기적으로 확인
+- [ ] [P2] (security) `.env` 파일 지원 — docker-compose.yml에서 env_file 지원 추가, API 키 관리를 환경변수 나열 대신 .env 파일로 간소화
+- [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
+- [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
+- [ ] [P2] (docs) 아키텍처 다이어그램 — README에 마운트 구조, 네트워크, 진입 흐름을 시각화한 다이어그램 추가
+- [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
+- [ ] [P3] (usability) dry-run 모드 — `run.sh --dry-run`으로 실제 실행 없이 어떤 Docker 명령이 수행될지 미리 출력
+- [ ] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화
+- [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
 
 ## Done
