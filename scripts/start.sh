@@ -131,6 +131,25 @@ fi
 # Ensure history file exists for zsh sessions.
 touch "$HOME_DIR/.zsh_history"
 
+# ============================================================
+# Docker socket access check
+# ============================================================
+# Warn early if Docker socket is mounted but not accessible.
+# This catches the common misconfiguration where --group-add is missing.
+if [[ -S /var/run/docker.sock ]]; then
+  if docker version >/dev/null 2>&1; then
+    echo "[init] Docker socket: accessible"
+  else
+    local_sock_gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo '?')"
+    local_user_groups="$(id -G 2>/dev/null || echo '?')"
+    echo "[init] WARNING: Docker socket mounted but not accessible!"
+    echo "  Socket GID: $local_sock_gid"
+    echo "  Your groups: $local_user_groups"
+    echo "  Fix: relaunch with --group-add $local_sock_gid"
+    echo "  Or set DOCKER_GID=$local_sock_gid in docker-compose.yml"
+  fi
+fi
+
 echo "[init] Agent sandbox ready!"
 echo ""
 

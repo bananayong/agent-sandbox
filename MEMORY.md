@@ -9,6 +9,17 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Harden Docker socket access across platforms
+- Context: Docker socket permission handling had two issues: (1) `run.sh` used macOS `stat -f` before Linux `stat -c`, but on Linux `stat -f` means `--file-system` and outputs filesystem info to stdout even on failure, corrupting the captured GID value; (2) Docker Desktop (macOS/Windows) sockets are always `root:root`, so sandbox user needed GID 0 membership to access them without `--group-add`.
+- Decision:
+  - Swapped `stat` fallback order in `run.sh` to try Linux `-c` first, then macOS `-f` (two locations: `sock_gid` and `sock_uid`).
+  - Added `-G 0` (root supplementary group) to `useradd` in Dockerfile so Docker Desktop socket access works out of the box.
+  - Added Docker socket access diagnostic in `scripts/start.sh` — on startup, checks if `/var/run/docker.sock` is mounted but inaccessible, and prints socket GID, user groups, and fix instructions.
+- Impact:
+  - Fixes silent GID corruption on Linux hosts that caused `--group-add` to receive garbage values.
+  - Docker Desktop users no longer need manual `--group-add 0`.
+  - Misconfigured socket permissions are diagnosed at container startup instead of failing silently when user first runs `docker`.
+
 ### 2026-02-15 - Enforce telemetry-off defaults on all runtime paths
 - Context: Claude debug logs still showed `BigQuery metrics export failed ... bad record mac` and `Metrics opt-out API response: enabled=true` even after partial mitigations, indicating telemetry paths were still active in some launch paths.
 - Decision:

@@ -169,8 +169,12 @@ RUN if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; th
 
 # Create non-root runtime user.
 # sudo is configured for compatibility, but run.sh also sets no-new-privileges.
+# sandbox is added to root group (GID 0) so Docker socket access works on
+# Docker Desktop (macOS/Windows) where the socket is always root:root.
+# On Linux the socket is typically owned by a "docker" group with a different
+# GID — run.sh handles that via --group-add at container launch time.
 RUN groupadd -g 1000 sandbox \
-    && useradd -m -u 1000 -g 1000 -s /bin/zsh sandbox \
+    && useradd -m -u 1000 -g 1000 -G 0 -s /bin/zsh sandbox \
     && echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sandbox \
     && chmod 0440 /etc/sudoers.d/sandbox
 

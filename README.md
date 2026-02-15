@@ -57,7 +57,8 @@ docker build -t agent-sandbox:latest .
 1. 첫 실행일 때만 기본 dotfiles를 `$HOME`으로 복사
 2. `zimfw` 부트스트랩 및 모듈 설치
 3. git delta, 기본 에디터(micro), gh-copilot 등 1회성 세팅
-4. `/bin/zsh` 실행
+4. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
+5. `/bin/zsh` 실행
 
 ## Mount & Persistence
 

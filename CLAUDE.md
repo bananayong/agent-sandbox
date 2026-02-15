@@ -45,13 +45,15 @@ docker build -t agent-sandbox:latest .
 - Container mounts host Docker socket instead of running its own daemon — lightweight, shares host image cache
 - `run.sh` auto-detects socket from: `DOCKER_HOST` env var (unix://), `/var/run/docker.sock`, `/run/user/<uid>/docker.sock` (rootless), `~/.docker/run/docker.sock`
 - Socket access is granted via `--group-add <GID>` (kernel-level group assignment), not `sudo chmod`
+- `sandbox` user is a member of root group (GID 0) for Docker Desktop compatibility (macOS/Windows sockets are always `root:root`). On Linux, `run.sh` adds the host socket GID via `--group-add` at launch time
 - **IMPORTANT:** `run.sh` sets `--security-opt no-new-privileges:true`, which blocks all setuid binaries including `sudo`. Never use `sudo` in `start.sh`. Handle all permission needs in `run.sh` via Docker flags (`--group-add`, `--user`, `--cap-add`)
 
 **Entrypoint flow (`scripts/start.sh`):**
 1. Copies default configs from `/etc/skel/` to `$HOME` only if they don't already exist (first-run)
 2. Bootstraps zimfw and installs zsh modules if missing
 3. Applies first-run shell/git bootstrap steps
-4. `exec "$@"` -> runs CMD (`/bin/zsh`)
+4. Checks Docker socket accessibility and prints diagnostic if inaccessible
+5. `exec "$@"` -> runs CMD (`/bin/zsh`)
 
 **Config files in `configs/`** are baked into the image at `/etc/skel/` and copied to the user's persisted home on first run. After that, the user's copies take precedence.
 

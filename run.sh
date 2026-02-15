@@ -276,9 +276,11 @@ run_container() {
     # Mount socket to default in-container path expected by docker CLI.
     docker_args+=(-v "$docker_sock:/var/run/docker.sock")
     # Add socket's group so non-root sandbox user can access docker.
-    # Handles both macOS (stat -f) and Linux (stat -c).
+    # Try Linux stat first (-c), then macOS (-f). Order matters because
+    # Linux stat -f means --file-system and pollutes stdout with filesystem
+    # info even when it fails, corrupting the captured GID value.
     local sock_gid
-    sock_gid=$(stat -f '%g' "$docker_sock" 2>/dev/null || stat -c '%g' "$docker_sock" 2>/dev/null)
+    sock_gid=$(stat -c '%g' "$docker_sock" 2>/dev/null || stat -f '%g' "$docker_sock" 2>/dev/null)
     if [[ -n "$sock_gid" ]]; then
       docker_args+=(--group-add "$sock_gid")
     fi
@@ -289,7 +291,7 @@ run_container() {
     local host_uid host_gid sock_uid
     host_uid="$(id -u)"
     host_gid="$(id -g)"
-    sock_uid="$(stat -f '%u' "$docker_sock" 2>/dev/null || stat -c '%u' "$docker_sock" 2>/dev/null || echo '')"
+    sock_uid="$(stat -c '%u' "$docker_sock" 2>/dev/null || stat -f '%u' "$docker_sock" 2>/dev/null || echo '')"
     local match_host_user="${AGENT_SANDBOX_MATCH_HOST_USER:-auto}"
     if [[ "$match_host_user" == "1" ]] || [[ "$match_host_user" == "auto" && -n "$sock_uid" && "$sock_uid" == "$host_uid" && "$host_uid" != "1000" ]]; then
       echo "Using host UID:GID (${host_uid}:${host_gid}) for docker socket compatibility."
