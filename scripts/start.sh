@@ -38,20 +38,9 @@ if [[ ! -f "$HOME_DIR/.claude/remote-settings.json" ]]; then
   printf '{}\n' > "$HOME_DIR/.claude/remote-settings.json"
 fi
 
-# Some networks intermittently corrupt TLS 1.3 record streams for Node clients,
-# while curl/OpenSSL still work. Default to a safer Node TLS profile that
-# prefers IPv4 and caps TLS to 1.2 unless user explicitly disables this guard.
-if [[ "${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}" == "1" ]]; then
-  if [[ "${NODE_OPTIONS:-}" != *"--tls-max-v1.2"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-max-v1.2"
-  fi
-  if [[ "${NODE_OPTIONS:-}" != *"--tls-min-v1.2"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-min-v1.2"
-  fi
-  if [[ "${NODE_OPTIONS:-}" != *"--dns-result-order=ipv4first"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
-  fi
-fi
+# Node TLS compatibility (--tls-max-v1.2, --dns-result-order=ipv4first) is
+# applied by run.sh via the NODE_OPTIONS env var before the container starts.
+# No duplication needed here; run.sh is the single source of truth.
 
 # ============================================================
 # Zimfw bootstrap

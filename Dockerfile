@@ -174,9 +174,9 @@ RUN groupadd -g 1000 sandbox \
     && echo "sandbox ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sandbox \
     && chmod 0440 /etc/sudoers.d/sandbox
 
-# Install remaining coding-agent CLIs globally via npm.
-RUN npm install -g \
-    npm@11.10.0 \
+# Install remaining coding-agent CLIs globally via bun (faster than npm).
+# BUN_INSTALL=/usr/local means global binaries land in /usr/local/bin/.
+RUN bun install -g \
     @openai/codex \
     @google/gemini-cli \
     opencode-ai \

@@ -34,7 +34,7 @@ docker build -t agent-sandbox:latest .
 - Base: `debian:bookworm-slim`
 - Installs core packages via apt, Node.js 22, Bun, GitHub CLI, Docker CLI (docker-ce-cli, docker-compose-plugin, docker-buildx-plugin)
 - Installs additional CLI tools from pinned GitHub release binaries
-- Installs coding agents via npm
+- Installs coding agents via bun (Codex, Gemini, OpenCode) and native installer (Claude Code)
 
 **Mount strategy (three volumes):**
 - `$TARGET_DIR` -> `/workspace` (the user's project)

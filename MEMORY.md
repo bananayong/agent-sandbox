@@ -9,6 +9,20 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Switch agent installs from npm to bun, Claude Code to native installer
+- Context: npm installation of `@anthropic-ai/claude-code` is deprecated in favor of native installer. Also, bun is already present in the image and is faster than npm for global package installs.
+- Decision:
+  - Replaced `npm install -g` with `bun install -g` for Codex, Gemini CLI, OpenCode, typescript, oh-my-opencode.
+  - Dropped `npm@11.10.0` upgrade (no longer needed).
+  - Removed unnecessary `npm uninstall -g @anthropic-ai/claude-code` step (never installed via npm in fresh build).
+  - Claude Code installed via `curl -fsSL https://claude.ai/install.sh | bash`, binary moved from `/root/.local/bin` to `/usr/local/bin`.
+  - Added `$HOME/.local/bin` to PATH in `configs/zshrc` so runtime Claude updates (`~/.local/bin/claude`) are found.
+  - Removed duplicate Node TLS compat logic from `start.sh` (single source of truth is `run.sh`).
+- Impact:
+  - Faster image builds (bun vs npm).
+  - Claude Code uses official native installer path.
+  - Cleaner Dockerfile with fewer unnecessary layers.
+
 ### 2026-02-15 - Stabilize Claude startup for telemetry/TLS edge cases
 - Context: Even after API connectivity hardening, some users still saw `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR` while `curl` and plain Node HTTPS requests succeeded.
 - Decision:
