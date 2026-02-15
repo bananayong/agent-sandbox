@@ -9,6 +9,19 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Add repository-wide pinned-version maintenance script
+- Context: This repository pins many tool/action versions across Dockerfile ARGs and GitHub workflows, but manual updates are error-prone and easy to miss.
+- Decision:
+  - Added `scripts/update-versions.sh` with three modes:
+    - `scan`: list current pins without network calls
+    - `check`: compare local pins with latest upstream releases/tags
+    - `update`: rewrite Dockerfile ARG versions, workflow action SHA pins, and workflow `@openai/codex` npm pin
+  - Included `--dry-run` mode for safe preview before file edits.
+  - Added README usage guidance under `Version Maintenance`.
+- Impact:
+  - Maintainers can run a single command to audit and refresh pinned versions consistently.
+  - Reduces drift risk in security-sensitive action SHA pins and tool version pins.
+
 ### 2026-02-15 - Disable public artifact upload by default and reduce log exposure
 - Context: In a public repository, workflow artifacts can still expose intermediate bot output even when auto-publish and full PR comment modes are disabled.
 - Decision:

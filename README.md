@@ -231,11 +231,30 @@ docker compose up
 - `docker-compose.yml`: compose 기반 실행 설정
 - `Dockerfile`: 런타임 이미지 정의
 - `scripts/start.sh`: 컨테이너 시작 시 초기화 로직
+- `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
 - `CLAUDE.md`: Claude Code 에이전트 가이드
 - `AGENTS.md`: 범용 에이전트 작업 규칙
 - `TODO.md`: 작업 목록 (모든 에이전트가 공유)
 - `MEMORY.md`: 장기 의사결정 기록
+
+## Version Maintenance
+
+고정 버전 점검/갱신은 아래 스크립트로 실행할 수 있습니다.
+
+```bash
+# 현재 고정 버전만 출력 (네트워크 없음)
+scripts/update-versions.sh scan
+
+# 최신 릴리스/태그와 비교
+scripts/update-versions.sh check
+
+# 업데이트 예정 변경만 출력
+scripts/update-versions.sh update --dry-run
+
+# 실제 파일 갱신
+scripts/update-versions.sh update
+```
 
 ## Documentation Convention (주석 원칙)
 
