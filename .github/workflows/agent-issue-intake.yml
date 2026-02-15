@@ -1,0 +1,151 @@
+name: Agent Issue Intake
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  route:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.route.outputs.should_run }}
+      issue_number: ${{ steps.route.outputs.issue_number }}
+      agent: ${{ steps.route.outputs.agent }}
+      prompt: ${{ steps.route.outputs.prompt }}
+      requester: ${{ steps.route.outputs.requester }}
+    steps:
+      - name: Evaluate trigger and actor safety checks
+        id: route
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+
+            if (!allowedRaw) {
+              core.warning('AGENT_ALLOWED_ACTORS secret is empty. Refusing to run automation.');
+              core.setOutput('should_run', 'false');
+              core.setOutput('issue_number', '');
+              core.setOutput('agent', 'claude');
+              core.setOutput('prompt', '');
+              core.setOutput('requester', '');
+              return;
+            }
+
+            const allowed = allowedRaw
+              .split(',')
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean);
+
+            const isAllowed = (login) => Boolean(login && allowed.includes(String(login).toLowerCase()));
+
+            const event = context.eventName;
+            const payload = context.payload;
+
+            let shouldRun = false;
+            let issueNumber = payload.issue?.number ? String(payload.issue.number) : '';
+            let agent = 'claude';
+            let prompt = '';
+            let requester = '';
+
+            if (event === 'issues') {
+              const issueAuthor = payload.issue?.user?.login || '';
+              const sender = payload.sender?.login || '';
+              requester = issueAuthor;
+
+              if (!isAllowed(issueAuthor)) {
+                core.info(`Skip: issue author ${issueAuthor || 'unknown'} is not allowlisted.`);
+              } else if (!isAllowed(sender)) {
+                core.info(`Skip: issue event sender ${sender || 'unknown'} is not allowlisted.`);
+              } else {
+                const labels = (payload.issue?.labels || []).map((l) => String(l.name || '').toLowerCase());
+                if (labels.includes('agent:codex')) agent = 'codex';
+                if (labels.includes('agent:claude')) agent = 'claude';
+                shouldRun = labels.includes('agent:auto');
+              }
+            }
+
+            if (event === 'issue_comment') {
+              if (payload.issue?.pull_request) {
+                core.info('Skip: this comment belongs to a pull request thread.');
+              } else {
+                const commentAuthor = payload.comment?.user?.login || '';
+                const issueAuthor = payload.issue?.user?.login || '';
+                requester = commentAuthor;
+
+                if (!isAllowed(issueAuthor)) {
+                  core.info(`Skip: issue author ${issueAuthor || 'unknown'} is not allowlisted.`);
+                } else if (!isAllowed(commentAuthor)) {
+                  core.info(`Skip: comment author ${commentAuthor || 'unknown'} is not allowlisted.`);
+                } else {
+                  const body = String(payload.comment?.body || '').trim();
+                  const match = body.match(/^\/agent\s+run(?:\s+(claude|codex))?(?:\s+(.*))?$/is);
+                  if (match) {
+                    shouldRun = true;
+                    if (match[1]) agent = match[1].toLowerCase();
+                    prompt = (match[2] || '').trim();
+                  }
+
+                  const labels = (payload.issue?.labels || []).map((l) => String(l.name || '').toLowerCase());
+                  if (labels.includes('agent:codex')) agent = 'codex';
+                  if (labels.includes('agent:claude')) agent = 'claude';
+                }
+              }
+            }
+
+            core.setOutput('should_run', shouldRun ? 'true' : 'false');
+            core.setOutput('issue_number', issueNumber);
+            core.setOutput('agent', agent);
+            core.setOutput('prompt', prompt);
+            core.setOutput('requester', requester);
+
+            core.info(`Decision: should_run=${shouldRun}, issue=${issueNumber}, agent=${agent}, requester=${requester}`);
+
+      - name: Post intake comment
+        if: steps.route.outputs.should_run == 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ steps.route.outputs.issue_number }}
+          AGENT: ${{ steps.route.outputs.agent }}
+          REQUESTER: ${{ steps.route.outputs.requester }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `Agent automation started for @${process.env.REQUESTER}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '- Triggered by allowlisted actor check'
+              ].join('\n')
+            });
+
+  run-worker:
+    needs: route
+    if: needs.route.outputs.should_run == 'true'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-issue-worker.yml
+    with:
+      issue_number: ${{ needs.route.outputs.issue_number }}
+      agent: ${{ needs.route.outputs.agent }}
+      extra_instructions: ${{ needs.route.outputs.prompt }}
+      requester: ${{ needs.route.outputs.requester }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+      AGENT_ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+      AGENT_AUTO_PUBLISH: ${{ secrets.AGENT_AUTO_PUBLISH }}
+      AGENT_PUBLIC_ARTIFACTS: ${{ secrets.AGENT_PUBLIC_ARTIFACTS }}

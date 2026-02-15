@@ -9,6 +9,79 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Disable public artifact upload by default and reduce log exposure
+- Context: In a public repository, workflow artifacts can still expose intermediate bot output even when auto-publish and full PR comment modes are disabled.
+- Decision:
+  - Added `AGENT_PUBLIC_ARTIFACTS` secret gate for issue/PR workflows.
+    - default (`false`/unset): do not upload patch/review artifacts
+    - opt-in (`true`): upload short-lived artifacts (retention 1 day)
+  - Updated issue intake -> worker secret mapping to pass `AGENT_PUBLIC_ARTIFACTS`.
+  - Reduced Codex step log exposure by redirecting CLI output to temporary files instead of workflow console logs.
+  - Updated issue/PR redacted comments to clearly indicate whether artifact upload is enabled.
+- Impact:
+  - Public exposure surface is reduced further in default mode.
+  - Maintainers still have explicit opt-in controls for artifact-based workflows when needed.
+
+### 2026-02-15 - Default to non-public output mode for automation in public repo
+- Context: Even with allowlist controls, automatically publishing bot output (new branches/PRs and full review comments) can expose intermediate agent results in a public repository.
+- Decision:
+  - Added `AGENT_AUTO_PUBLISH` secret gate in issue worker:
+    - default (`false`/unset): do not auto-push/create PR; upload patch artifact only
+    - opt-in (`true`): allow branch push and PR creation
+  - Added `AGENT_PUBLIC_REVIEW_COMMENT` secret gate in PR reviewer:
+    - default (`false`/unset): post redacted public comment only and keep full review in artifact
+    - opt-in (`true`): post full review content in PR comment
+  - Added `actions/upload-artifact` (SHA-pinned) for patch/review outputs with short retention.
+  - Kept allowlist checks and fork-PR guard in place.
+- Impact:
+  - Public exposure is minimized by default while preserving opt-in automation for maintainers.
+  - Review and change outputs are no longer immediately broadcast in issue/PR comments unless explicitly enabled.
+
+### 2026-02-15 - Simplify bot commits by removing CI GPG signing requirement
+- Context: Signed bot commits using `AGENT_GPG_PRIVATE_KEY_B64` added operational complexity (key provisioning, rotation, failure handling) that outweighed value for this personal/public repository.
+- Decision:
+  - Removed `AGENT_GPG_PRIVATE_KEY_B64` from workflow secret contracts and intake -> worker secret mapping.
+  - Deleted CI signing/import steps from `agent-issue-worker.yml`.
+  - Switched automated bot commit command from `git commit -S` to unsigned `git commit`.
+  - Updated README and operator guide to remove GPG secret setup requirements.
+- Impact:
+  - Automation setup is simpler and has fewer secret management requirements.
+  - Bot commits are now unsigned by design; signed-commit policy should not be enforced for bot-authored automation branches.
+
+### 2026-02-15 - Harden GitHub agent workflows for public personal repo operations
+- Context: Initial allowlist-based automation still had residual risks: reusable workflow inherited all secrets, actions were tag-pinned (not SHA-pinned), Codex install was unpinned, AI execution could attempt premature push, and signed commits were not enforced in CI.
+- Decision:
+  - Removed `secrets: inherit` from issue intake -> worker call and switched to explicit secret mapping only.
+  - Added reusable workflow secret schema in `agent-issue-worker.yml` and retained fail-closed allowlist behavior.
+  - Pinned all external actions to commit SHA (`actions/checkout`, `actions/setup-node`, `actions/github-script`, `anthropics/claude-code-action`).
+  - Pinned Codex CLI install version to `@openai/codex@0.101.0`.
+  - Added timeout controls (`route: 5m`, `issue worker: 45m`, `PR reviewer: 30m`).
+  - Added defense-in-depth allowlist checks inside worker/reviewer jobs (not only in routing jobs).
+  - Added git push hardening before agent execution (`persist-credentials: false`, push URL disabled), and explicit guarded push only to `agent/issue-*` refs.
+  - Enforced signed commits in automation with `AGENT_GPG_PRIVATE_KEY_B64` secret and `git commit -S`.
+  - Added dedicated operator guide `GITHUB_AGENT_AUTOMATION_GUIDE.md` for secret setup, signing key setup, and safe trigger usage.
+- Impact:
+  - Secret blast radius is reduced to explicitly required credentials.
+  - Supply-chain and drift risks are reduced via immutable action pinning and version pinning.
+  - Public-repo abuse window is tightened through layered allowlist checks and branch/push safeguards.
+  - Automated commits now align with signed-commit enforcement expectations.
+
+### 2026-02-15 - Rebuild GitHub agent automation with actor allowlist and OAuth/login-cache auth
+- Context: Initial automation used a single `.github/workflows/claude.yml` with API key auth and broad trigger conditions. User requirement changed to (1) support Claude via OAuth token, (2) support Codex via persisted login cache (`auth.json`) injection, and (3) prevent arbitrary users from triggering workflows.
+- Decision:
+  - Replaced single workflow with split architecture:
+    - `agent-issue-intake.yml`: trigger routing and safety checks
+    - `agent-issue-worker.yml`: issue-to-branch/commit/PR execution
+    - `agent-pr-reviewer.yml`: automated PR review comments
+  - Added fail-closed allowlist gate via `AGENT_ALLOWED_ACTORS` secret (comma-separated GitHub logins).
+  - Added explicit actor verification for issue author/comment author/PR author and label sender before any automation run.
+  - Switched Claude auth to `CLAUDE_CODE_OAUTH_TOKEN` (no Anthropic API key required in workflow).
+  - Added Codex login-cache restoration path using `CODEX_AUTH_JSON_B64` -> `~/.codex/auth.json`, then non-interactive `codex exec`/`codex review`.
+- Impact:
+  - Automation now runs only for explicitly allowlisted users, reducing abuse risk from public issue comments or unauthorized label events.
+  - Claude and Codex workflows can run without storing provider API keys directly in repository secrets, while preserving non-interactive CI execution.
+  - Routing and worker responsibilities are separated, making future policy changes (approval gates, agent selection rules) easier to maintain.
+
 ### 2026-02-15 - Harden Docker socket access across platforms
 - Context: Docker socket permission handling had two issues: (1) `run.sh` used macOS `stat -f` before Linux `stat -c`, but on Linux `stat -f` means `--file-system` and outputs filesystem info to stdout even on failure, corrupting the captured GID value; (2) Docker Desktop (macOS/Windows) sockets are always `root:root`, so sandbox user needed GID 0 membership to access them without `--group-add`.
 - Decision:

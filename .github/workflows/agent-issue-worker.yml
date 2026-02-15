@@ -1,0 +1,444 @@
+name: Agent Issue Worker
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        type: string
+        required: true
+      agent:
+        type: string
+        required: true
+      extra_instructions:
+        type: string
+        required: false
+        default: ""
+      requester:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
+      CODEX_AUTH_JSON_B64:
+        required: false
+      AGENT_ALLOWED_ACTORS:
+        required: false
+      AGENT_AUTO_PUBLISH:
+        required: false
+      AGENT_PUBLIC_ARTIFACTS:
+        required: false
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: issue-worker-${{ inputs.issue_number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate agent input
+        if: inputs.agent != 'claude' && inputs.agent != 'codex'
+        run: |
+          echo "Unsupported agent: ${{ inputs.agent }}" >&2
+          exit 1
+
+      - name: Validate allowlist in worker (defense in depth)
+        id: allowlist
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          REQUESTER: ${{ inputs.requester }}
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+            if (!allowedRaw) {
+              core.setFailed('AGENT_ALLOWED_ACTORS secret is empty.');
+              return;
+            }
+
+            const allowed = new Set(
+              allowedRaw
+                .split(',')
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean)
+            );
+            const isAllowed = (login) => Boolean(login && allowed.has(String(login).toLowerCase()));
+
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = await github.rest.issues.get({
+              ...context.repo,
+              issue_number: issueNumber,
+            });
+
+            const issueAuthor = issue.data.user?.login || '';
+            const requesterInput = (process.env.REQUESTER || '').trim();
+            const safeRequester = requesterInput || issueAuthor;
+
+            if (!isAllowed(issueAuthor)) {
+              core.setFailed(`Issue author ${issueAuthor || 'unknown'} is not allowlisted.`);
+              return;
+            }
+
+            if (!isAllowed(safeRequester)) {
+              core.setFailed(`Requester ${safeRequester || 'unknown'} is not allowlisted.`);
+              return;
+            }
+
+            core.setOutput('safe_requester', safeRequester);
+
+      - name: Load issue metadata
+        id: issue
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = await github.rest.issues.get({
+              ...context.repo,
+              issue_number: issueNumber,
+            });
+            const repoInfo = await github.rest.repos.get(context.repo);
+
+            core.setOutput('title', issue.data.title || '');
+            core.setOutput('body', issue.data.body || '');
+            core.setOutput('base', repoInfo.data.default_branch || 'main');
+
+      - name: Prepare working branch
+        id: branch
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          BASE_BRANCH: ${{ steps.issue.outputs.base }}
+        run: |
+          set -euo pipefail
+          branch="agent/issue-${ISSUE_NUMBER}"
+          git fetch origin "${BASE_BRANCH}" --depth=1
+          if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            git fetch origin "${branch}" --depth=1
+            git checkout -B "${branch}" "origin/${branch}"
+          else
+            git checkout -B "${branch}" "origin/${BASE_BRANCH}"
+          fi
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Harden git push path before agent execution
+        run: |
+          set -euo pipefail
+          git remote set-url --push origin "no_push"
+
+      - name: Build agent prompt
+        id: prompt
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+          EXTRA: ${{ inputs.extra_instructions }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/agent-prompt.txt <<EOF
+          You are an autonomous coding agent working in the current repository.
+
+          Resolve issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+
+          Issue description:
+          ${ISSUE_BODY}
+
+          Additional instructions from requester:
+          ${EXTRA}
+
+          Constraints:
+          - Make only the minimal safe change set needed for the issue.
+          - Update docs/tests only when relevant to your changes.
+          - Do not commit or push; leave changes in the working tree.
+          - If no change is needed, leave the repository unchanged.
+
+          Requester: @${REQUESTER}
+          EOF
+
+          {
+            echo 'prompt<<EOF'
+            cat /tmp/agent-prompt.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure Claude OAuth token is configured
+        if: inputs.agent == 'claude'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+            echo "CLAUDE_CODE_OAUTH_TOKEN is required for agent=claude." >&2
+            exit 1
+          fi
+
+      - name: Run Claude Code
+        if: inputs.agent == 'claude'
+        uses: anthropics/claude-code-action@ea36d6abdedc17fc2a671b36060770b208a6f8f1 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.prompt.outputs.prompt }}
+
+      - name: Ensure Codex auth secret is configured
+        if: inputs.agent == 'codex'
+        env:
+          CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CODEX_AUTH_JSON_B64}" ]; then
+            echo "CODEX_AUTH_JSON_B64 is required for agent=codex." >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js for Codex
+        if: inputs.agent == 'codex'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Restore Codex login cache
+        if: inputs.agent == 'codex'
+        env:
+          CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.codex"
+          printf 'cli_auth_credentials_store = "file"\n' > "${HOME}/.codex/config.toml"
+          echo "${CODEX_AUTH_JSON_B64}" | base64 --decode > "${HOME}/.codex/auth.json"
+          chmod 600 "${HOME}/.codex/auth.json"
+
+      - name: Install Codex CLI
+        if: inputs.agent == 'codex'
+        run: npm install -g @openai/codex@0.101.0
+
+      - name: Run Codex
+        if: inputs.agent == 'codex'
+        run: |
+          set -euo pipefail
+          codex login status > /tmp/codex-login-status.txt 2>&1
+          codex exec --full-auto -C "${GITHUB_WORKSPACE}" - < /tmp/agent-prompt.txt > /tmp/codex-exec.log 2>&1
+
+      - name: Detect repository changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide publish mode
+        id: publish_mode
+        env:
+          AGENT_AUTO_PUBLISH: ${{ secrets.AGENT_AUTO_PUBLISH }}
+        run: |
+          set -euo pipefail
+          mode="$(printf '%s' "${AGENT_AUTO_PUBLISH:-}" | tr '[:upper:]' '[:lower:]')"
+          case "${mode}" in
+            1|true|yes|on) publish="true" ;;
+            *) publish="false" ;;
+          esac
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide artifact visibility
+        id: artifact_mode
+        env:
+          AGENT_PUBLIC_ARTIFACTS: ${{ secrets.AGENT_PUBLIC_ARTIFACTS }}
+        run: |
+          set -euo pipefail
+          mode="$(printf '%s' "${AGENT_PUBLIC_ARTIFACTS:-}" | tr '[:upper:]' '[:lower:]')"
+          case "${mode}" in
+            1|true|yes|on) public_artifacts="true" ;;
+            *) public_artifacts="false" ;;
+          esac
+          echo "public_artifacts=${public_artifacts}" >> "$GITHUB_OUTPUT"
+
+      - name: Create change artifact bundle
+        if: steps.changes.outputs.has_changes == 'true' && steps.artifact_mode.outputs.public_artifacts == 'true'
+        run: |
+          set -euo pipefail
+          git diff --binary > /tmp/agent.patch
+          git status --porcelain > /tmp/agent-status.txt
+
+      - name: Upload change artifact
+        if: steps.changes.outputs.has_changes == 'true' && steps.artifact_mode.outputs.public_artifacts == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-issue-${{ inputs.issue_number }}-changes
+          path: |
+            /tmp/agent.patch
+            /tmp/agent-status.txt
+          retention-days: 1
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          AGENT: ${{ inputs.agent }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          case "${BRANCH}" in
+            agent/issue-*) ;;
+            *)
+              echo "Refusing to push non-agent branch: ${BRANCH}" >&2
+              exit 1
+              ;;
+          esac
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: resolve #${ISSUE_NUMBER} via ${AGENT} automation"
+          git remote set-url --push origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "HEAD:refs/heads/${BRANCH}"
+
+      - name: Create or reuse pull request
+        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          BASE_BRANCH: ${{ steps.issue.outputs.base }}
+          AGENT: ${{ inputs.agent }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const branch = process.env.BRANCH;
+            const base = process.env.BASE_BRANCH;
+            const issueTitle = (process.env.ISSUE_TITLE || '').trim();
+            const agent = process.env.AGENT;
+            const head = `${context.repo.owner}:${branch}`;
+
+            const existing = await github.rest.pulls.list({
+              ...context.repo,
+              state: 'open',
+              head,
+              base,
+              per_page: 1,
+            });
+
+            let pr = existing.data[0];
+            if (!pr) {
+              const title = `[agent:${agent}] #${issueNumber} ${issueTitle}`.slice(0, 240);
+              const created = await github.rest.pulls.create({
+                ...context.repo,
+                title,
+                head: branch,
+                base,
+                body: [
+                  `Automated implementation for #${issueNumber}.`,
+                  '',
+                  `- Agent: \`${agent}\``,
+                  '- Triggered by allowlisted requester',
+                  '',
+                  `Closes #${issueNumber}`
+                ].join('\n'),
+              });
+              pr = created.data;
+            }
+
+            core.setOutput('number', String(pr.number));
+            core.setOutput('url', pr.html_url);
+
+      - name: Comment issue with PR link
+        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          AGENT: ${{ inputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `Completed for @${process.env.REQUESTER || 'requester'}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                `- Pull Request: ${process.env.PR_URL}`
+              ].join('\n')
+            });
+
+      - name: Comment issue with private-mode notice
+        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish != 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          AGENT: ${{ inputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+          PUBLIC_ARTIFACTS: ${{ steps.artifact_mode.outputs.public_artifacts }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const artifactText = process.env.PUBLIC_ARTIFACTS === 'true'
+              ? '- A patch artifact was uploaded for manual application.'
+              : '- Patch artifact upload is disabled by default to reduce public exposure.';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `Run completed for @${process.env.REQUESTER || 'requester'} in private publish mode.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '- Automatic branch/PR publication is disabled by default.',
+                artifactText,
+                `- Workflow run: ${process.env.RUN_URL}`,
+                '',
+                'To enable auto-publication, set repository secret `AGENT_AUTO_PUBLISH=true`.',
+                'To enable patch artifact upload, set repository secret `AGENT_PUBLIC_ARTIFACTS=true`.'
+              ].join('\n')
+            });
+
+      - name: Comment issue when no changes are needed
+        if: steps.changes.outputs.has_changes != 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          AGENT: ${{ inputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `Run finished for @${process.env.REQUESTER || 'requester'}, but no file changes were needed.`,
+                `- Agent: \`${process.env.AGENT}\``
+              ].join('\n')
+            });
+
+      - name: Comment issue on failure
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          AGENT: ${{ inputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: [
+                `Automation failed for @${process.env.REQUESTER || 'requester'}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '- Check the workflow logs for details.'
+              ].join('\n')
+            });

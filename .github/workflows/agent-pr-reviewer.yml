@@ -1,0 +1,440 @@
+name: Agent PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  route:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.route.outputs.should_run }}
+      pr_number: ${{ steps.route.outputs.pr_number }}
+      agent: ${{ steps.route.outputs.agent }}
+      prompt: ${{ steps.route.outputs.prompt }}
+      requester: ${{ steps.route.outputs.requester }}
+    steps:
+      - name: Evaluate trigger and actor safety checks
+        id: route
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+
+            if (!allowedRaw) {
+              core.warning('AGENT_ALLOWED_ACTORS secret is empty. Refusing to run automation.');
+              core.setOutput('should_run', 'false');
+              core.setOutput('pr_number', '');
+              core.setOutput('agent', 'codex');
+              core.setOutput('prompt', '');
+              core.setOutput('requester', '');
+              return;
+            }
+
+            const allowed = allowedRaw
+              .split(',')
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean);
+
+            const isAllowed = (login) => Boolean(login && allowed.includes(String(login).toLowerCase()));
+
+            const event = context.eventName;
+            const payload = context.payload;
+
+            let shouldRun = false;
+            let prNumber = '';
+            let agent = 'codex';
+            let prompt = '';
+            let requester = '';
+
+            if (event === 'pull_request') {
+              const prAuthor = payload.pull_request?.user?.login || '';
+              const sender = payload.sender?.login || '';
+              requester = prAuthor;
+              prNumber = payload.pull_request?.number ? String(payload.pull_request.number) : '';
+              const headRepo = payload.pull_request?.head?.repo?.full_name || '';
+              const currentRepo = `${context.repo.owner}/${context.repo.repo}`;
+
+              if (headRepo && headRepo !== currentRepo) {
+                core.info(`Skip: foreign fork PR head repo ${headRepo} is not supported.`);
+              } else {
+                if (!isAllowed(prAuthor)) {
+                  core.info(`Skip: PR author ${prAuthor || 'unknown'} is not allowlisted.`);
+                } else if (!isAllowed(sender)) {
+                  core.info(`Skip: PR event sender ${sender || 'unknown'} is not allowlisted.`);
+                } else {
+                  const labels = (payload.pull_request?.labels || []).map((l) => String(l.name || '').toLowerCase());
+                  if (labels.includes('agent:claude')) agent = 'claude';
+                  if (labels.includes('agent:codex')) agent = 'codex';
+                  shouldRun = labels.includes('agent:review');
+                }
+              }
+            }
+
+            if (event === 'issue_comment') {
+              if (!payload.issue?.pull_request) {
+                core.info('Skip: issue comment is not on a pull request.');
+              } else {
+                const commentAuthor = payload.comment?.user?.login || '';
+                const prAuthor = payload.issue?.user?.login || '';
+                requester = commentAuthor;
+                prNumber = payload.issue?.number ? String(payload.issue.number) : '';
+                const prInfo = await github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: Number(prNumber),
+                });
+                const headRepo = prInfo.data.head?.repo?.full_name || '';
+                const currentRepo = `${context.repo.owner}/${context.repo.repo}`;
+
+                if (headRepo && headRepo !== currentRepo) {
+                  core.info(`Skip: foreign fork PR head repo ${headRepo} is not supported.`);
+                } else {
+                  if (!isAllowed(prAuthor)) {
+                    core.info(`Skip: PR author ${prAuthor || 'unknown'} is not allowlisted.`);
+                  } else if (!isAllowed(commentAuthor)) {
+                    core.info(`Skip: comment author ${commentAuthor || 'unknown'} is not allowlisted.`);
+                  } else {
+                    const body = String(payload.comment?.body || '').trim();
+                    const match = body.match(/^\/agent\s+review(?:\s+(claude|codex))?(?:\s+(.*))?$/is);
+                    if (match) {
+                      shouldRun = true;
+                      if (match[1]) agent = match[1].toLowerCase();
+                      prompt = (match[2] || '').trim();
+                    }
+
+                    const labels = (payload.issue?.labels || []).map((l) => String(l.name || '').toLowerCase());
+                    if (labels.includes('agent:claude')) agent = 'claude';
+                    if (labels.includes('agent:codex')) agent = 'codex';
+                  }
+                }
+              }
+            }
+
+            core.setOutput('should_run', shouldRun ? 'true' : 'false');
+            core.setOutput('pr_number', prNumber);
+            core.setOutput('agent', agent);
+            core.setOutput('prompt', prompt);
+            core.setOutput('requester', requester);
+
+            core.info(`Decision: should_run=${shouldRun}, pr=${prNumber}, agent=${agent}, requester=${requester}`);
+
+  review:
+    needs: route
+    if: needs.route.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: pr-review-${{ needs.route.outputs.pr_number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Validate allowlist in reviewer (defense in depth)
+        id: allowlist
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          REQUESTER: ${{ needs.route.outputs.requester }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+            if (!allowedRaw) {
+              core.setFailed('AGENT_ALLOWED_ACTORS secret is empty.');
+              return;
+            }
+
+            const allowed = new Set(
+              allowedRaw
+                .split(',')
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean)
+            );
+            const isAllowed = (login) => Boolean(login && allowed.has(String(login).toLowerCase()));
+
+            const prNumber = Number(process.env.PR_NUMBER);
+            const requesterInput = (process.env.REQUESTER || '').trim();
+            const pr = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: prNumber,
+            });
+            const prAuthor = pr.data.user?.login || '';
+            const safeRequester = requesterInput || prAuthor;
+
+            if (!isAllowed(prAuthor)) {
+              core.setFailed(`PR author ${prAuthor || 'unknown'} is not allowlisted.`);
+              return;
+            }
+            if (!isAllowed(safeRequester)) {
+              core.setFailed(`Requester ${safeRequester || 'unknown'} is not allowlisted.`);
+              return;
+            }
+
+            core.setOutput('safe_requester', safeRequester);
+
+      - name: Check out PR head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: refs/pull/${{ needs.route.outputs.pr_number }}/head
+          persist-credentials: false
+
+      - name: Validate agent input
+        if: needs.route.outputs.agent != 'claude' && needs.route.outputs.agent != 'codex'
+        run: |
+          echo "Unsupported agent: ${{ needs.route.outputs.agent }}" >&2
+          exit 1
+
+      - name: Load pull request metadata
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            const pr = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: prNumber,
+            });
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('title', pr.data.title || '');
+            core.setOutput('body', pr.data.body || '');
+
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${BASE_REF}" --depth=1
+
+      - name: Build review prompt
+        id: prompt
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+          PR_BODY: ${{ steps.pr.outputs.body }}
+          EXTRA: ${{ needs.route.outputs.prompt }}
+          AGENT: ${{ needs.route.outputs.agent }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/review-prompt.txt <<EOF
+          Review this pull request against origin/${BASE_REF}.
+
+          Pull request title:
+          ${PR_TITLE}
+
+          Pull request description:
+          ${PR_BODY}
+
+          Additional instructions:
+          ${EXTRA}
+
+          Return a concise Markdown review with:
+          - Critical issues
+          - Warnings
+          - Suggestions
+
+          Save the final Markdown review to /tmp/agent-review.md.
+          Do not modify repository files.
+          EOF
+
+          {
+            echo 'prompt<<EOF'
+            cat /tmp/review-prompt.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure Claude OAuth token is configured
+        if: needs.route.outputs.agent == 'claude'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+            echo "CLAUDE_CODE_OAUTH_TOKEN is required for agent=claude." >&2
+            exit 1
+          fi
+
+      - name: Run Claude PR review
+        id: claude_review
+        if: needs.route.outputs.agent == 'claude'
+        uses: anthropics/claude-code-action@ea36d6abdedc17fc2a671b36060770b208a6f8f1 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.prompt.outputs.prompt }}
+
+      - name: Ensure Codex auth secret is configured
+        if: needs.route.outputs.agent == 'codex'
+        env:
+          CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CODEX_AUTH_JSON_B64}" ]; then
+            echo "CODEX_AUTH_JSON_B64 is required for agent=codex." >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js for Codex
+        if: needs.route.outputs.agent == 'codex'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Restore Codex login cache
+        if: needs.route.outputs.agent == 'codex'
+        env:
+          CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.codex"
+          printf 'cli_auth_credentials_store = "file"\n' > "${HOME}/.codex/config.toml"
+          echo "${CODEX_AUTH_JSON_B64}" | base64 --decode > "${HOME}/.codex/auth.json"
+          chmod 600 "${HOME}/.codex/auth.json"
+
+      - name: Install Codex CLI
+        if: needs.route.outputs.agent == 'codex'
+        run: npm install -g @openai/codex@0.101.0
+
+      - name: Run Codex PR review
+        if: needs.route.outputs.agent == 'codex'
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          codex login status > /tmp/codex-login-status.txt 2>&1
+          codex review --base "origin/${BASE_REF}" - < /tmp/review-prompt.txt > /tmp/agent-review.md 2>/tmp/codex-review.log
+
+      - name: Ensure review output exists
+        run: |
+          set -euo pipefail
+          if [ ! -s /tmp/agent-review.md ]; then
+            {
+              echo "No review summary was produced."
+              echo
+              echo "- Agent: \`${{ needs.route.outputs.agent }}\`"
+              echo "- Check the workflow logs for details."
+            } > /tmp/agent-review.md
+          fi
+
+      - name: Decide review artifact visibility
+        id: artifact_mode
+        env:
+          AGENT_PUBLIC_ARTIFACTS: ${{ secrets.AGENT_PUBLIC_ARTIFACTS }}
+        run: |
+          set -euo pipefail
+          mode="$(printf '%s' "${AGENT_PUBLIC_ARTIFACTS:-}" | tr '[:upper:]' '[:lower:]')"
+          case "${mode}" in
+            1|true|yes|on) public_artifacts="true" ;;
+            *) public_artifacts="false" ;;
+          esac
+          echo "public_artifacts=${public_artifacts}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload review artifact
+        if: steps.artifact_mode.outputs.public_artifacts == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-pr-review-${{ needs.route.outputs.pr_number }}
+          path: /tmp/agent-review.md
+          retention-days: 1
+
+      - name: Decide review comment visibility
+        id: visibility
+        env:
+          AGENT_PUBLIC_REVIEW_COMMENT: ${{ secrets.AGENT_PUBLIC_REVIEW_COMMENT }}
+        run: |
+          set -euo pipefail
+          mode="$(printf '%s' "${AGENT_PUBLIC_REVIEW_COMMENT:-}" | tr '[:upper:]' '[:lower:]')"
+          case "${mode}" in
+            1|true|yes|on) public_comment="true" ;;
+            *) public_comment="false" ;;
+          esac
+          echo "public_comment=${public_comment}" >> "$GITHUB_OUTPUT"
+
+      - name: Post review comment to PR
+        if: steps.visibility.outputs.public_comment == 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          AGENT: ${{ needs.route.outputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        with:
+          script: |
+            const fs = require('fs');
+            const maxLen = 60000;
+            let review = fs.readFileSync('/tmp/agent-review.md', 'utf8').trim();
+            if (review.length > maxLen) {
+              review = `${review.slice(0, maxLen)}\n\n(Review truncated due to comment length limit.)`;
+            }
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: [
+                `Automated PR review for @${process.env.REQUESTER}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '',
+                review
+              ].join('\n')
+            });
+
+      - name: Post redacted review notice to PR
+        if: steps.visibility.outputs.public_comment != 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          AGENT: ${{ needs.route.outputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+          PUBLIC_ARTIFACTS: ${{ steps.artifact_mode.outputs.public_artifacts }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const artifactText = process.env.PUBLIC_ARTIFACTS === 'true'
+              ? '- Full review is stored in a short-lived workflow artifact.'
+              : '- Review artifact upload is disabled by default to reduce public exposure.';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: [
+                `Automated PR review completed for @${process.env.REQUESTER}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '- Detailed review content is redacted from public comments by default.',
+                artifactText,
+                `- Workflow run: ${process.env.RUN_URL}`,
+                '',
+                'To publish full review text in PR comments, set repository secret `AGENT_PUBLIC_REVIEW_COMMENT=true`.',
+                'To upload review artifact, set repository secret `AGENT_PUBLIC_ARTIFACTS=true`.'
+              ].join('\n')
+            });
+
+      - name: Post failure comment to PR
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
+          AGENT: ${{ needs.route.outputs.agent }}
+          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: [
+                `PR review automation failed for @${process.env.REQUESTER || 'requester'}.`,
+                `- Agent: \`${process.env.AGENT}\``,
+                '- Check workflow logs for details.'
+              ].join('\n')
+            });

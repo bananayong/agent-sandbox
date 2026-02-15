@@ -94,6 +94,66 @@ docker build -t agent-sandbox:latest .
 - `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
 - `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
 
+## GitHub Agent Automation
+
+이 저장소는 이슈 기반 자동 작업과 PR 리뷰 자동화를 위한 GitHub Actions를 포함합니다.
+
+- `.github/workflows/agent-issue-intake.yml`
+- `.github/workflows/agent-issue-worker.yml`
+- `.github/workflows/agent-pr-reviewer.yml`
+
+### Required Secrets
+
+- `AGENT_ALLOWED_ACTORS` — 자동화를 허용할 GitHub 로그인 목록 (쉼표 구분, 예: `myid,teammate`)
+- `CLAUDE_CODE_OAUTH_TOKEN` — Claude Code OAuth 토큰
+- `CODEX_AUTH_JSON_B64` — `~/.codex/auth.json`을 base64로 인코딩한 값
+
+### Optional Secrets (공개 제어)
+
+- `AGENT_AUTO_PUBLISH` — `true`일 때만 이슈 작업 결과를 브랜치/PR로 자동 공개 (기본: 비활성)
+- `AGENT_PUBLIC_REVIEW_COMMENT` — `true`일 때만 PR에 상세 리뷰 본문 공개 코멘트 (기본: 비활성)
+- `AGENT_PUBLIC_ARTIFACTS` — `true`일 때만 patch/review artifact 업로드 (기본: 비활성)
+
+보안 기본값: `AGENT_ALLOWED_ACTORS`가 비어 있으면 워크플로우는 자동 실행을 거부합니다(fail-closed).
+
+### Secret 등록 예시
+
+```bash
+# 1) 자동화 허용 사용자 지정 (본인만 허용하려면 본인 ID만 입력)
+gh secret set AGENT_ALLOWED_ACTORS --body "<your-github-login>"
+
+# 2) Claude OAuth 토큰 등록
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --body "<claude-oauth-token>"
+
+# 3) Codex 로그인 캐시(auth.json)를 base64로 등록
+base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
+
+# 4) (선택) 자동 브랜치/PR 공개를 켜려면
+gh secret set AGENT_AUTO_PUBLISH --body "true"
+
+# 5) (선택) PR 상세 리뷰 공개 코멘트를 켜려면
+gh secret set AGENT_PUBLIC_REVIEW_COMMENT --body "true"
+
+# 6) (선택) patch/review artifact 업로드를 켜려면
+gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
+```
+
+### Trigger Rules
+
+- 이슈 자동 작업:
+  - 라벨: `agent:auto` + 선택 라벨 `agent:claude` 또는 `agent:codex`
+  - 코멘트: `/agent run [claude|codex] [추가 지시사항]`
+- PR 자동 리뷰:
+  - 라벨: `agent:review` + 선택 라벨 `agent:claude` 또는 `agent:codex`
+  - 코멘트: `/agent review [claude|codex] [추가 지시사항]`
+
+### Safety Guards
+
+- allowlist(`AGENT_ALLOWED_ACTORS`)에 포함된 사용자 작성 이벤트에만 반응
+- `github-actions[bot]`가 만든 이벤트에는 반응하지 않음
+- 이슈/PR 라벨 기반 실행에서도 라벨을 단 사용자까지 allowlist 검증
+- 기본값으로 결과 공개를 최소화 (자동 publish/상세 리뷰 코멘트/artifact 업로드 모두 opt-in)
+
 ## Included Tools (요약)
 
 - Base: Debian bookworm-slim, zsh, tmux, git, python3, node 22, bun
@@ -181,6 +241,10 @@ docker compose up
 
 - Shell script와 Docker 관련 파일은 초보자도 이해할 수 있도록 "왜 필요한지", "어떤 순서로 동작하는지", "권한/보안에 어떤 영향이 있는지"를 주석으로 명확히 남깁니다.
 - 기능 수정 시 로직 변경뿐 아니라 관련 주석도 함께 업데이트하는 것을 기본 규칙으로 사용합니다.
+
+## Additional Guide
+
+- 개인/public 저장소 기준 GitHub 자동화 상세 운영 가이드: `GITHUB_AGENT_AUTOMATION_GUIDE.md`
 
 ---
 

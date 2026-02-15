@@ -32,6 +32,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
 - [ ] [P2] (docs) 아키텍처 다이어그램 — README에 마운트 구조, 네트워크, 진입 흐름을 시각화한 다이어그램 추가
 - [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
+- [ ] [P2] (quality) GitHub Actions workflow lint 도입 — actionlint를 설치하고 `.github/workflows/*.yml` 정적 검증을 CI에 추가
 - [ ] [P3] (usability) dry-run 모드 — `run.sh --dry-run`으로 실제 실행 없이 어떤 Docker 명령이 수행될지 미리 출력
 - [ ] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화
 - [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
@@ -72,5 +73,5 @@ Optionally tag with priority and category:
 - [x] [P1] (setup) 개발 환경 도구 자동 세팅 — pre-commit, shellcheck, hadolint, gitleaks 자동 구성
 - [x] [P2] (setup) direnv 설치 — GitHub release 바이너리 + zshrc hook 추가
 - [x] [P2] (build) 이미지 빌드 smoke test — `scripts/smoke-test.sh` 추가, 빌드 시 `--build` 플래그로 자동 실행
-- [x] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — `.github/workflows/claude.yml` (claude-code-action)
+- [x] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — allowlist 기반 안전장치 + `.github/workflows/agent-issue-intake.yml`, `.github/workflows/agent-issue-worker.yml`, `.github/workflows/agent-pr-reviewer.yml`
 - [x] [P1] (setup) 에이전트에게 사용 가능한 도구 목록 알려주기 — TOOLS.md 컨테이너 내부 배치 (`~/.config/agent-sandbox/TOOLS.md`)
