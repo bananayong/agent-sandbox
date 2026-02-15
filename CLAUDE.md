@@ -69,3 +69,5 @@ docker build -t agent-sandbox:latest .
 - `run.sh` auto-builds the image if it doesn't exist, and attaches to a running container instead of creating a new one
 - Shell aliases in `configs/zshrc` replace standard commands (cat->bat, ls->eza, find->fd, etc.) but only when the binary is available
 - The `configs/zimrc` has ordering constraints: `zsh-completions` must come before `completion`, `zsh-syntax-highlighting` must come after `completion`, `zsh-history-substring-search` must come after `syntax-highlighting`
+- For shell scripts and Docker-related files (`Dockerfile`, `docker-compose.yml`, `run.sh`, `scripts/*.sh`), prioritize beginner-friendly comments that explain purpose, execution flow, and safety/permission implications.
+- Git signing metadata must be configured in `$HOME` global Git config (`~/.gitconfig`, `~/.config/git/allowed_signers`) and never created in repository paths.

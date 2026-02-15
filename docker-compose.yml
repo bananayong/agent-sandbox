@@ -1,11 +1,14 @@
 services:
   sandbox:
+    # Build from local Dockerfile.
     build:
       context: .
       dockerfile: Dockerfile
+    # Fixed image/container names simplify attach/debug workflows.
     image: agent-sandbox:latest
     container_name: agent-sandbox
     hostname: sandbox
+    # Keep stdin/tty open for interactive shell use.
     stdin_open: true
     tty: true
 
@@ -15,10 +18,13 @@ services:
       - ${TARGET_DIR:-.}:/workspace
       # Entire $HOME for sandbox user → persists all configs/auth/history
       - ${SANDBOX_HOME:-~/.agent-sandbox/home}:/home/sandbox
-      # SSH agent forwarding (optional, host must have SSH_AUTH_SOCK)
+      # SSH agent forwarding (optional):
+      # - If host has SSH_AUTH_SOCK, container can reuse host SSH auth.
+      # - Fallback /dev/null keeps compose config valid when not set.
       - ${SSH_AUTH_SOCK:-/dev/null}:/tmp/ssh-agent.sock:ro
 
     environment:
+      # Point tools to forwarded SSH agent socket.
       - SSH_AUTH_SOCK=/tmp/ssh-agent.sock
       # API keys passed from host (never baked into image)
       - ANTHROPIC_API_KEY
@@ -28,10 +34,12 @@ services:
       - OPENCODE_API_KEY
 
     # Security
+    # Block privilege escalation inside container.
     security_opt:
       - no-new-privileges:true
 
     # Resource limits (deploy syntax works with docker compose v2+)
+    # mem_limit is broadly supported; deploy.limits is compose-v2 style.
     mem_limit: 8g
     deploy:
       resources:
@@ -39,4 +47,5 @@ services:
           memory: 8g
 
     # Network
+    # Default isolated bridge network.
     network_mode: bridge

@@ -9,6 +9,25 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Keep Git SSH signing config out of repository files
+- Context: `allowed_signers` was briefly created in repository root, which could be accidentally committed via broad staging commands.
+- Decision:
+  - Moved signing configuration to HOME-global Git settings (`~/.gitconfig` + `~/.config/git/allowed_signers`).
+  - Added repository guardrail by ignoring `.git_allowed_signers`.
+  - Documented rule in `AGENTS.md`, `CLAUDE.md`, and `README.md`.
+- Impact:
+  - Signing remains reusable across future sessions.
+  - Repository now avoids accidental inclusion of local signing metadata.
+
+### 2026-02-15 - Prioritize beginner-friendly comments in shell/Docker files
+- Context: Repository is used by a broad range of users, including beginners who need clearer operational understanding of scripts and container behavior.
+- Decision:
+  - Expanded explanatory comments in `run.sh`, `scripts/start.sh`, `Dockerfile`, and `docker-compose.yml`.
+  - Added explicit convention to `AGENTS.md`, `CLAUDE.md`, and `README.md` to keep beginner-friendly comments as a standing rule.
+- Impact:
+  - Onboarding and maintenance are easier because execution flow, safety flags, and permission handling are documented inline.
+  - Future code changes are expected to update comments together with logic changes.
+
 ### 2026-02-14 - Drop `cargo-binstall` in Docker build
 - Context: Docker builds repeatedly failed or stalled due to `cargo-binstall` resolution issues (version mismatches, architecture artifact errors, GitHub API/rate-limit behavior).
 - Decision: Removed `cargo-binstall`/Rust builder approach and switched to stable install paths only:

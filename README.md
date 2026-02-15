@@ -97,6 +97,7 @@ docker build -t agent-sandbox:latest .
 - `--security-opt no-new-privileges:true` 적용
 - `sudo`에 의존하는 엔트리포인트/런타임 스크립트는 동작하지 않도록 설계됨
 - API 키는 이미지에 bake 하지 않고 환경변수로만 전달
+- Git 서명 설정(`allowed_signers`, `user.signingkey`)은 저장소 파일이 아닌 `$HOME` 글로벌 경로(예: `~/.config/git/allowed_signers`)에만 둡니다.
 
 ## Troubleshooting
 
@@ -126,6 +127,11 @@ docker build -t agent-sandbox:latest .
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
 - `MEMORY.md`: 장기 의사결정 기록
 - `AGENTS.md`: 에이전트 작업 규칙
+
+## Documentation Convention (주석 원칙)
+
+- Shell script와 Docker 관련 파일은 초보자도 이해할 수 있도록 "왜 필요한지", "어떤 순서로 동작하는지", "권한/보안에 어떤 영향이 있는지"를 주석으로 명확히 남깁니다.
+- 기능 수정 시 로직 변경뿐 아니라 관련 주석도 함께 업데이트하는 것을 기본 규칙으로 사용합니다.
 
 ---
 

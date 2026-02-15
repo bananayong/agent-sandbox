@@ -1,6 +1,7 @@
 # AI agent local settings (per-user, not shared)
 .claude/settings.local.json
 .git-signing/
+.git_allowed_signers
 .codex/
 .gemini/
 .opencode/
