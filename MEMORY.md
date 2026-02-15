@@ -9,6 +9,39 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Align DNS resolver selection with default IPv6-off runtime policy
+- Context: Runtime now disables container IPv6 by default, but DNS auto-detection accepted IPv6 nameservers, which could produce resolver failures when only IPv6 DNS entries were selected.
+- Decision:
+  - Updated `run.sh` DNS parser to keep IPv4 nameservers only when building container `--dns` list.
+  - Added fallback behavior when `AGENT_SANDBOX_DNS_SERVERS` contains no valid IPv4 entries (warn + use host-derived IPv4 DNS).
+  - Updated README and startup diagnostic hint to explicitly recommend IPv4 DNS entries.
+- Impact:
+  - Prevents inconsistent "IPv6 off + IPv6 DNS server" combinations from causing avoidable DNS failures.
+  - Keeps DNS override behavior predictable for Claude connectivity troubleshooting.
+
+### 2026-02-15 - Enforce host alias and IPv6-off as default runtime behavior
+- Context: Follow-up request required removing user-facing switches and making network hardening always-on to reduce Claude connection instability in Docker sessions.
+- Decision:
+  - Updated `run.sh` to always apply container sysctls `net.ipv6.conf.all.disable_ipv6=1` and `net.ipv6.conf.default.disable_ipv6=1`.
+  - Updated `run.sh` to add `host.docker.internal:host-gateway` mapping automatically when Docker Engine supports it (20.10+).
+  - Updated `docker-compose.yml` with default `extra_hosts` mapping and fixed IPv6-off sysctls (no env toggle).
+  - Updated README troubleshooting to document default host mapping + IPv6-off behavior.
+- Impact:
+  - Users get stable host reachability alias and IPv6-path avoidance by default without extra flags.
+  - Operational complexity is reduced (fewer tuning switches) while preserving `run.sh` compatibility fallback on older Docker engines.
+
+### 2026-02-15 - Add DNS override path and startup DNS diagnostics for Claude in Docker
+- Context: Claude CLI connection failures in containers were still being reported as `fetch failed`, `Connection error`, and post-idle socket retries failing, with DNS resolution issues (especially systemd-resolved stub `127.0.0.53`) as a recurring trigger.
+- Decision:
+  - Added `run.sh --dns` and `AGENT_SANDBOX_DNS_SERVERS` support to explicitly set container DNS resolvers.
+  - Added automatic non-loopback DNS detection in `run.sh` (`/etc/resolv.conf` with fallback to `/run/systemd/resolve/resolv.conf`).
+  - Added entrypoint DNS sanity check in `scripts/start.sh` that warns when `api.anthropic.com` cannot be resolved and prints actionable restart guidance.
+  - Set `DISABLE_AUTOUPDATER=1` by default in `run.sh`, `docker-compose.yml`, and `start.sh` to reduce nonessential network calls.
+- Impact:
+  - Users can force stable resolver paths without editing Docker daemon config.
+  - DNS-origin failures are surfaced immediately at container startup with direct remediation hints.
+  - Claude startup/operation reduces background network noise in restricted or flaky environments.
+
 ### 2026-02-15 - Refine skills install scope: only `skill-creator` is Claude-only
 - Context: Previous policy temporarily disabled all Codex/Gemini shared-skill installs, but intended behavior was narrower: only avoid overriding built-in `skill-creator`.
 - Decision:

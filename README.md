@@ -92,7 +92,8 @@ docker build -t agent-sandbox:latest .
 
 ## Environment Variables
 
-`run.sh`/`docker-compose.yml`은 아래 키가 호스트에 설정되어 있으면 컨테이너로 전달합니다.
+`run.sh`/`docker-compose.yml`은 아래 키를 컨테이너에 전달합니다.
+호스트에 설정된 값은 그대로 전달되고, 일부 안정화 항목은 기본값이 자동 주입됩니다.
 
 **API 키:**
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`, `OPENCODE_API_KEY`
@@ -107,9 +108,11 @@ docker build -t agent-sandbox:latest .
 - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` — Claude 텔레메트리 비활성화 (기본 `1`)
 - `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
 - `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
+- `DISABLE_AUTOUPDATER` — 백그라운드 업데이트 확인 비활성화 (기본 `1`)
 - `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (docker-compose 전용, 기본 `/var/run/docker.sock`)
 - `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
 - `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
+- `AGENT_SANDBOX_DNS_SERVERS` — 컨테이너 DNS 서버 목록 (IPv4 권장, 쉼표/공백 구분, 예: `10.0.0.2,1.1.1.1`, `run.sh` 전용)
 - `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
 
 ## GitHub Agent Automation
@@ -207,9 +210,13 @@ gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
 - 가장 먼저 컨테이너를 재시작하세요: `./run.sh -s` 후 `./run.sh .`
 - 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
 - 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
+- DNS 이슈가 의심되면 컨테이너 DNS를 명시하세요.
+  - 예: `./run.sh --dns "10.0.0.2,1.1.1.1" .`
+  - 또는: `AGENT_SANDBOX_DNS_SERVERS="10.0.0.2,1.1.1.1" ./run.sh .`
+- `run.sh`/`docker-compose.yml`은 기본으로 `host.docker.internal` 매핑을 추가하고, 컨테이너 내부 IPv6를 비활성화해 IPv6 경로 지연을 줄입니다.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1280으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
 - `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면 텔레메트리 경로를 함께 끄고 실행해 보세요.
-  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_ERROR_REPORTING=1 DISABLE_TELEMETRY=1 ./run.sh .`
+  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_ERROR_REPORTING=1 DISABLE_TELEMETRY=1 DISABLE_AUTOUPDATER=1 ./run.sh .`
 - 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
   - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (run.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
   - 비활성화: `AGENT_SANDBOX_NODE_TLS_COMPAT=0 ./run.sh .`

@@ -37,7 +37,8 @@ detect_host_docker_socket() {
     echo "/var/run/docker.sock"
     return
   fi
-  local rootless_sock="/run/user/$(id -u)/docker.sock"
+  local rootless_sock
+  rootless_sock="/run/user/$(id -u)/docker.sock"
   if [[ -S "$rootless_sock" ]]; then
     echo "$rootless_sock"
     return
@@ -111,6 +112,7 @@ Arguments:
 
 Options:
   -b, --build      Build the Docker image before running
+      --dns LIST    Override container DNS servers (comma/space separated)
   -r, --reset      Reset sandbox home (removes all persisted configs)
   -s, --stop       Stop the running container
   -h, --help       Show this help message
@@ -119,7 +121,11 @@ Examples:
   $(basename "$0")                      # Current directory as workspace
   $(basename "$0") ~/projects/myapp     # Specific directory
   $(basename "$0") -b .                 # Build image first, then run
+  $(basename "$0") --dns "10.0.0.2,1.1.1.1" .
   $(basename "$0") -r                   # Reset all persisted settings
+
+Environment:
+  AGENT_SANDBOX_DNS_SERVERS   DNS servers for container (comma/space separated)
 EOF
 }
 
@@ -154,7 +160,7 @@ stop_container() {
 reset_home() {
   # Reset means deleting persisted home directory on host.
   # This wipes shell history, agent login state, and dotfiles.
-  read -p "This will delete all persisted configs at $SANDBOX_HOME. Continue? [y/N] " confirm
+  read -r -p "This will delete all persisted configs at $SANDBOX_HOME. Continue? [y/N] " confirm
   if [[ "$confirm" =~ ^[Yy]$ ]]; then
     rm -rf "$SANDBOX_HOME"
     echo "Sandbox home reset."
@@ -188,6 +194,81 @@ ensure_network() {
     docker network rm "$NETWORK_NAME" >/dev/null 2>&1 || true
     docker network create --driver bridge --opt "com.docker.network.driver.mtu=${desired_mtu}" "$NETWORK_NAME"
   fi
+}
+
+collect_nonloopback_nameservers_from_file() {
+  local resolv_file="$1"
+  local ip_mode="${2:-any}"
+  if [[ ! -r "$resolv_file" ]]; then
+    return
+  fi
+  # Skip loopback resolvers because they usually point to host-local stubs
+  # (for example 127.0.0.53) that are unreachable from inside containers.
+  # When container IPv6 is disabled, keep IPv4 DNS only to avoid resolver stalls.
+  if [[ "$ip_mode" == "ipv4" ]]; then
+    awk '/^nameserver[[:space:]]+/ {print $2}' "$resolv_file" \
+      | awk '$1 !~ /^127\./ && $1 != "::1" && $1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ {print $1}'
+    return
+  fi
+  awk '/^nameserver[[:space:]]+/ {print $2}' "$resolv_file" \
+    | awk '$1 !~ /^127\./ && $1 != "::1" {print $1}'
+}
+
+detect_dns_servers() {
+  # Priority:
+  # 1) explicit AGENT_SANDBOX_DNS_SERVERS (user override)
+  # 2) host /etc/resolv.conf non-loopback nameservers
+  # 3) systemd-resolved upstream list (/run/systemd/resolve/resolv.conf)
+  #
+  # Note: container runtime disables IPv6 by default, so only IPv4 resolvers
+  # are selected to keep DNS behavior consistent.
+  local explicit_dns="${AGENT_SANDBOX_DNS_SERVERS:-}"
+  local token
+  if [[ -n "$explicit_dns" ]]; then
+    local explicit_ipv4_dns
+    explicit_ipv4_dns="$(
+      for token in ${explicit_dns//,/ }; do
+        if [[ "$token" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+          printf '%s\n' "$token"
+        fi
+      done | awk '!seen[$0]++'
+    )"
+    if [[ -n "$explicit_ipv4_dns" ]]; then
+      printf '%s\n' "$explicit_ipv4_dns"
+      return
+    fi
+    echo "Warning: AGENT_SANDBOX_DNS_SERVERS has no valid IPv4 entries; falling back to host DNS." >&2
+  fi
+
+  local host_dns
+  host_dns="$(collect_nonloopback_nameservers_from_file /etc/resolv.conf ipv4 | awk '!seen[$0]++')"
+  if [[ -n "$host_dns" ]]; then
+    printf '%s\n' "$host_dns"
+    return
+  fi
+
+  collect_nonloopback_nameservers_from_file /run/systemd/resolve/resolv.conf ipv4 | awk '!seen[$0]++'
+}
+
+docker_supports_host_gateway() {
+  # host-gateway requires Docker Engine 20.10+.
+  local version_raw
+  version_raw="$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)"
+  if [[ -z "$version_raw" ]]; then
+    return 1
+  fi
+
+  local major minor
+  major="$(printf '%s' "$version_raw" | awk -F'[.-]' '{print $1}')"
+  minor="$(printf '%s' "$version_raw" | awk -F'[.-]' '{print $2}')"
+  if [[ ! "$major" =~ ^[0-9]+$ ]] || [[ ! "$minor" =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+
+  if (( major > 20 )) || (( major == 20 && minor >= 10 )); then
+    return 0
+  fi
+  return 1
 }
 
 run_container() {
@@ -233,7 +314,6 @@ run_container() {
   echo "Starting agent sandbox..."
   echo "  Workspace: $workspace_dir"
   echo "  Home:      $SANDBOX_HOME"
-  echo ""
 
   # Build docker run command as an array (safe quoting of arguments).
   local docker_args=(
@@ -251,6 +331,37 @@ run_container() {
     # Persisted sandbox home mount.
     -v "$SANDBOX_HOME:/home/sandbox"
   )
+
+  # Add host.docker.internal mapping for local host service access from
+  # inside container (MCP/local tooling).
+  if docker_supports_host_gateway; then
+    docker_args+=(--add-host host.docker.internal:host-gateway)
+    echo "  Host map:  host.docker.internal -> host-gateway"
+  else
+    echo "  Host map:  skipped (Docker < 20.10)"
+  fi
+
+  # Disable IPv6 inside the container network namespace by default.
+  # This reduces IPv6-first connection stalls in some Docker/WSL/VPN setups.
+  docker_args+=(--sysctl net.ipv6.conf.all.disable_ipv6=1)
+  docker_args+=(--sysctl net.ipv6.conf.default.disable_ipv6=1)
+  echo "  IPv6:      disabled"
+
+  # Explicitly pass DNS servers when available. This avoids Docker's fallback
+  # to public DNS in environments where host resolvers are stub/local only.
+  local dns_servers=()
+  local dns_server
+  while IFS= read -r dns_server; do
+    [[ -n "$dns_server" ]] && dns_servers+=("$dns_server")
+  done < <(detect_dns_servers)
+  if [[ ${#dns_servers[@]} -gt 0 ]]; then
+    echo "  DNS:       ${dns_servers[*]}"
+    for dns_server in "${dns_servers[@]}"; do
+      docker_args+=(--dns "$dns_server")
+    done
+  else
+    echo "  DNS:       docker default (no explicit override)"
+  fi
 
   # Mount a host path into the container at the same absolute path.
   # This is used for trust stores referenced by env vars so Node/OpenSSL can
@@ -328,7 +439,8 @@ run_container() {
     AGENT_SANDBOX_AUTO_APPROVE \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC \
     DISABLE_ERROR_REPORTING \
-    DISABLE_TELEMETRY; do
+    DISABLE_TELEMETRY \
+    DISABLE_AUTOUPDATER; do
     if [[ -n "${!key:-}" ]]; then
       docker_args+=(-e "$key")
     fi
@@ -345,6 +457,9 @@ run_container() {
   # Disable telemetry exports by default (BigQuery/metrics path).
   local disable_telemetry="${DISABLE_TELEMETRY:-1}"
   docker_args+=(-e "DISABLE_TELEMETRY=$disable_telemetry")
+  # Disable background auto-update checks to reduce nonessential calls.
+  local disable_autoupdater="${DISABLE_AUTOUPDATER:-1}"
+  docker_args+=(-e "DISABLE_AUTOUPDATER=$disable_autoupdater")
   # Default to max-autonomy mode for agent CLIs in the sandbox shell.
   # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to restore interactive prompts.
   local auto_approve="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
@@ -377,6 +492,7 @@ run_container() {
   mount_host_path_ro_if_exists "${SSL_CERT_DIR:-}"
   mount_host_path_ro_if_exists "${NODE_EXTRA_CA_CERTS:-}"
 
+  echo ""
   docker_args+=("$IMAGE_NAME")
 
   "${docker_args[@]}"
@@ -390,6 +506,7 @@ run_container() {
 DO_BUILD=false
 DO_RESET=false
 DO_STOP=false
+DNS_OVERRIDE=""
 WORKSPACE="."
 
 while [[ $# -gt 0 ]]; do
@@ -405,6 +522,14 @@ while [[ $# -gt 0 ]]; do
     -s|--stop)
       DO_STOP=true
       shift
+      ;;
+    --dns)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --dns requires a value (example: --dns \"10.0.0.2,1.1.1.1\")"
+        exit 1
+      fi
+      DNS_OVERRIDE="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -435,6 +560,10 @@ fi
 
 if $DO_BUILD; then
   build_image
+fi
+
+if [[ -n "$DNS_OVERRIDE" ]]; then
+  AGENT_SANDBOX_DNS_SERVERS="$DNS_OVERRIDE"
 fi
 
 # Validate workspace directory

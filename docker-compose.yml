@@ -11,6 +11,10 @@ services:
     # Keep stdin/tty open for interactive shell use.
     stdin_open: true
     tty: true
+    # Provide stable host alias for tools inside container that need to reach
+    # services running on host (for example MCP servers bound to host ports).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Keep container user aligned with host user when needed.
     # This helps rootless Docker socket setups where socket mode is 0600.
     # Defaults to sandbox UID/GID (1000:1000) for normal setups.
@@ -72,6 +76,7 @@ services:
       - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}
       - DISABLE_ERROR_REPORTING=${DISABLE_ERROR_REPORTING:-1}
       - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}
+      - DISABLE_AUTOUPDATER=${DISABLE_AUTOUPDATER:-1}
       # Auto-approve agent permissions by default (dangerous).
       # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to re-enable prompts.
       - AGENT_SANDBOX_AUTO_APPROVE=${AGENT_SANDBOX_AUTO_APPROVE:-1}
@@ -80,6 +85,10 @@ services:
     # Block privilege escalation inside container.
     security_opt:
       - no-new-privileges:true
+    # Network hardening: disable IPv6 inside container net namespace.
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "1"
+      net.ipv6.conf.default.disable_ipv6: "1"
 
     # Resource limits (deploy syntax works with docker compose v2+).
     mem_limit: 8g

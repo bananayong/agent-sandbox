@@ -134,6 +134,7 @@ copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
 export DISABLE_ERROR_REPORTING="${DISABLE_ERROR_REPORTING:-1}"
 export DISABLE_TELEMETRY="${DISABLE_TELEMETRY:-1}"
+export DISABLE_AUTOUPDATER="${DISABLE_AUTOUPDATER:-1}"
 # Enable agent auto-approve mode by default (can be disabled with 0).
 export AGENT_SANDBOX_AUTO_APPROVE="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
 export AGENT_SANDBOX_NODE_TLS_COMPAT="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
@@ -148,6 +149,28 @@ if [[ "${AGENT_SANDBOX_NODE_TLS_COMPAT}" == "1" ]]; then
     export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
   fi
 fi
+
+# Quick DNS sanity check for Claude API hostname.
+# This catches common cases where container DNS points to unreachable stubs.
+print_dns_diagnostics() {
+  if getent hosts api.anthropic.com >/dev/null 2>&1; then
+    return
+  fi
+
+  local nameservers
+  nameservers="$(awk '/^nameserver[[:space:]]+/ {printf "%s ", $2}' /etc/resolv.conf 2>/dev/null)"
+  nameservers="${nameservers% }"
+
+  echo "[init] WARNING: DNS lookup failed for api.anthropic.com"
+  if [[ -n "$nameservers" ]]; then
+    echo "  /etc/resolv.conf nameservers: $nameservers"
+  else
+    echo "  /etc/resolv.conf has no nameserver entries."
+  fi
+  echo "  Tip: restart with AGENT_SANDBOX_DNS_SERVERS='<ipv4_dns1>,<ipv4_dns2>' ./run.sh ."
+}
+
+print_dns_diagnostics
 
 # ============================================================
 # Zimfw bootstrap
