@@ -68,5 +68,6 @@ Optionally tag with priority and category:
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
+- [ ] [P1] (automation) 에이전트 권한 프롬프트 최소화 — Claude/Codex 등에서 반복적으로 permission 확인을 묻지 않도록 안전한 기본 허용 규칙(prefix allowlist, 비파괴 명령 자동 승인)과 가이드 정비
 
 ## Done
