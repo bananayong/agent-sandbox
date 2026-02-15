@@ -147,3 +147,18 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 - Impact:
   - Container startup is cleaner and more predictable.
   - `tealdeer` remains installed, but cache warm-up is currently manual/on-demand.
+
+### 2026-02-15 - Add missing tool binaries, security tools, Claude Code config, direnv, smoke test, and GH Actions
+- Context: zshrc had aliases for dust, procs, btm, xh, mcfly but no binaries installed. Security tools (pre-commit, gitleaks, hadolint, shellcheck) were absent. Claude Code had no custom slash commands, skills, or MCP config. direnv was missing. No build-time tool verification existed. No GitHub Actions automation for issue-to-PR workflow.
+- Decision:
+  - **Batch 1 (Dockerfile):** Added dust v1.2.4, procs v0.14.10, bottom v0.12.3, xh v0.25.3, mcfly v0.9.4 from pinned GitHub release binaries. Key gotchas: procs uses zip, bottom tags have no `v` prefix, xh/mcfly use musl builds, dust needs `--strip-components=1`.
+  - **Batch 2 (Dockerfile + configs):** Added shellcheck via apt, pre-commit via pip3, gitleaks v8.30.0 and hadolint v2.14.0 from GitHub releases. Created `configs/pre-commit-config.yaml` template with gitleaks, shellcheck, hadolint hooks. Template deployed to `~/.pre-commit-config.yaml.template` at first run.
+  - **Batch 3 (configs + Dockerfile + start.sh):** Created 4 Claude Code slash commands (commit, review, test, debug) in `configs/claude/commands/`, 1 skill (sandbox-setup) in `configs/claude/skills/`, and MCP config (`configs/claude/mcp.json`) with filesystem server for /workspace. TOOLS.md deployed to container at `~/.config/agent-sandbox/TOOLS.md` via `/etc/skel/` pattern. Added `!TOOLS.md` exception to `.dockerignore`.
+  - **Batch 4 (Dockerfile + zshrc + scripts):** Added direnv v2.37.1 from GitHub binary. Added direnv hook to zshrc. Created `scripts/smoke-test.sh` with `--build` flag to skip docker checks during image build. Smoke test runs during `docker build` and catches missing tools.
+  - **Batch 5 (.github):** Created `.github/workflows/claude.yml` using `anthropics/claude-code-action@v1` for automated issue-to-PR workflow (triggered by `@claude` mentions or `claude` label).
+- Impact:
+  - All zshrc aliases now have corresponding binaries.
+  - Security scanning infrastructure (gitleaks, shellcheck, hadolint) available out of the box.
+  - Claude Code users get pre-configured slash commands and MCP server on first run.
+  - Build-time smoke test catches missing tools before image ships.
+  - Estimated image size increase: ~63 MB.

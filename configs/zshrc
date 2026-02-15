@@ -100,6 +100,11 @@ if command -v zoxide &>/dev/null; then
   eval "$(zoxide init zsh)"
 fi
 
+# direnv (auto-load .envrc per-directory env vars)
+if command -v direnv &>/dev/null; then
+  eval "$(direnv hook zsh)"
+fi
+
 # fzf (load BEFORE mcfly so mcfly's Ctrl+R takes priority)
 if command -v fzf &>/dev/null; then
   # Use fd for fzf if available

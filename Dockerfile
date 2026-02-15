@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bat zoxide tealdeer \
     dnsutils iputils-ping net-tools openssh-client \
     less file man-db htop \
+    shellcheck \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable UTF-8 locale so shells/tools behave consistently.
@@ -66,6 +67,15 @@ ARG GITUI_VERSION=0.26.3
 ARG TOKEI_VERSION=12.1.2
 ARG YQ_VERSION=4.44.6
 ARG DELTA_VERSION=0.18.2
+ARG DUST_VERSION=1.2.4
+ARG PROCS_VERSION=0.14.10
+ARG BOTTOM_VERSION=0.12.3
+ARG XH_VERSION=0.25.3
+ARG MCFLY_VERSION=0.9.4
+ARG GITLEAKS_VERSION=8.30.0
+ARG HADOLINT_VERSION=2.14.0
+ARG DIRENV_VERSION=2.37.1
+ARG PRE_COMMIT_VERSION=4.5.1
 
 # Install fzf from release artifact.
 # Architecture names differ by project; map debian arch -> release arch.
@@ -167,6 +177,62 @@ RUN ARCH=$(dpkg --print-architecture) \
 # Debian package may expose bat as batcat. Create bat symlink for consistency.
 RUN if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then ln -s /usr/bin/batcat /usr/local/bin/bat; fi
 
+# Install dust (better du replacement).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then DUST_ARCH="aarch64"; else DUST_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/bootandy/dust/releases/download/v${DUST_VERSION}/dust-v${DUST_VERSION}-${DUST_ARCH}-unknown-linux-gnu.tar.gz" \
+    | tar -xz --strip-components=1 -C /usr/local/bin/ "dust-v${DUST_VERSION}-${DUST_ARCH}-unknown-linux-gnu/dust"
+
+# Install procs (better ps replacement).
+# procs uses zip archives, not tar.gz.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then PROCS_ARCH="aarch64"; else PROCS_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/dalance/procs/releases/download/v${PROCS_VERSION}/procs-v${PROCS_VERSION}-${PROCS_ARCH}-linux.zip" -o /tmp/procs.zip \
+    && unzip -o /tmp/procs.zip -d /usr/local/bin/ \
+    && chmod +x /usr/local/bin/procs \
+    && rm /tmp/procs.zip
+
+# Install bottom (btm — better top replacement).
+# NOTE: bottom release tags do NOT have a 'v' prefix.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then BTM_ARCH="aarch64"; else BTM_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/ClementTsang/bottom/releases/download/${BOTTOM_VERSION}/bottom_${BTM_ARCH}-unknown-linux-gnu.tar.gz" \
+    | tar -xz -C /usr/local/bin/ btm
+
+# Install xh (better curl/httpie replacement for API testing).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then XH_ARCH="aarch64"; else XH_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/ducaale/xh/releases/download/v${XH_VERSION}/xh-v${XH_VERSION}-${XH_ARCH}-unknown-linux-musl.tar.gz" \
+    | tar -xz --strip-components=1 -C /usr/local/bin/ "xh-v${XH_VERSION}-${XH_ARCH}-unknown-linux-musl/xh"
+
+# Install mcfly (intelligent shell history search, overrides Ctrl+R).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then MCFLY_ARCH="aarch64"; else MCFLY_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/cantino/mcfly/releases/download/v${MCFLY_VERSION}/mcfly-v${MCFLY_VERSION}-${MCFLY_ARCH}-unknown-linux-musl.tar.gz" \
+    | tar -xz -C /usr/local/bin/ mcfly
+
+# Install pre-commit (code quality hook framework).
+# --break-system-packages is safe in container context (no venv needed).
+RUN pip3 install --break-system-packages "pre-commit==${PRE_COMMIT_VERSION}"
+
+# Install gitleaks (detect secrets in git commits).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then GL_ARCH="arm64"; else GL_ARCH="x64"; fi \
+    && curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GL_ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin/ gitleaks
+
+# Install hadolint (Dockerfile linter, single static binary).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then HL_ARCH="arm64"; else HL_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-${HL_ARCH}" -o /usr/local/bin/hadolint \
+    && chmod +x /usr/local/bin/hadolint
+
+# Install direnv (auto-load .envrc per-directory environment variables).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then DIRENV_ARCH="arm64"; else DIRENV_ARCH="amd64"; fi \
+    && curl -fsSL "https://github.com/direnv/direnv/releases/download/v${DIRENV_VERSION}/direnv.linux-${DIRENV_ARCH}" -o /usr/local/bin/direnv \
+    && chmod +x /usr/local/bin/direnv
+
 # Create non-root runtime user.
 # sudo is configured for compatibility, but run.sh also sets no-new-privileges.
 # sandbox is added to root group (GID 0) so Docker socket access works on
@@ -193,7 +259,17 @@ RUN bun install -g \
 RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v codex || { echo "ERROR: codex not found"; exit 1; } \
     && command -v gemini || { echo "ERROR: gemini not found"; exit 1; } \
-    && command -v opencode || { echo "ERROR: opencode not found"; exit 1; }
+    && command -v opencode || { echo "ERROR: opencode not found"; exit 1; } \
+    && command -v dust || { echo "ERROR: dust not found"; exit 1; } \
+    && command -v procs || { echo "ERROR: procs not found"; exit 1; } \
+    && command -v btm || { echo "ERROR: btm not found"; exit 1; } \
+    && command -v xh || { echo "ERROR: xh not found"; exit 1; } \
+    && command -v mcfly || { echo "ERROR: mcfly not found"; exit 1; } \
+    && command -v pre-commit || { echo "ERROR: pre-commit not found"; exit 1; } \
+    && command -v gitleaks || { echo "ERROR: gitleaks not found"; exit 1; } \
+    && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
+    && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
+    && command -v direnv || { echo "ERROR: direnv not found"; exit 1; }
 
 # Default dotfiles are copied to /etc/skel.
 # start.sh later copies them into user home only when missing.
@@ -202,9 +278,28 @@ COPY configs/zimrc /etc/skel/.default.zimrc
 COPY configs/tmux.conf /etc/skel/.default.tmux.conf
 COPY configs/starship.toml /etc/skel/.config/starship.toml
 
+# Pre-commit config template for initializing hooks in projects.
+COPY configs/pre-commit-config.yaml /etc/skel/.default.pre-commit-config.yaml
+
+# Claude Code slash commands, skills, and MCP server config.
+COPY configs/claude/commands/ /etc/skel/.claude/commands/
+COPY configs/claude/skills/ /etc/skel/.claude/skills/
+COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
+
+# TOOLS.md reference for agents working on other projects.
+# .dockerignore needs !TOOLS.md exception (after *.md) to include this file.
+COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
+
+# Smoke test script for build-time and runtime tool verification.
+COPY scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
+RUN chmod +x /usr/local/bin/smoke-test.sh
+
 # Entry script handles first-run bootstrap, then exec CMD.
 COPY scripts/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
+
+# Run smoke test during build (--build skips docker socket checks).
+RUN /usr/local/bin/smoke-test.sh --build
 
 ENV STARSHIP_CONFIG=/home/sandbox/.config/starship.toml
 

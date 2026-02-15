@@ -30,6 +30,8 @@ copy_default /etc/skel/.default.zshrc        "$HOME_DIR/.zshrc"
 copy_default /etc/skel/.default.zimrc         "$HOME_DIR/.zimrc"
 copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
 copy_default /etc/skel/.config/starship.toml  "$HOME_DIR/.config/starship.toml"
+copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
+copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
 
 # Claude CLI reads this file very early. Ensure it exists to avoid repeated
 # ENOENT exceptions during startup when home was freshly initialized/reset.
@@ -37,6 +39,23 @@ if [[ ! -f "$HOME_DIR/.claude/remote-settings.json" ]]; then
   mkdir -p "$HOME_DIR/.claude"
   printf '{}\n' > "$HOME_DIR/.claude/remote-settings.json"
 fi
+
+# Copy Claude Code slash commands if the commands directory is empty/missing.
+if [[ ! -d "$HOME_DIR/.claude/commands" ]] || [[ -z "$(ls -A "$HOME_DIR/.claude/commands" 2>/dev/null)" ]]; then
+  echo "[init] Installing Claude Code slash commands..."
+  mkdir -p "$HOME_DIR/.claude/commands"
+  cp -r /etc/skel/.claude/commands/* "$HOME_DIR/.claude/commands/" 2>/dev/null || true
+fi
+
+# Copy Claude Code skills if the skills directory is empty/missing.
+if [[ ! -d "$HOME_DIR/.claude/skills" ]] || [[ -z "$(ls -A "$HOME_DIR/.claude/skills" 2>/dev/null)" ]]; then
+  echo "[init] Installing Claude Code skills..."
+  mkdir -p "$HOME_DIR/.claude/skills"
+  cp -r /etc/skel/.claude/skills/* "$HOME_DIR/.claude/skills/" 2>/dev/null || true
+fi
+
+# Copy MCP server config template if not already present.
+copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 
 # Runtime safety defaults for Claude network stability.
 # Keep these here (entrypoint) as a final fallback so they still apply even

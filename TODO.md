@@ -22,19 +22,8 @@ Optionally tag with priority and category:
 
 ## Pending
 
-- [ ] [P1] (setup) Claude Code custom slash commands 자동 구성 — `.claude/commands/`에 자주 쓰는 커맨드 정의 (예: /commit, /review-pr 등)
-- [ ] [P1] (setup) 개발 환경 도구 자동 세팅 — Git hooks, linter, formatter, test runner 등 워크플로우 도구 자동 구성
-- [ ] [P1] (setup) MCP 서버 설정 자동 구성 — `.mcp.json` 또는 `.claude/mcp.json`에 유용한 MCP 서버 등록
-- [ ] [P1] (setup) Claude skills 자동 구성 — 프로젝트에 맞는 Claude skills 정의 및 등록
-- [ ] [P1] (setup) 유용한 스킬 만들기 — 반복 작업(디버깅, 릴리즈, 리뷰 등)을 빠르게 수행할 수 있는 프로젝트 맞춤형 에이전트 스킬 설계/구현
-- [ ] [P2] (quality) Dockerfile/shell script lint 및 검증 도구 도입 — hadolint(Dockerfile), shellcheck(sh/bash/zsh) 등을 이미지에 설치하고 CI 또는 pre-commit hook으로 적용
-- [ ] [P1] (security) 커밋 전 보안 민감 정보 유출 방지 장치 도입 — pre-commit hook 또는 도구(예: gitleaks, detect-secrets)를 활용하여 API 키, 비밀번호, 토큰 등 민감 정보가 커밋에 포함되지 않도록 자동 검사
 - [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
-- [ ] [P1] (setup) zshrc에 alias된 미설치 도구 추가 — dust, procs, btm, xh, mcfly 바이너리 설치 (현재 alias만 있고 바이너리가 없어 동작하지 않음)
-- [ ] [P1] (setup) pre-commit 프레임워크 자동 구성 — pre-commit(Python) 프레임워크를 이미지에 설치하고 기본 `.pre-commit-config.yaml` 템플릿 제공 (secret 검사, lint, 포맷 등 hook 통합 관리)
-- [ ] [P2] (build) 이미지 빌드 smoke test — 빌드 후 주요 도구(claude, codex, gemini, docker, git 등)가 정상 실행되는지 자동 검증하는 스크립트 추가
 - [ ] [P2] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
-- [ ] [P2] (setup) direnv 설치 — 프로젝트 디렉토리 진입 시 `.envrc` 기반 환경변수 자동 로드, 에이전트가 프로젝트별 설정을 자동 인식
 - [ ] [P2] (usability) `run.sh` 상태 확인 명령 추가 — `run.sh --status`로 컨테이너 상태, 리소스 사용량, 마운트 볼륨 확인
 - [ ] [P2] (security) 컨테이너 헬스체크 — docker-compose.yml에 healthcheck 정의, 주요 프로세스 상태를 주기적으로 확인
 - [ ] [P2] (security) `.env` 파일 지원 — docker-compose.yml에서 env_file 지원 추가, API 키 관리를 환경변수 나열 대신 .env 파일로 간소화
@@ -47,7 +36,6 @@ Optionally tag with priority and category:
 - [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
 - [ ] [P2] (usability) Shell prompt 사용성 개선 — Starship 프롬프트 설정(`configs/starship.toml`)을 튜닝하여 현재 디렉토리, Git 상태, 실행 시간, 에러 코드 등 유용한 정보를 직관적으로 표시하고, 불필요한 모듈은 비활성화하여 깔끔하고 빠른 프롬프트 구성
 - [ ] [P2] (usability) Claude Code statusline 커스터마이징 — Claude Code의 하단 상태줄(statusline) 설정을 구성하여 유용한 컨텍스트 정보(모델명, 토큰 사용량, 프로젝트 정보 등)를 표시하도록 기본 설정 제공
-- [ ] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — GitHub Actions 워크플로우를 설정하여 이슈가 생성되면 Claude Code(또는 코딩 에이전트)가 자동으로 이슈를 분석하고, 브랜치 생성 → 코드 작업 → PR 생성까지 수행하는 CI/CD 파이프라인 구성 (예: claude-code GitHub Action, issue-to-PR 자동화)
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
 - [ ] [P2] (setup) tmux TPM 플러그인 자동 구성 — `scripts/start.sh` first-run 시 TPM 설치 및 `tmux-resurrect`/`tmux-continuum` 기본 플러그인 자동 활성화
 - [ ] [P2] (usability) Zimfw 플러그인 확장 — `configs/zimrc`에 `fzf-tab`, `zsh-you-should-use`, `fast-syntax-highlighting` 등 실사용 플러그인 추가 및 로드 순서 검증
@@ -71,3 +59,17 @@ Optionally tag with priority and category:
 - [ ] [P1] (automation) 에이전트 권한 프롬프트 최소화 — Claude/Codex 등에서 반복적으로 permission 확인을 묻지 않도록 안전한 기본 허용 규칙(prefix allowlist, 비파괴 명령 자동 승인)과 가이드 정비
 
 ## Done
+
+- [x] [P1] (setup) zshrc에 alias된 미설치 도구 추가 — dust, procs, btm, xh, mcfly 바이너리 설치
+- [x] [P1] (security) 커밋 전 보안 민감 정보 유출 방지 장치 도입 — gitleaks + pre-commit hook으로 자동 검사
+- [x] [P1] (setup) pre-commit 프레임워크 자동 구성 — pre-commit 설치 + `.pre-commit-config.yaml` 템플릿 제공
+- [x] [P2] (quality) Dockerfile/shell script lint 및 검증 도구 도입 — hadolint, shellcheck 설치 + pre-commit hook 적용
+- [x] [P1] (setup) Claude Code custom slash commands 자동 구성 — commit, review, test, debug 커맨드 정의
+- [x] [P1] (setup) MCP 서버 설정 자동 구성 — filesystem MCP 서버 등록 (`.claude/.mcp.json`)
+- [x] [P1] (setup) Claude skills 자동 구성 — sandbox-setup 스킬 정의
+- [x] [P1] (setup) 유용한 스킬 만들기 — sandbox-setup 스킬 (환경 설정, 도구 확인, pre-commit 초기화)
+- [x] [P1] (setup) 개발 환경 도구 자동 세팅 — pre-commit, shellcheck, hadolint, gitleaks 자동 구성
+- [x] [P2] (setup) direnv 설치 — GitHub release 바이너리 + zshrc hook 추가
+- [x] [P2] (build) 이미지 빌드 smoke test — `scripts/smoke-test.sh` 추가, 빌드 시 `--build` 플래그로 자동 실행
+- [x] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — `.github/workflows/claude.yml` (claude-code-action)
+- [x] [P1] (setup) 에이전트에게 사용 가능한 도구 목록 알려주기 — TOOLS.md 컨테이너 내부 배치 (`~/.config/agent-sandbox/TOOLS.md`)
