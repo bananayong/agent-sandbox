@@ -289,6 +289,8 @@ COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
 # TOOLS.md reference for agents working on other projects.
 # .dockerignore needs !TOOLS.md exception (after *.md) to include this file.
 COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
+# Auto-approve wrapper config for agent CLIs in interactive zsh sessions.
+COPY configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
 
 # Smoke test script for build-time and runtime tool verification.
 COPY scripts/smoke-test.sh /usr/local/bin/smoke-test.sh

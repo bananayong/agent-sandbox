@@ -325,6 +325,7 @@ run_container() {
     SSL_CERT_FILE SSL_CERT_DIR \
     NODE_EXTRA_CA_CERTS \
     AGENT_SANDBOX_NODE_TLS_COMPAT \
+    AGENT_SANDBOX_AUTO_APPROVE \
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC \
     DISABLE_ERROR_REPORTING \
     DISABLE_TELEMETRY; do
@@ -344,6 +345,10 @@ run_container() {
   # Disable telemetry exports by default (BigQuery/metrics path).
   local disable_telemetry="${DISABLE_TELEMETRY:-1}"
   docker_args+=(-e "DISABLE_TELEMETRY=$disable_telemetry")
+  # Default to max-autonomy mode for agent CLIs in the sandbox shell.
+  # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to restore interactive prompts.
+  local auto_approve="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
+  docker_args+=(-e "AGENT_SANDBOX_AUTO_APPROVE=$auto_approve")
 
   # Apply Node TLS compatibility defaults at container runtime (no image rebuild
   # required). This protects Node-based CLIs on networks where TLS 1.3 records

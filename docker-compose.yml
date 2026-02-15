@@ -72,6 +72,9 @@ services:
       - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}
       - DISABLE_ERROR_REPORTING=${DISABLE_ERROR_REPORTING:-1}
       - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}
+      # Auto-approve agent permissions by default (dangerous).
+      # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to re-enable prompts.
+      - AGENT_SANDBOX_AUTO_APPROVE=${AGENT_SANDBOX_AUTO_APPROVE:-1}
 
     # Security
     # Block privilege escalation inside container.

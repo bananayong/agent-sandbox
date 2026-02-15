@@ -86,6 +86,7 @@ docker build -t agent-sandbox:latest .
 
 **샌드박스 설정 (기본값 자동 적용):**
 - `AGENT_SANDBOX_NODE_TLS_COMPAT` — Node TLS 호환 모드 (기본 `1`, `0`으로 비활성화)
+- `AGENT_SANDBOX_AUTO_APPROVE` — Codex/Claude/Gemini/Copilot 권한 확인 프롬프트 자동 승인 모드 (기본 `1`, `0`으로 비활성화)
 - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` — Claude 텔레메트리 비활성화 (기본 `1`)
 - `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
 - `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
@@ -168,6 +169,7 @@ gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
 - 컨테이너는 `sandbox` 사용자(UID/GID 1000)로 동작
 - `--security-opt no-new-privileges:true` 적용
 - `sudo`에 의존하는 엔트리포인트/런타임 스크립트는 동작하지 않도록 설계됨
+- 기본값으로 `AGENT_SANDBOX_AUTO_APPROVE=1` (Codex/Claude/Gemini/Copilot 권한 프롬프트 자동 승인). 보수 모드가 필요하면 `AGENT_SANDBOX_AUTO_APPROVE=0`으로 실행
 - API 키는 이미지에 bake 하지 않고 환경변수로만 전달
 - Git 서명 설정(`allowed_signers`, `user.signingkey`)은 저장소 파일이 아닌 `$HOME` 글로벌 경로(예: `~/.config/git/allowed_signers`)에만 둡니다.
 

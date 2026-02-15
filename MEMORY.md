@@ -9,6 +9,21 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-15 - Default agent CLIs to maximum autonomy mode in sandbox shell
+- Context: User requested Codex/Claude/Gemini/Copilot to run without interactive permission prompts inside the container.
+- Decision:
+  - Added `configs/agent-auto-approve.zsh` and sourced it from zsh startup.
+  - Enabled default `AGENT_SANDBOX_AUTO_APPROVE=1` in `run.sh`, `docker-compose.yml`, and `start.sh`.
+  - Implemented zsh wrappers:
+    - Codex: `--dangerously-bypass-approvals-and-sandbox`
+    - Claude: `--dangerously-skip-permissions`
+    - Gemini: `--approval-mode yolo`
+    - Copilot: `gh copilot -- --allow-all-tools --allow-all-urls --allow-all-paths`
+  - Added startup migration logic to append the wrapper source hook to existing persisted `~/.zshrc` once.
+- Impact:
+  - Agent CLIs run in non-interactive, maximum-permission mode by default for container sessions.
+  - Users can restore prompt-based behavior by setting `AGENT_SANDBOX_AUTO_APPROVE=0`.
+
 ### 2026-02-15 - Add repository-wide pinned-version maintenance script
 - Context: This repository pins many tool/action versions across Dockerfile ARGs and GitHub workflows, but manual updates are error-prone and easy to miss.
 - Decision:

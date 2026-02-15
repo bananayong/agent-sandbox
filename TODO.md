@@ -58,7 +58,6 @@ Optionally tag with priority and category:
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
-- [ ] [P1] (automation) 에이전트 권한 프롬프트 최소화 — Claude/Codex 등에서 반복적으로 permission 확인을 묻지 않도록 안전한 기본 허용 규칙(prefix allowlist, 비파괴 명령 자동 승인)과 가이드 정비
 
 ## Done
 
@@ -76,3 +75,4 @@ Optionally tag with priority and category:
 - [x] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — allowlist 기반 안전장치 + `.github/workflows/agent-issue-intake.yml`, `.github/workflows/agent-issue-worker.yml`, `.github/workflows/agent-pr-reviewer.yml`
 - [x] [P1] (setup) 에이전트에게 사용 가능한 도구 목록 알려주기 — TOOLS.md 컨테이너 내부 배치 (`~/.config/agent-sandbox/TOOLS.md`)
 - [x] [P2] (build) 버전 점검/업데이트 스크립트 추가 — `scripts/update-versions.sh`로 Dockerfile ARG, workflow action SHA, Codex 버전의 scan/check/update 지원
+- [x] [P1] (automation) 에이전트 권한 프롬프트 최소화 — `AGENT_SANDBOX_AUTO_APPROVE=1` 기본값 + Codex/Claude/Gemini/Copilot auto-approve wrapper로 사용자 확인 없이 실행

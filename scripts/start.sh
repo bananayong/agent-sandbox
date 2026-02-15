@@ -32,6 +32,17 @@ copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
 copy_default /etc/skel/.config/starship.toml  "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
+copy_default /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
+
+# Existing users may already have a persisted ~/.zshrc from older images.
+# Add a one-time source hook so new auto-approve wrappers are loaded without
+# forcing users to reset their sandbox home or manually edit dotfiles.
+AUTO_APPROVE_HOOK='[[ -f ~/.config/agent-sandbox/auto-approve.zsh ]] && source ~/.config/agent-sandbox/auto-approve.zsh'
+if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$AUTO_APPROVE_HOOK" "$HOME_DIR/.zshrc"; then
+  echo "" >> "$HOME_DIR/.zshrc"
+  echo "# Agent auto-approve wrappers (managed by agent-sandbox)." >> "$HOME_DIR/.zshrc"
+  echo "$AUTO_APPROVE_HOOK" >> "$HOME_DIR/.zshrc"
+fi
 
 # Claude CLI reads this file very early. Ensure it exists to avoid repeated
 # ENOENT exceptions during startup when home was freshly initialized/reset.
@@ -63,6 +74,8 @@ copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
 export DISABLE_ERROR_REPORTING="${DISABLE_ERROR_REPORTING:-1}"
 export DISABLE_TELEMETRY="${DISABLE_TELEMETRY:-1}"
+# Enable agent auto-approve mode by default (can be disabled with 0).
+export AGENT_SANDBOX_AUTO_APPROVE="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
 export AGENT_SANDBOX_NODE_TLS_COMPAT="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
 if [[ "${AGENT_SANDBOX_NODE_TLS_COMPAT}" == "1" ]]; then
   if [[ "${NODE_OPTIONS:-}" != *"--tls-max-v1.2"* ]]; then
