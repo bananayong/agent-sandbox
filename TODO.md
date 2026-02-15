@@ -26,6 +26,7 @@ Optionally tag with priority and category:
 - [ ] [P1] (setup) 개발 환경 도구 자동 세팅 — Git hooks, linter, formatter, test runner 등 워크플로우 도구 자동 구성
 - [ ] [P1] (setup) MCP 서버 설정 자동 구성 — `.mcp.json` 또는 `.claude/mcp.json`에 유용한 MCP 서버 등록
 - [ ] [P1] (setup) Claude skills 자동 구성 — 프로젝트에 맞는 Claude skills 정의 및 등록
+- [ ] [P1] (setup) 유용한 스킬 만들기 — 반복 작업(디버깅, 릴리즈, 리뷰 등)을 빠르게 수행할 수 있는 프로젝트 맞춤형 에이전트 스킬 설계/구현
 - [ ] [P2] (quality) Dockerfile/shell script lint 및 검증 도구 도입 — hadolint(Dockerfile), shellcheck(sh/bash/zsh) 등을 이미지에 설치하고 CI 또는 pre-commit hook으로 적용
 - [ ] [P1] (security) 커밋 전 보안 민감 정보 유출 방지 장치 도입 — pre-commit hook 또는 도구(예: gitleaks, detect-secrets)를 활용하여 API 키, 비밀번호, 토큰 등 민감 정보가 커밋에 포함되지 않도록 자동 검사
 - [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
@@ -44,7 +45,9 @@ Optionally tag with priority and category:
 - [ ] [P3] (usability) dry-run 모드 — `run.sh --dry-run`으로 실제 실행 없이 어떤 Docker 명령이 수행될지 미리 출력
 - [ ] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화
 - [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
+- [ ] [P2] (usability) Shell prompt 사용성 개선 — Starship 프롬프트 설정(`configs/starship.toml`)을 튜닝하여 현재 디렉토리, Git 상태, 실행 시간, 에러 코드 등 유용한 정보를 직관적으로 표시하고, 불필요한 모듈은 비활성화하여 깔끔하고 빠른 프롬프트 구성
+- [ ] [P2] (usability) Claude Code statusline 커스터마이징 — Claude Code의 하단 상태줄(statusline) 설정을 구성하여 유용한 컨텍스트 정보(모델명, 토큰 사용량, 프로젝트 정보 등)를 표시하도록 기본 설정 제공
+- [ ] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — GitHub Actions 워크플로우를 설정하여 이슈가 생성되면 Claude Code(또는 코딩 에이전트)가 자동으로 이슈를 분석하고, 브랜치 생성 → 코드 작업 → PR 생성까지 수행하는 CI/CD 파이프라인 구성 (예: claude-code GitHub Action, issue-to-PR 자동화)
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
 
 ## Done
-
