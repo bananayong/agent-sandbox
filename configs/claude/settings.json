@@ -1,4 +1,18 @@
 {
+  "model": "opus",
+  "skipDangerousModePermissionPrompt": true,
+
+  "env": {
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_TOOL_SEARCH": "auto:5",
+    "CLAUDE_CODE_ENABLE_TASKS": "true",
+    "CLAUDE_CODE_EFFORT_LEVEL": "high",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+  },
+
+  "teammateMode": "auto",
+
   "lsp": {
     "typescript": {
       "command": "typescript-language-server",

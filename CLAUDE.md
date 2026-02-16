@@ -49,13 +49,27 @@ docker build -t agent-sandbox:latest .
 - **IMPORTANT:** `run.sh` sets `--security-opt no-new-privileges:true`, which blocks all setuid binaries including `sudo`. Never use `sudo` in `start.sh`. Handle all permission needs in `run.sh` via Docker flags (`--group-add`, `--user`, `--cap-add`)
 
 **Entrypoint flow (`scripts/start.sh`):**
-1. Copies default configs from `/etc/skel/` to `$HOME` only if they don't already exist (first-run)
+1. Copies default configs from `/etc/skel/` to `$HOME` only if they don't already exist (first-run). Managed configs (e.g. `settings.json`) are always synced — a diff is printed before overwriting.
 2. Bootstraps zimfw and installs zsh modules if missing
 3. Applies first-run shell/git bootstrap steps
 4. Checks Docker socket accessibility and prints diagnostic if inaccessible
 5. `exec "$@"` -> runs CMD (`/bin/zsh`)
 
-**Config files in `configs/`** are baked into the image at `/etc/skel/` and copied to the user's persisted home on first run. After that, the user's copies take precedence.
+**Config files in `configs/`** are baked into the image at `/etc/skel/` and copied to the user's persisted home on first run. After that, the user's copies take precedence — except for managed configs which are always overwritten to keep feature flags current.
+
+**Claude Code experimental features (`configs/claude/settings.json`):**
+Settings are applied via the `env` block in `settings.json` and forwarded from host via `run.sh`.
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `CLAUDE_CODE_DISABLE_AUTO_MEMORY` | `0` | Persistent learning across sessions (0 = enable) |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `1` | Multi-agent coordination with shared task lists |
+| `ENABLE_TOOL_SEARCH` | `auto:5` | Dynamic MCP tool discovery at 5% context usage |
+| `CLAUDE_CODE_ENABLE_TASKS` | `true` | Task management with dependencies |
+| `CLAUDE_CODE_EFFORT_LEVEL` | `high` | Maximum reasoning depth for Opus |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `70` | Auto-compact context at 70% usage |
+
+Host env vars override `settings.json` values when forwarded via `run.sh`.
 
 ## Task Management
 

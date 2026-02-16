@@ -10,8 +10,10 @@ HOME_DIR="/home/sandbox"
 # Goal: prepare user environment safely, then start requested command.
 #
 # Important behavior:
-# - It copies defaults only when files are missing (first run).
-# - It does not overwrite existing user config in persisted home volume.
+# - Most configs are copied only when files are missing (first run).
+# - "Managed" configs (e.g. settings.json) are always overwritten to keep
+#   experimental feature flags in sync with the image. A diff is printed
+#   before overwriting so users can see what changed.
 
 # Copy one default config file only if destination does not exist.
 # src: file baked in image (from /etc/skel)
@@ -24,6 +26,27 @@ copy_default() {
     mkdir -p "$(dirname "$dest")"
     cp "$src" "$dest"
   fi
+}
+
+# Update a managed config file, overwriting even if it already exists.
+# Prints a unified diff before replacing so users can see what changed
+# and restore manually if needed. Skips when contents are identical.
+update_managed() {
+  local src="$1"
+  local dest="$2"
+  mkdir -p "$(dirname "$dest")"
+  if [[ ! -f "$dest" ]]; then
+    echo "[init] Installing managed config: $dest"
+    cp "$src" "$dest"
+    return
+  fi
+  if diff -q "$src" "$dest" >/dev/null 2>&1; then
+    return
+  fi
+  echo "[init] Updating managed config: $dest"
+  echo "[init]   Previous content diff (- old / + new):"
+  diff -u "$dest" "$src" --label "old: $dest" --label "new: $dest" | sed 's/^/[init]   /' || true
+  cp "$src" "$dest"
 }
 
 # Install shared skills from image into one agent's skill directory.
@@ -124,6 +147,12 @@ SHARED_SKILLS_ROOT="/opt/agent-sandbox/skills"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator"
+
+# Claude Code settings are managed: always kept in sync with image defaults.
+# This ensures experimental feature flags reach existing users on image update.
+# WARNING: this overwrites user edits to settings.json (e.g. model choice).
+# The diff printed above lets users recover previous values if needed.
+update_managed /etc/skel/.claude/settings.json "$HOME_DIR/.claude/settings.json"
 
 # Copy MCP server config template if not already present.
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"

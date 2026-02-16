@@ -300,9 +300,10 @@ COPY configs/starship.toml /etc/skel/.config/starship.toml
 # Pre-commit config template for initializing hooks in projects.
 COPY configs/pre-commit-config.yaml /etc/skel/.default.pre-commit-config.yaml
 
-# Claude Code slash commands, skills, and MCP server config.
+# Claude Code slash commands, skills, settings, and MCP server config.
 COPY configs/claude/commands/ /etc/skel/.claude/commands/
 COPY configs/claude/skills/ /etc/skel/.claude/skills/
+COPY configs/claude/settings.json /etc/skel/.claude/settings.json
 COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
 COPY configs/claude/settings.json /etc/skel/.claude/settings.json
 
