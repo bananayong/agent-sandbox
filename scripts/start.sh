@@ -319,8 +319,8 @@ if command -v codex &>/dev/null && [[ ! -f "$CODEX_SP_SENTINEL" ]]; then
     fi
   fi
   if [[ -d "$HOME_DIR/.codex/superpowers/skills" ]]; then
-    mkdir -p "$HOME_DIR/.codex/skills"
-    ln -sfn "$HOME_DIR/.codex/superpowers/skills" "$HOME_DIR/.codex/skills/superpowers"
+    mkdir -p "$HOME_DIR/.agents/skills"
+    ln -sfn "$HOME_DIR/.codex/superpowers/skills" "$HOME_DIR/.agents/skills/superpowers"
     mkdir -p "$(dirname "$CODEX_SP_SENTINEL")"
     touch "$CODEX_SP_SENTINEL"
   fi
