@@ -9,6 +9,17 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-16 - Slim TODO backlog by removing over-engineered runtime option expansions
+- Context: TODO backlog accumulated multiple overlapping `run.sh` expansion items (`--status`, `doctor`, `logs/exec`, profile/hardening modes) and user requested pruning over-engineered or low-value tasks.
+- Decision:
+  - Removed overlapping runtime option expansion tasks and consolidated diagnostics into a single `run.sh doctor` direction.
+  - Dropped profile-style runtime mode tasks (`minimal/full/hardened`, network policy profiles, read-only profile variants) to stay aligned with prior simplification decisions.
+  - Removed low-leverage UX default customization tasks (prompt/statusline/tmux plugin/zim plugin/copilot mode migration) from core backlog.
+  - Reframed Claude MEMORY/AGENT TEAMS TODO from broad feature enablement to compose-path gap check plus README documentation.
+- Impact:
+  - Backlog now emphasizes essential reliability/security work over optional control-surface growth.
+  - Reduces risk of CLI/API surface sprawl in `run.sh` and keeps maintenance burden lower.
+
 ### 2026-02-15 - Align DNS resolver selection with default IPv6-off runtime policy
 - Context: Runtime now disables container IPv6 by default, but DNS auto-detection accepted IPv6 nameservers, which could produce resolver failures when only IPv6 DNS entries were selected.
 - Decision:

@@ -25,9 +25,6 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P2] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
-- [ ] [P2] (usability) `run.sh` 상태 확인 명령 추가 — `run.sh --status`로 컨테이너 상태, 리소스 사용량, 마운트 볼륨 확인
-- [ ] [P2] (security) 컨테이너 헬스체크 — docker-compose.yml에 healthcheck 정의, 주요 프로세스 상태를 주기적으로 확인
-- [ ] [P2] (security) `.env` 파일 지원 — docker-compose.yml에서 env_file 지원 추가, API 키 관리를 환경변수 나열 대신 .env 파일로 간소화
 - [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
 - [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
 - [ ] [P2] (docs) 아키텍처 다이어그램 — README에 마운트 구조, 네트워크, 진입 흐름을 시각화한 다이어그램 추가
@@ -44,21 +41,15 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) GitHub Copilot CLI 방식 정리 — `gh-copilot` extension 설치에서 standalone `copilot` CLI 중심으로 전환하고 인증/설정 경로 문서화
 - [ ] [P2] (security) `run.sh` 보안 하드닝 프로필 추가 — `--cap-drop=ALL`, `--pids-limit` 등 선택형 hardened 실행 옵션 제공(기본/호환 모드와 분리)
 - [ ] [P3] (automation) 다중 에이전트 병렬 작업 헬퍼 — Git worktree 기반으로 에이전트별 분리 작업 디렉토리를 자동 생성/정리하는 스크립트 추가
-- [ ] [P1] (quality) `run.sh doctor` 진단 명령 추가 — Docker socket 권한, 네트워크 MTU, 필수 env, 바이너리 존재 여부를 한 번에 점검
 - [ ] [P1] (security) 이미지 공급망 검증 강화 — 다운로드 바이너리 SHA256 검증/서명 검증 단계 추가
-- [ ] [P2] (build) 버전 매니페스트 자동 생성 — 이미지 빌드 시 설치된 도구 버전 목록(`versions.txt`) 산출
 - [ ] [P2] (build) 도구 업데이트 자동 PR — pinned version ARG 업데이트를 주기적으로 제안하는 워크플로우
-- [ ] [P2] (security) 네트워크 정책 프로필 — `default/offline/restricted` 실행 모드 선택 지원
-- [ ] [P2] (security) read-only 루트파일시스템 옵션 — 선택적으로 `--read-only` + `tmpfs` 런타임 프로필 제공
-- [ ] [P2] (usability) `run.sh` 프로필 시스템 — `--profile minimal|full|hardened`로 옵션 묶음 적용
-- [ ] [P2] (usability) `run.sh logs`/`exec` 보조 명령 — attach 없이 상태 확인/명령 실행 지원
 - [ ] [P2] (setup) agent config migration 도구 — 기존 `~/.agent-sandbox/home` 구조 변경 시 안전한 마이그레이션 스크립트
 - [ ] [P2] (ops) sandbox home 백업/복원 명령 — 인증/설정 스냅샷 export/import 지원
 - [ ] [P2] (quality) 셸 시작 성능 측정 — zsh startup time 측정 스크립트와 회귀 기준선 도입
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
-- [ ] [P2] (setup) Claude MEMORY/AGENT TEAMS 기능 활성화 환경변수 지원 — `run.sh`/`docker-compose.yml`에 관련 env 전달·기본값 옵션 추가 및 README 사용법 문서화
+- [ ] [P3] (setup) docker-compose 경로의 Claude MEMORY/AGENT TEAMS env 전달 보강 — `run.sh` 대비 compose 경로 누락 여부 점검 후 README 사용법 반영
 
 ## Done
 
