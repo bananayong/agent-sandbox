@@ -7,6 +7,7 @@ GitHub Issues/PR 자동화를 안전하게 켜는 절차를 정리합니다.
 - `.github/workflows/agent-issue-intake.yml`
 - `.github/workflows/agent-issue-worker.yml`
 - `.github/workflows/agent-pr-reviewer.yml`
+- `.github/workflows/claude.yml`
 
 ## 1. 목표와 보안 모델
 
@@ -16,7 +17,7 @@ GitHub Issues/PR 자동화를 안전하게 켜는 절차를 정리합니다.
 - 이슈 자동 작업은 Claude/Codex 중 선택 가능
 - PR 자동 리뷰는 Claude/Codex 중 선택 가능
 - 액션은 태그가 아닌 **commit SHA pinning**으로 고정
-- 기본값은 **비공개 모드** (자동 PR 공개/상세 리뷰 코멘트 공개 비활성)
+- 이슈 작업 결과(브랜치/PR 생성), 리뷰 코멘트, artifact 업로드는 기본 활성화
 
 ## 2. 사전 준비
 
@@ -69,26 +70,6 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN --body "<claude-oauth-token>"
 base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 ```
 
-### 3.4 공개 동작 제어 (선택)
-
-기본값은 보수적(non-public)입니다.
-
-- `AGENT_AUTO_PUBLISH=true`
-  - 이슈 작업 결과를 브랜치/PR로 자동 공개
-  - 미설정 시 자동 공개하지 않음
-- `AGENT_PUBLIC_REVIEW_COMMENT=true`
-  - PR 코멘트에 상세 리뷰 본문 공개
-  - 미설정 시 요약 안내만 코멘트
-- `AGENT_PUBLIC_ARTIFACTS=true`
-  - patch/review artifact 업로드
-  - 미설정 시 artifact 업로드 비활성 (기본)
-
-```bash
-gh secret set AGENT_AUTO_PUBLISH --body "true"
-gh secret set AGENT_PUBLIC_REVIEW_COMMENT --body "true"
-gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
-```
-
 ## 4. (권장) 저장소 보안 설정
 
 ### 4.1 기본 브랜치 보호
@@ -124,6 +105,27 @@ Repository Settings > Actions:
 /agent run codex 버그 재현 후 테스트도 추가해줘
 ```
 
+### 5.1.1 `@claude` 멘션으로 이슈 자동 해결 → PR 생성
+
+`claude.yml` 워크플로우가 `@claude` 멘션을 감지하여 자동으로 이슈를 해결하고 PR을 생성합니다.
+
+트리거 조건:
+- 이슈 제목 또는 본문에 `@claude`를 포함하여 이슈 생성
+- 기존 이슈에 `@claude`를 포함한 코멘트 작성
+
+```text
+@claude 이 버그 수정해줘
+```
+
+동작 방식:
+1. Claude가 이슈 내용을 읽고 코드 변경을 수행
+2. `agent/issue-<번호>` 브랜치를 생성하고 변경사항을 커밋/푸시
+3. 기본 브랜치를 대상으로 PR을 자동 생성 (이슈 자동 닫힘 포함)
+
+참고:
+- PR 코멘트에서 `@claude`를 멘션하면 대화형 모드로 동작합니다 (코드 리뷰/질문 응답).
+- `claude.yml`도 `AGENT_ALLOWED_ACTORS` allowlist를 검증합니다 (다른 워크플로우와 동일한 보안 모델).
+
 ## 5.2 PR 자동 리뷰
 
 트리거 방법 A (라벨):
@@ -150,7 +152,7 @@ Repository Settings > Actions:
 - Codex CLI 버전 고정 설치
 - AI 실행 전 `git push` 경로 차단
 - job timeout 설정
-- 기본 비공개 모드: 자동 공개/상세 리뷰 코멘트/artifact 업로드는 opt-in secret으로만 활성화
+- 이슈 작업 결과(브랜치/PR), 리뷰 코멘트, artifact 업로드는 항상 활성화
 
 ## 7. 점검 체크리스트
 
@@ -169,8 +171,7 @@ gh secret list
 3. Actions 로그에서 확인할 항목
 - route 단계에서 allowlist 통과
 - worker 단계에서 branch `agent/issue-<번호>` 생성
-- 기본 비공개 모드에서는 patch/review artifact 미업로드
-- `AGENT_AUTO_PUBLISH=true`일 때만 PR 생성/재사용
+- 변경사항이 있으면 artifact 업로드 및 PR 생성/재사용 확인
 
 4. PR에서 리뷰 코멘트 실행
 ```text
@@ -193,27 +194,6 @@ gh secret set AGENT_ALLOWED_ACTORS --body "<your-github-login>"
 ### 8.3 Claude 실행 실패 (OAuth 토큰)
 - 원인: `CLAUDE_CODE_OAUTH_TOKEN` 만료/오입력
 - 해결: 토큰 갱신 후 secret 재등록
-
-### 8.4 자동으로 PR이 생성되지 않음
-- 원인: 기본 비공개 모드(`AGENT_AUTO_PUBLISH` 미설정 또는 `false`)
-- 해결:
-```bash
-gh secret set AGENT_AUTO_PUBLISH --body "true"
-```
-
-### 8.5 PR 코멘트에 상세 리뷰가 보이지 않음
-- 원인: 기본 비공개 모드(`AGENT_PUBLIC_REVIEW_COMMENT` 미설정 또는 `false`)
-- 해결:
-```bash
-gh secret set AGENT_PUBLIC_REVIEW_COMMENT --body "true"
-```
-
-### 8.6 artifact가 업로드되지 않음
-- 원인: 기본 비공개 모드(`AGENT_PUBLIC_ARTIFACTS` 미설정 또는 `false`)
-- 해결:
-```bash
-gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
-```
 
 ## 9. 운영 팁 (1인 public 저장소)
 

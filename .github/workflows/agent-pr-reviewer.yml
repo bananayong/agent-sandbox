@@ -330,42 +330,14 @@ jobs:
             } > /tmp/agent-review.md
           fi
 
-      - name: Decide review artifact visibility
-        id: artifact_mode
-        env:
-          AGENT_PUBLIC_ARTIFACTS: ${{ secrets.AGENT_PUBLIC_ARTIFACTS }}
-        run: |
-          set -euo pipefail
-          mode="$(printf '%s' "${AGENT_PUBLIC_ARTIFACTS:-}" | tr '[:upper:]' '[:lower:]')"
-          case "${mode}" in
-            1|true|yes|on) public_artifacts="true" ;;
-            *) public_artifacts="false" ;;
-          esac
-          echo "public_artifacts=${public_artifacts}" >> "$GITHUB_OUTPUT"
-
       - name: Upload review artifact
-        if: steps.artifact_mode.outputs.public_artifacts == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: agent-pr-review-${{ needs.route.outputs.pr_number }}
           path: /tmp/agent-review.md
           retention-days: 1
 
-      - name: Decide review comment visibility
-        id: visibility
-        env:
-          AGENT_PUBLIC_REVIEW_COMMENT: ${{ secrets.AGENT_PUBLIC_REVIEW_COMMENT }}
-        run: |
-          set -euo pipefail
-          mode="$(printf '%s' "${AGENT_PUBLIC_REVIEW_COMMENT:-}" | tr '[:upper:]' '[:lower:]')"
-          case "${mode}" in
-            1|true|yes|on) public_comment="true" ;;
-            *) public_comment="false" ;;
-          esac
-          echo "public_comment=${public_comment}" >> "$GITHUB_OUTPUT"
-
       - name: Post review comment to PR
-        if: steps.visibility.outputs.public_comment == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR_NUMBER: ${{ needs.route.outputs.pr_number }}
@@ -388,35 +360,6 @@ jobs:
                 `- Agent: \`${process.env.AGENT}\``,
                 '',
                 review
-              ].join('\n')
-            });
-
-      - name: Post redacted review notice to PR
-        if: steps.visibility.outputs.public_comment != 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
-        env:
-          PR_NUMBER: ${{ needs.route.outputs.pr_number }}
-          AGENT: ${{ needs.route.outputs.agent }}
-          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
-          PUBLIC_ARTIFACTS: ${{ steps.artifact_mode.outputs.public_artifacts }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          script: |
-            const artifactText = process.env.PUBLIC_ARTIFACTS === 'true'
-              ? '- Full review is stored in a short-lived workflow artifact.'
-              : '- Review artifact upload is disabled by default to reduce public exposure.';
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: Number(process.env.PR_NUMBER),
-              body: [
-                `Automated PR review completed for @${process.env.REQUESTER}.`,
-                `- Agent: \`${process.env.AGENT}\``,
-                '- Detailed review content is redacted from public comments by default.',
-                artifactText,
-                `- Workflow run: ${process.env.RUN_URL}`,
-                '',
-                'To publish full review text in PR comments, set repository secret `AGENT_PUBLIC_REVIEW_COMMENT=true`.',
-                'To upload review artifact, set repository secret `AGENT_PUBLIC_ARTIFACTS=true`.'
               ].join('\n')
             });
 

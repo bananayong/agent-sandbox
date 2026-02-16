@@ -6,33 +6,123 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, assigned]
+    types: [opened]
   pull_request_review:
     types: [submitted]
 
 jobs:
-  claude:
+  # Issue resolution: @claude in issue title/body/comment → make changes and create PR
+  claude-issue:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      github.actor != 'github-actions[bot]' &&
+      (
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !github.event.issue.pull_request)
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: claude-issue-${{ github.event.issue.number }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
       issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
     steps:
+      - name: Validate actor allowlist
+        id: allowlist
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+            if (!allowedRaw) {
+              core.setFailed('AGENT_ALLOWED_ACTORS secret is empty. Refusing to run.');
+              return;
+            }
+            const allowed = new Set(
+              allowedRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+            );
+            const actor = context.actor?.toLowerCase() || '';
+            if (!actor || !allowed.has(actor)) {
+              core.setFailed(`Actor ${actor || 'unknown'} is not allowlisted.`);
+              return;
+            }
+            core.info(`Actor ${actor} is allowlisted.`);
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@ea36d6abdedc17fc2a671b36060770b208a6f8f1 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are working on issue #${{ github.event.issue.number }} in this repository.
+            Read the issue details with `gh issue view ${{ github.event.issue.number }}` and resolve it by making the necessary code changes.
+
+            After making all changes:
+            1. Create and switch to a new branch: `agent/issue-${{ github.event.issue.number }}`
+            2. Stage and commit all changes with a descriptive message referencing the issue
+            3. Push the branch to origin
+            4. Create a pull request targeting the default branch that closes #${{ github.event.issue.number }}
+
+            If no code changes are needed, just explain why in a comment.
+
+  # PR interaction: @claude in PR comment/review → conversational response
+  claude-pr:
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && github.event.issue.pull_request) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Validate actor allowlist
+        id: allowlist
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+            if (!allowedRaw) {
+              core.setFailed('AGENT_ALLOWED_ACTORS secret is empty. Refusing to run.');
+              return;
+            }
+            const allowed = new Set(
+              allowedRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+            );
+            const actor = context.actor?.toLowerCase() || '';
+            if (!actor || !allowed.has(actor)) {
+              core.setFailed(`Actor ${actor || 'unknown'} is not allowlisted.`);
+              return;
+            }
+            core.info(`Actor ${actor} is allowlisted.`);
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@ea36d6abdedc17fc2a671b36060770b208a6f8f1 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_tools: "Bash(git:*),Bash(gh:*)"
@@ -45,15 +135,5 @@ jobs:
                 ]
               }
             }
-          # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
-

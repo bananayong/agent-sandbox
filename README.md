@@ -129,12 +129,6 @@ docker build -t agent-sandbox:latest .
 - `CLAUDE_CODE_OAUTH_TOKEN` — Claude Code OAuth 토큰
 - `CODEX_AUTH_JSON_B64` — `~/.codex/auth.json`을 base64로 인코딩한 값
 
-### Optional Secrets (공개 제어)
-
-- `AGENT_AUTO_PUBLISH` — `true`일 때만 이슈 작업 결과를 브랜치/PR로 자동 공개 (기본: 비활성)
-- `AGENT_PUBLIC_REVIEW_COMMENT` — `true`일 때만 PR에 상세 리뷰 본문 공개 코멘트 (기본: 비활성)
-- `AGENT_PUBLIC_ARTIFACTS` — `true`일 때만 patch/review artifact 업로드 (기본: 비활성)
-
 보안 기본값: `AGENT_ALLOWED_ACTORS`가 비어 있으면 워크플로우는 자동 실행을 거부합니다(fail-closed).
 
 ### Secret 등록 예시
@@ -148,15 +142,6 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN --body "<claude-oauth-token>"
 
 # 3) Codex 로그인 캐시(auth.json)를 base64로 등록
 base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
-
-# 4) (선택) 자동 브랜치/PR 공개를 켜려면
-gh secret set AGENT_AUTO_PUBLISH --body "true"
-
-# 5) (선택) PR 상세 리뷰 공개 코멘트를 켜려면
-gh secret set AGENT_PUBLIC_REVIEW_COMMENT --body "true"
-
-# 6) (선택) patch/review artifact 업로드를 켜려면
-gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
 ```
 
 ### Trigger Rules
@@ -164,6 +149,7 @@ gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
 - 이슈 자동 작업:
   - 라벨: `agent:auto` + 선택 라벨 `agent:claude` 또는 `agent:codex`
   - 코멘트: `/agent run [claude|codex] [추가 지시사항]`
+  - `@claude` 멘션: 이슈 제목/본문 또는 코멘트에 `@claude` 포함 시 자동으로 이슈 해결 및 PR 생성 (`claude.yml`)
 - PR 자동 리뷰:
   - 라벨: `agent:review` + 선택 라벨 `agent:claude` 또는 `agent:codex`
   - 코멘트: `/agent review [claude|codex] [추가 지시사항]`
@@ -173,7 +159,7 @@ gh secret set AGENT_PUBLIC_ARTIFACTS --body "true"
 - allowlist(`AGENT_ALLOWED_ACTORS`)에 포함된 사용자 작성 이벤트에만 반응
 - `github-actions[bot]`가 만든 이벤트에는 반응하지 않음
 - 이슈/PR 라벨 기반 실행에서도 라벨을 단 사용자까지 allowlist 검증
-- 기본값으로 결과 공개를 최소화 (자동 publish/상세 리뷰 코멘트/artifact 업로드 모두 opt-in)
+- 이슈 작업 결과(브랜치/PR), 리뷰 코멘트, artifact 업로드는 기본 활성화
 
 ## Included Tools (요약)
 

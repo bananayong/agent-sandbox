@@ -24,10 +24,6 @@ on:
         required: false
       AGENT_ALLOWED_ACTORS:
         required: false
-      AGENT_AUTO_PUBLISH:
-        required: false
-      AGENT_PUBLIC_ARTIFACTS:
-        required: false
 
 jobs:
   work:
@@ -240,41 +236,15 @@ jobs:
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Decide publish mode
-        id: publish_mode
-        env:
-          AGENT_AUTO_PUBLISH: ${{ secrets.AGENT_AUTO_PUBLISH }}
-        run: |
-          set -euo pipefail
-          mode="$(printf '%s' "${AGENT_AUTO_PUBLISH:-}" | tr '[:upper:]' '[:lower:]')"
-          case "${mode}" in
-            1|true|yes|on) publish="true" ;;
-            *) publish="false" ;;
-          esac
-          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
-
-      - name: Decide artifact visibility
-        id: artifact_mode
-        env:
-          AGENT_PUBLIC_ARTIFACTS: ${{ secrets.AGENT_PUBLIC_ARTIFACTS }}
-        run: |
-          set -euo pipefail
-          mode="$(printf '%s' "${AGENT_PUBLIC_ARTIFACTS:-}" | tr '[:upper:]' '[:lower:]')"
-          case "${mode}" in
-            1|true|yes|on) public_artifacts="true" ;;
-            *) public_artifacts="false" ;;
-          esac
-          echo "public_artifacts=${public_artifacts}" >> "$GITHUB_OUTPUT"
-
       - name: Create change artifact bundle
-        if: steps.changes.outputs.has_changes == 'true' && steps.artifact_mode.outputs.public_artifacts == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
           git diff --binary > /tmp/agent.patch
           git status --porcelain > /tmp/agent-status.txt
 
       - name: Upload change artifact
-        if: steps.changes.outputs.has_changes == 'true' && steps.artifact_mode.outputs.public_artifacts == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: agent-issue-${{ inputs.issue_number }}-changes
@@ -284,7 +254,7 @@ jobs:
           retention-days: 1
 
       - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           AGENT: ${{ inputs.agent }}
@@ -308,7 +278,7 @@ jobs:
           git push origin "HEAD:refs/heads/${BRANCH}"
 
       - name: Create or reuse pull request
-        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         id: pr
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
@@ -358,7 +328,7 @@ jobs:
             core.setOutput('url', pr.html_url);
 
       - name: Comment issue with PR link
-        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
@@ -374,35 +344,6 @@ jobs:
                 `Completed for @${process.env.REQUESTER || 'requester'}.`,
                 `- Agent: \`${process.env.AGENT}\``,
                 `- Pull Request: ${process.env.PR_URL}`
-              ].join('\n')
-            });
-
-      - name: Comment issue with private-mode notice
-        if: steps.changes.outputs.has_changes == 'true' && steps.publish_mode.outputs.publish != 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
-        env:
-          ISSUE_NUMBER: ${{ inputs.issue_number }}
-          AGENT: ${{ inputs.agent }}
-          REQUESTER: ${{ steps.allowlist.outputs.safe_requester }}
-          PUBLIC_ARTIFACTS: ${{ steps.artifact_mode.outputs.public_artifacts }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          script: |
-            const artifactText = process.env.PUBLIC_ARTIFACTS === 'true'
-              ? '- A patch artifact was uploaded for manual application.'
-              : '- Patch artifact upload is disabled by default to reduce public exposure.';
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: Number(process.env.ISSUE_NUMBER),
-              body: [
-                `Run completed for @${process.env.REQUESTER || 'requester'} in private publish mode.`,
-                `- Agent: \`${process.env.AGENT}\``,
-                '- Automatic branch/PR publication is disabled by default.',
-                artifactText,
-                `- Workflow run: ${process.env.RUN_URL}`,
-                '',
-                'To enable auto-publication, set repository secret `AGENT_AUTO_PUBLISH=true`.',
-                'To enable patch artifact upload, set repository secret `AGENT_PUBLIC_ARTIFACTS=true`.'
               ].join('\n')
             });
 

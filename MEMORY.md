@@ -106,33 +106,17 @@ Long-lived decisions, important implementation history, and recurring caveats fo
   - Maintainers can run a single command to audit and refresh pinned versions consistently.
   - Reduces drift risk in security-sensitive action SHA pins and tool version pins.
 
-### 2026-02-15 - Disable public artifact upload by default and reduce log exposure
-- Context: In a public repository, workflow artifacts can still expose intermediate bot output even when auto-publish and full PR comment modes are disabled.
+### 2026-02-16 - Remove AGENT_AUTO_PUBLISH / AGENT_PUBLIC_REVIEW_COMMENT / AGENT_PUBLIC_ARTIFACTS secrets
+- Context: Managing three separate visibility/publish secrets was over-engineered for a personal/public repo. User requested always-on behavior.
 - Decision:
-  - Added `AGENT_PUBLIC_ARTIFACTS` secret gate for issue/PR workflows.
-    - default (`false`/unset): do not upload patch/review artifacts
-    - opt-in (`true`): upload short-lived artifacts (retention 1 day)
-  - Updated issue intake -> worker secret mapping to pass `AGENT_PUBLIC_ARTIFACTS`.
-  - Reduced Codex step log exposure by redirecting CLI output to temporary files instead of workflow console logs.
-  - Updated issue/PR redacted comments to clearly indicate whether artifact upload is enabled.
+  - Removed `AGENT_AUTO_PUBLISH`, `AGENT_PUBLIC_REVIEW_COMMENT`, `AGENT_PUBLIC_ARTIFACTS` secrets and all conditional branching from all workflow files.
+  - Issue worker: artifact upload, commit/push, PR creation are now unconditional (when changes exist).
+  - PR reviewer: artifact upload and review comment posting are now unconditional.
+  - Intake: removed pass-through of these secrets to worker.
+  - Updated README and GITHUB_AGENT_AUTOMATION_GUIDE to remove all references.
 - Impact:
-  - Public exposure surface is reduced further in default mode.
-  - Maintainers still have explicit opt-in controls for artifact-based workflows when needed.
-
-### 2026-02-15 - Default to non-public output mode for automation in public repo
-- Context: Even with allowlist controls, automatically publishing bot output (new branches/PRs and full review comments) can expose intermediate agent results in a public repository.
-- Decision:
-  - Added `AGENT_AUTO_PUBLISH` secret gate in issue worker:
-    - default (`false`/unset): do not auto-push/create PR; upload patch artifact only
-    - opt-in (`true`): allow branch push and PR creation
-  - Added `AGENT_PUBLIC_REVIEW_COMMENT` secret gate in PR reviewer:
-    - default (`false`/unset): post redacted public comment only and keep full review in artifact
-    - opt-in (`true`): post full review content in PR comment
-  - Added `actions/upload-artifact` (SHA-pinned) for patch/review outputs with short retention.
-  - Kept allowlist checks and fork-PR guard in place.
-- Impact:
-  - Public exposure is minimized by default while preserving opt-in automation for maintainers.
-  - Review and change outputs are no longer immediately broadcast in issue/PR comments unless explicitly enabled.
+  - Simpler workflow logic with no secret-based branching for visibility control.
+  - All automation outputs (PRs, review comments, artifacts) are always published.
 
 ### 2026-02-15 - Simplify bot commits by removing CI GPG signing requirement
 - Context: Signed bot commits using `AGENT_GPG_PRIVATE_KEY_B64` added operational complexity (key provisioning, rotation, failure handling) that outweighed value for this personal/public repository.
