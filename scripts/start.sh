@@ -140,6 +140,13 @@ if [[ ! -d "$HOME_DIR/.claude/skills" ]] || [[ -z "$(ls -A "$HOME_DIR/.claude/sk
   cp -r /etc/skel/.claude/skills/* "$HOME_DIR/.claude/skills/" 2>/dev/null || true
 fi
 
+# Copy Claude Code agents if the agents directory is empty/missing.
+if [[ ! -d "$HOME_DIR/.claude/agents" ]] || [[ -z "$(ls -A "$HOME_DIR/.claude/agents" 2>/dev/null)" ]]; then
+  echo "[init] Installing Claude Code agents..."
+  mkdir -p "$HOME_DIR/.claude/agents"
+  cp -r /etc/skel/.claude/agents/* "$HOME_DIR/.claude/agents/" 2>/dev/null || true
+fi
+
 # Install vendored shared skills for coding agents.
 # Codex/Gemini keep their native "skill-creator" to avoid overriding
 # built-in workflow behavior with a third-party variant.
@@ -312,8 +319,10 @@ echo ""
 # Start a tmux session for Claude Code agent teams support.
 # Claude Code teammate mode spawns each teammate as a split pane inside
 # the tmux session, so the shell must already be running inside tmux.
+# CMD arguments are forwarded as the tmux session shell command so custom
+# commands like `docker run agent-sandbox claude` are not silently dropped.
 if [[ -z "${TMUX:-}" ]] && command -v tmux &>/dev/null; then
-  exec tmux new-session -s main
+  exec tmux new-session -s main "$@"
 else
   exec "$@"
 fi
