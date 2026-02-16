@@ -285,6 +285,47 @@ if command -v broot &>/dev/null; then
   fi
 fi
 
+# Superpowers skills (obra/superpowers) for Claude Code and Codex.
+# Installs on first run; sentinel files prevent repeated installs.
+SUPERPOWERS_REPO="https://github.com/obra/superpowers.git"
+
+# Claude Code: install via plugin marketplace.
+# The CLAUDECODE env var must be unset so `claude plugin` works outside a session.
+CLAUDE_SP_SENTINEL="$HOME_DIR/.claude/plugins/.superpowers-installed"
+if command -v claude &>/dev/null && [[ ! -f "$CLAUDE_SP_SENTINEL" ]]; then
+  echo "[init] Installing Superpowers plugin for Claude Code..."
+  if timeout 60 env -u CLAUDECODE claude plugin marketplace add obra/superpowers-marketplace; then
+    if timeout 60 env -u CLAUDECODE claude plugin install superpowers@superpowers-marketplace; then
+      mkdir -p "$(dirname "$CLAUDE_SP_SENTINEL")"
+      touch "$CLAUDE_SP_SENTINEL"
+    else
+      echo "[init]   ERROR: Failed to install superpowers plugin" >&2
+    fi
+  else
+    echo "[init]   ERROR: Failed to add superpowers marketplace" >&2
+  fi
+fi
+
+# Codex: clone repo and symlink skills into Codex skill discovery path.
+CODEX_SP_SENTINEL="$HOME_DIR/.codex/.superpowers-installed"
+if command -v codex &>/dev/null && [[ ! -f "$CODEX_SP_SENTINEL" ]]; then
+  echo "[init] Installing Superpowers skills for Codex..."
+  if [[ ! -d "$HOME_DIR/.codex/superpowers" ]]; then
+    # Timeout prevents a hanging clone from blocking container startup.
+    if ! timeout 60 git clone --depth 1 "$SUPERPOWERS_REPO" "$HOME_DIR/.codex/superpowers"; then
+      echo "[init]   ERROR: Failed to clone superpowers repo for Codex" >&2
+      # Remove partial clone so the next startup retries cleanly.
+      rm -rf "$HOME_DIR/.codex/superpowers"
+    fi
+  fi
+  if [[ -d "$HOME_DIR/.codex/superpowers/skills" ]]; then
+    mkdir -p "$HOME_DIR/.codex/skills"
+    ln -sfn "$HOME_DIR/.codex/superpowers/skills" "$HOME_DIR/.codex/skills/superpowers"
+    mkdir -p "$(dirname "$CODEX_SP_SENTINEL")"
+    touch "$CODEX_SP_SENTINEL"
+  fi
+fi
+
 # Ensure history file exists for zsh sessions.
 touch "$HOME_DIR/.zsh_history"
 
