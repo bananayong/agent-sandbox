@@ -294,20 +294,72 @@ fi
 # SIGTERM and hang indefinitely.
 SUPERPOWERS_REPO="https://github.com/obra/superpowers.git"
 
+# Check if Superpowers marketplace exists in Claude plugin storage.
+claude_has_superpowers_marketplace() {
+  local marketplace_dir="$HOME_DIR/.claude/plugins/marketplaces/superpowers-marketplace"
+  [[ -d "$marketplace_dir" ]] && [[ -n "$(ls -A "$marketplace_dir" 2>/dev/null)" ]]
+}
+
+# Check if Claude already has Superpowers installed.
+# We validate both metadata and on-disk plugin cache to avoid false positives
+# from stale installed_plugins.json entries.
+claude_has_superpowers_plugin() {
+  local plugins_json="$HOME_DIR/.claude/plugins/installed_plugins.json"
+  local plugin_cache_dir="$HOME_DIR/.claude/plugins/cache/superpowers-marketplace/superpowers"
+
+  [[ -f "$plugins_json" ]] \
+    && grep -Fq '"superpowers@superpowers-marketplace"' "$plugins_json" \
+    && [[ -d "$plugin_cache_dir" ]] \
+    && [[ -n "$(ls -A "$plugin_cache_dir" 2>/dev/null)" ]]
+}
+
 # Claude Code: install via plugin marketplace.
 # The CLAUDECODE env var must be unset so `claude plugin` works outside a session.
 CLAUDE_SP_SENTINEL="$HOME_DIR/.claude/plugins/.superpowers-installed"
 if command -v claude &>/dev/null && [[ ! -f "$CLAUDE_SP_SENTINEL" ]]; then
-  echo "[init] Installing Superpowers plugin for Claude Code..."
-  if timeout --kill-after=10 30 env -u CLAUDECODE claude plugin marketplace add obra/superpowers-marketplace </dev/null; then
-    if timeout --kill-after=10 30 env -u CLAUDECODE claude plugin install superpowers@superpowers-marketplace </dev/null; then
-      mkdir -p "$(dirname "$CLAUDE_SP_SENTINEL")"
-      touch "$CLAUDE_SP_SENTINEL"
-    else
-      echo "[init]   WARNING: Superpowers plugin install failed or timed out (non-blocking)" >&2
-    fi
+  if claude_has_superpowers_plugin; then
+    echo "[init] Superpowers plugin already present for Claude Code."
+    mkdir -p "$(dirname "$CLAUDE_SP_SENTINEL")"
+    touch "$CLAUDE_SP_SENTINEL"
   else
-    echo "[init]   WARNING: Superpowers marketplace add failed or timed out (non-blocking)" >&2
+    echo "[init] Installing Superpowers plugin for Claude Code..."
+    claude_marketplace_ready=0
+    claude_marketplace_log="$(mktemp)"
+    claude_marketplace_exit=0
+    if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin marketplace add obra/superpowers-marketplace </dev/null >"$claude_marketplace_log" 2>&1; then
+      claude_marketplace_exit=$?
+    fi
+
+    # Determine readiness from filesystem state instead of CLI error strings.
+    if claude_has_superpowers_marketplace; then
+      claude_marketplace_ready=1
+    fi
+
+    if [[ "$claude_marketplace_ready" -ne 1 ]]; then
+      echo "[init]   WARNING: Superpowers marketplace add failed or timed out (non-blocking)" >&2
+      echo "[init]   Exit code: $claude_marketplace_exit" >&2
+      sed 's/^/[init]   /' "$claude_marketplace_log" >&2 || true
+    fi
+    rm -f "$claude_marketplace_log"
+
+    if [[ "$claude_marketplace_ready" -eq 1 ]]; then
+      claude_install_log="$(mktemp)"
+      claude_install_exit=0
+      if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin install superpowers@superpowers-marketplace </dev/null >"$claude_install_log" 2>&1; then
+        claude_install_exit=$?
+      fi
+
+      # Validate post-state from metadata so we can mark completion idempotently.
+      if claude_has_superpowers_plugin; then
+        mkdir -p "$(dirname "$CLAUDE_SP_SENTINEL")"
+        touch "$CLAUDE_SP_SENTINEL"
+      else
+        echo "[init]   WARNING: Superpowers plugin install failed or timed out (non-blocking)" >&2
+        echo "[init]   Exit code: $claude_install_exit" >&2
+        sed 's/^/[init]   /' "$claude_install_log" >&2 || true
+      fi
+      rm -f "$claude_install_log"
+    fi
   fi
 fi
 
