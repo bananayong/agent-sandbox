@@ -308,4 +308,12 @@ echo ""
 # ============================================================
 # Hand control to Docker CMD (default: /bin/zsh).
 # Using exec keeps correct signal handling and process tree.
-exec "$@"
+
+# Start a tmux session for Claude Code agent teams support.
+# Claude Code teammate mode spawns each teammate as a split pane inside
+# the tmux session, so the shell must already be running inside tmux.
+if [[ -z "${TMUX:-}" ]] && command -v tmux &>/dev/null; then
+  exec tmux new-session -s main
+else
+  exec "$@"
+fi

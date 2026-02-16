@@ -11,7 +11,7 @@
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
   },
 
-  "teammateMode": "auto",
+  "teammateMode": "tmux",
 
   "lsp": {
     "typescript": {

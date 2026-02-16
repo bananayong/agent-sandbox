@@ -53,7 +53,7 @@ docker build -t agent-sandbox:latest .
 2. Bootstraps zimfw and installs zsh modules if missing
 3. Applies first-run shell/git bootstrap steps
 4. Checks Docker socket accessibility and prints diagnostic if inaccessible
-5. `exec "$@"` -> runs CMD (`/bin/zsh`)
+5. Starts a tmux session (`main`) for Claude Code teammate support (falls back to `exec "$@"` if already inside tmux)
 
 **Config files in `configs/`** are baked into the image at `/etc/skel/` and copied to the user's persisted home on first run. After that, the user's copies take precedence — except for managed configs which are always overwritten to keep feature flags current.
 
@@ -68,6 +68,8 @@ Settings are applied via the `env` block in `settings.json` and forwarded from h
 | `CLAUDE_CODE_ENABLE_TASKS` | `true` | Task management with dependencies |
 | `CLAUDE_CODE_EFFORT_LEVEL` | `high` | Maximum reasoning depth for Opus |
 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `70` | Auto-compact context at 70% usage |
+
+The `teammateMode` setting is set to `"tmux"` so Claude Code spawns each teammate as a tmux split pane. The container automatically starts inside a tmux session named `main` (via `start.sh`).
 
 Host env vars override `settings.json` values when forwarded via `run.sh`.
 

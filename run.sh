@@ -300,7 +300,10 @@ run_container() {
       return 1
     fi
     echo "Attaching to running container..."
-    docker exec -it "$CONTAINER_NAME" /bin/zsh
+    # Prefer attaching to the tmux session started by start.sh.
+    # Falls back to plain zsh if tmux session doesn't exist.
+    docker exec -it "$CONTAINER_NAME" tmux attach -t main 2>/dev/null \
+      || docker exec -it "$CONTAINER_NAME" /bin/zsh
     return
   fi
 
