@@ -128,6 +128,11 @@ install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-cr
 # Copy MCP server config template if not already present.
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 
+# Copy LSP settings for coding agents (Claude Code, Codex, Gemini CLI).
+copy_default /etc/skel/.claude/settings.json  "$HOME_DIR/.claude/settings.json"
+copy_default /etc/skel/.codex/settings.json   "$HOME_DIR/.codex/settings.json"
+copy_default /etc/skel/.gemini/settings.json   "$HOME_DIR/.gemini/settings.json"
+
 # Runtime safety defaults for Claude network stability.
 # Keep these here (entrypoint) as a final fallback so they still apply even
 # when container is launched via a path that bypasses run.sh defaults.
