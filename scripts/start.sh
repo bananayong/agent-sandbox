@@ -270,7 +270,7 @@ fi
 if command -v gh &>/dev/null; then
   if [[ ! -d "$HOME_DIR/.local/share/gh/extensions/gh-copilot" ]]; then
     echo "[init] Installing GitHub Copilot CLI..."
-    gh extension install github/gh-copilot || true
+    timeout --kill-after=10 30 gh extension install github/gh-copilot </dev/null || true
   fi
 fi
 
@@ -287,6 +287,11 @@ fi
 
 # Superpowers skills (obra/superpowers) for Claude Code and Codex.
 # Installs on first run; sentinel files prevent repeated installs.
+#
+# IMPORTANT: all commands use </dev/null to prevent interactive prompts from
+# blocking the entrypoint (no TTY during container startup). --kill-after
+# sends SIGKILL after grace period because Node.js (claude CLI) may ignore
+# SIGTERM and hang indefinitely.
 SUPERPOWERS_REPO="https://github.com/obra/superpowers.git"
 
 # Claude Code: install via plugin marketplace.
@@ -294,15 +299,15 @@ SUPERPOWERS_REPO="https://github.com/obra/superpowers.git"
 CLAUDE_SP_SENTINEL="$HOME_DIR/.claude/plugins/.superpowers-installed"
 if command -v claude &>/dev/null && [[ ! -f "$CLAUDE_SP_SENTINEL" ]]; then
   echo "[init] Installing Superpowers plugin for Claude Code..."
-  if timeout 60 env -u CLAUDECODE claude plugin marketplace add obra/superpowers-marketplace; then
-    if timeout 60 env -u CLAUDECODE claude plugin install superpowers@superpowers-marketplace; then
+  if timeout --kill-after=10 30 env -u CLAUDECODE claude plugin marketplace add obra/superpowers-marketplace </dev/null; then
+    if timeout --kill-after=10 30 env -u CLAUDECODE claude plugin install superpowers@superpowers-marketplace </dev/null; then
       mkdir -p "$(dirname "$CLAUDE_SP_SENTINEL")"
       touch "$CLAUDE_SP_SENTINEL"
     else
-      echo "[init]   ERROR: Failed to install superpowers plugin" >&2
+      echo "[init]   WARNING: Superpowers plugin install failed or timed out (non-blocking)" >&2
     fi
   else
-    echo "[init]   ERROR: Failed to add superpowers marketplace" >&2
+    echo "[init]   WARNING: Superpowers marketplace add failed or timed out (non-blocking)" >&2
   fi
 fi
 
@@ -311,9 +316,9 @@ CODEX_SP_SENTINEL="$HOME_DIR/.codex/.superpowers-installed"
 if command -v codex &>/dev/null && [[ ! -f "$CODEX_SP_SENTINEL" ]]; then
   echo "[init] Installing Superpowers skills for Codex..."
   if [[ ! -d "$HOME_DIR/.codex/superpowers" ]]; then
-    # Timeout prevents a hanging clone from blocking container startup.
-    if ! timeout 60 git clone --depth 1 "$SUPERPOWERS_REPO" "$HOME_DIR/.codex/superpowers"; then
-      echo "[init]   ERROR: Failed to clone superpowers repo for Codex" >&2
+    # Timeout + kill-after prevents a hanging clone from blocking container startup.
+    if ! timeout --kill-after=10 30 git clone --depth 1 "$SUPERPOWERS_REPO" "$HOME_DIR/.codex/superpowers" </dev/null; then
+      echo "[init]   WARNING: Superpowers clone failed or timed out for Codex (non-blocking)" >&2
       # Remove partial clone so the next startup retries cleanly.
       rm -rf "$HOME_DIR/.codex/superpowers"
     fi
