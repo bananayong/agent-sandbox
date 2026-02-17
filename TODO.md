@@ -24,10 +24,8 @@ Optionally tag with priority and category:
 
 - [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
 - [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
-- [ ] [P2] (docs) 아키텍처 다이어그램 — README에 마운트 구조, 네트워크, 진입 흐름을 시각화한 다이어그램 추가
 - [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
 - [ ] [P3] (usability) dry-run 모드 — `run.sh --dry-run`으로 실제 실행 없이 어떤 Docker 명령이 수행될지 미리 출력
-- [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
 - [ ] [P2] (security) `run.sh` 보안 하드닝 프로필 추가 — `--cap-drop=ALL`, `--pids-limit` 등 선택형 hardened 실행 옵션 제공(기본/호환 모드와 분리)
 - [ ] [P3] (automation) 다중 에이전트 병렬 작업 헬퍼 — Git worktree 기반으로 에이전트별 분리 작업 디렉토리를 자동 생성/정리하는 스크립트 추가
@@ -38,7 +36,6 @@ Optionally tag with priority and category:
 - [ ] [P2] (quality) 셸 시작 성능 측정 — zsh startup time 측정 스크립트와 회귀 기준선 도입
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
-- [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
