@@ -7,6 +7,7 @@ set -euo pipefail
 # Usage:
 #   smoke-test.sh              # full test (runtime)
 #   smoke-test.sh --build      # skip docker/socket-dependent checks (build time)
+#   SMOKE_TEST_SOURCE=repo smoke-test.sh --build  # validate repo files explicitly
 
 FAILED=0
 SKIP_DOCKER=false
@@ -137,6 +138,137 @@ check_shared_skills_install_policy() {
   fi
 }
 
+resolve_codex_default_check_paths() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local codex_skel_config="/etc/skel/.codex/config.toml"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      codex_skel_config="configs/codex/config.toml"
+      ;;
+    auto)
+      # Prefer installed paths so build/runtime tests validate image contents.
+      # Fallback to repository paths only when both installed paths are absent.
+      # If one installed path is missing, treat it as a failure signal.
+      if [[ ! -f "$start_script" ]] && [[ ! -f "$codex_skel_config" ]]; then
+        start_script="scripts/start.sh"
+        codex_skel_config="configs/codex/config.toml"
+      fi
+      ;;
+    *)
+      echo "  FAIL codex-default-config (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return 1
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL codex-default-config ($start_script missing)"
+    FAILED=1
+    return 1
+  fi
+
+  if [[ ! -f "$codex_skel_config" ]]; then
+    echo "  FAIL codex-default-config ($codex_skel_config missing)"
+    FAILED=1
+    return 1
+  fi
+
+  CODEX_DEFAULT_START_SCRIPT="$start_script"
+  CODEX_DEFAULT_CONFIG="$codex_skel_config"
+}
+
+extract_codex_status_line_items() {
+  local config_path="$1"
+  awk '
+    BEGIN {
+      in_tui = 0
+      in_status_line = 0
+    }
+    /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/ {
+      in_tui = 1
+      in_status_line = 0
+      next
+    }
+    /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/ {
+      in_tui = 0
+      in_status_line = 0
+      next
+    }
+    in_tui {
+      if ($0 ~ /^[[:space:]]*status_line[[:space:]]*=/) {
+        in_status_line = 1
+      }
+      if (in_status_line == 1) {
+        line = $0
+        while (match(line, /"[^"]+"/)) {
+          print substr(line, RSTART + 1, RLENGTH - 2)
+          line = substr(line, RSTART + RLENGTH)
+        }
+        if ($0 ~ /\]/) {
+          exit
+        }
+      }
+    }
+  ' "$config_path"
+}
+
+check_codex_default_config() {
+  local start_script
+  local codex_skel_config
+  local expected_items
+  local actual_items
+  local status_items_ok=1
+  local i
+
+  if ! resolve_codex_default_check_paths; then
+    return
+  fi
+
+  start_script="$CODEX_DEFAULT_START_SCRIPT"
+  codex_skel_config="$CODEX_DEFAULT_CONFIG"
+
+  local has_start_hook=0
+
+  if grep -Eq 'ensure_codex_status_line[[:space:]]+/etc/skel/.codex/config.toml[[:space:]]+"\$HOME_DIR/.codex/config.toml"' "$start_script"; then
+    has_start_hook=1
+  fi
+
+  mapfile -t actual_items < <(extract_codex_status_line_items "$codex_skel_config")
+  expected_items=(
+    "model-with-reasoning"
+    "current-dir"
+    "git-branch"
+    "context-used"
+    "total-input-tokens"
+    "total-output-tokens"
+    "five-hour-limit"
+    "weekly-limit"
+  )
+
+  if [[ "${#actual_items[@]}" -ne "${#expected_items[@]}" ]]; then
+    status_items_ok=0
+  else
+    for i in "${!expected_items[@]}"; do
+      if [[ "${actual_items[$i]}" != "${expected_items[$i]}" ]]; then
+        status_items_ok=0
+        break
+      fi
+    done
+  fi
+
+  if [[ "$has_start_hook" -eq 1 ]] && [[ "$status_items_ok" -eq 1 ]]; then
+    echo "  OK   codex-default-config"
+  else
+    echo "  FAIL codex-default-config (status_items_ok=${status_items_ok}, start_hook=${has_start_hook})"
+    FAILED=1
+  fi
+}
+
 echo "=== Agent Sandbox Smoke Test ==="
 echo ""
 echo "--- Coding Agents ---"
@@ -154,6 +286,10 @@ echo "--- Shared Skills ---"
 check_shared_skills_bundle
 check_shared_skills_metadata
 check_shared_skills_install_policy
+
+echo ""
+echo "--- Agent Defaults ---"
+check_codex_default_config
 
 echo ""
 echo "--- Core Tools ---"

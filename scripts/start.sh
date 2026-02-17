@@ -49,6 +49,103 @@ update_managed() {
   cp "$src" "$dest"
 }
 
+# Ensure Codex config contains the managed default status line items.
+# - If config does not exist: install the image default as-is.
+# - If config exists and already has status_line: keep user customization.
+# - If config exists but lacks status_line: insert only status_line into [tui].
+ensure_codex_status_line() {
+  local src="$1"
+  local dest="$2"
+  local tmp_file
+  local status_block
+
+  mkdir -p "$(dirname "$dest")"
+
+  if [[ ! -f "$dest" ]]; then
+    echo "[init] Installing Codex default config: $dest"
+    cp "$src" "$dest"
+    return
+  fi
+
+  if awk '
+    BEGIN {
+      in_tui = 0
+    }
+    /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/ {
+      if ($0 ~ /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/) {
+        in_tui = 1
+      } else {
+        in_tui = 0
+      }
+      next
+    }
+    in_tui && $0 ~ /^[[:space:]]*status_line[[:space:]]*=/ {
+      found = 1
+      exit 0
+    }
+    END {
+      if (found == 1) {
+        exit 0
+      }
+      exit 1
+    }
+  ' "$dest"; then
+    return
+  fi
+
+  echo "[init] Updating Codex config with default status line: $dest"
+
+  status_block='status_line = [
+  "model-with-reasoning",
+  "current-dir",
+  "git-branch",
+  "context-used",
+  "total-input-tokens",
+  "total-output-tokens",
+  "five-hour-limit",
+  "weekly-limit",
+]'
+
+  tmp_file="$(mktemp)"
+
+  # Insert status_line inside existing [tui] section when present.
+  # If [tui] does not exist, append a new [tui] block at the end.
+  awk -v status_block="$status_block" '
+    BEGIN {
+      in_tui = 0
+      tui_seen = 0
+      inserted = 0
+    }
+    {
+      if ($0 ~ /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/) {
+        if (in_tui && inserted == 0) {
+          print status_block
+          inserted = 1
+        }
+        if ($0 ~ /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/) {
+          in_tui = 1
+          tui_seen = 1
+        } else {
+          in_tui = 0
+        }
+      }
+      print $0
+    }
+    END {
+      if (tui_seen == 1 && inserted == 0) {
+        print status_block
+      }
+      if (tui_seen == 0) {
+        print ""
+        print "[tui]"
+        print status_block
+      }
+    }
+  ' "$dest" > "$tmp_file"
+
+  mv "$tmp_file" "$dest"
+}
+
 # Install shared skills from image into one agent's skill directory.
 # By default behavior is additive: existing skills are never overwritten.
 # Optional 3rd arg is a comma-separated exclude list by skill folder name.
@@ -193,6 +290,10 @@ copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 copy_default /etc/skel/.claude/settings.json  "$HOME_DIR/.claude/settings.json"
 copy_default /etc/skel/.codex/settings.json   "$HOME_DIR/.codex/settings.json"
 copy_default /etc/skel/.gemini/settings.json   "$HOME_DIR/.gemini/settings.json"
+
+# Codex CLI uses config.toml for TUI/runtime preferences.
+# Keep existing user config, but ensure the default status line exists.
+ensure_codex_status_line /etc/skel/.codex/config.toml "$HOME_DIR/.codex/config.toml"
 
 # Runtime safety defaults for Claude network stability.
 # Keep these here (entrypoint) as a final fallback so they still apply even
