@@ -13,6 +13,11 @@
 
   "teammateMode": "tmux",
 
+  "statusLine": {
+    "type": "command",
+    "command": "input=$(cat); [ ! -f /tmp/.claude-sl-init ] && { touch /tmp/.claude-sl-init; sleep 0.5; }; m=$(echo \"$input\" | jq -r '.model.display_name // \"Claude\"'); e=\"${CLAUDE_CODE_EFFORT_LEVEL:-}\"; cwd=$(echo \"$input\" | jq -r '.workspace.current_dir // \"~\"'); d=$(basename \"$cwd\"); ctx=$(echo \"$input\" | jq -r '.context_window.used_percentage // empty'); gb=$(cd \"$cwd\" 2>/dev/null && git --no-optional-locks branch --show-current 2>/dev/null); gs=$(cd \"$cwd\" 2>/dev/null && git --no-optional-locks status --porcelain 2>/dev/null); st=$(echo \"$gs\" | grep -c '^[MADRC]' 2>/dev/null); mo=$(echo \"$gs\" | grep -c '^.[MADRC]' 2>/dev/null); ut=$(echo \"$gs\" | grep -c '^??' 2>/dev/null); printf '\\033[36m✦ %s\\033[0m' \"$m\"; [ -n \"$e\" ] && printf ' \\033[90m(%s)\\033[0m' \"$e\"; printf ' \\033[90m│\\033[0m \\033[33m📂 %s\\033[0m' \"$d\"; if [ -n \"$gb\" ]; then printf ' \\033[90m│\\033[0m \\033[32m  %s\\033[0m' \"$gb\"; [ \"$st\" -gt 0 ] 2>/dev/null && printf ' \\033[32m+%s\\033[0m' \"$st\"; [ \"$mo\" -gt 0 ] 2>/dev/null && printf ' \\033[31m!%s\\033[0m' \"$mo\"; [ \"$ut\" -gt 0 ] 2>/dev/null && printf ' \\033[90m?%s\\033[0m' \"$ut\"; fi; [ -n \"$ctx\" ] && printf ' \\033[90m│\\033[0m \\033[35m⏱ %s%%\\033[0m' \"$ctx\"; cost=$(echo \"$input\" | jq -r '(.cost.total_cost_usd // empty) | if . != \"\" then (. * 100 | round / 100 | tostring) else \"\" end'); [ -n \"$cost\" ] && printf ' \\033[90m│\\033[0m \\033[33m💲%s\\033[0m' \"$cost\"; echo"
+  },
+
   "lsp": {
     "typescript": {
       "command": "typescript-language-server",
