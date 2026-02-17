@@ -28,6 +28,35 @@ copy_default() {
   fi
 }
 
+# Copy shared templates from image defaults into persisted home.
+# Behavior is additive and idempotent: existing user files are never overwritten.
+install_default_templates() {
+  local source_root="$1"
+  local target_root="$2"
+
+  if [[ ! -d "$source_root" ]]; then
+    return
+  fi
+
+  mkdir -p "$target_root"
+
+  local source_file
+  local relative_path
+  local target_file
+  while IFS= read -r -d '' source_file; do
+    relative_path="${source_file#"$source_root"/}"
+    target_file="$target_root/$relative_path"
+
+    if [[ -e "$target_file" ]]; then
+      continue
+    fi
+
+    echo "[init] Installing default template: $target_file"
+    mkdir -p "$(dirname "$target_file")"
+    cp "$source_file" "$target_file"
+  done < <(find "$source_root" -type f -print0 | sort -z)
+}
+
 # Update a managed config file, overwriting even if it already exists.
 # Prints a unified diff before replacing so users can see what changed
 # and restore manually if needed. Skips when contents are identical.
@@ -225,6 +254,7 @@ update_managed /etc/skel/.config/starship.toml "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
 update_managed /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
+install_default_templates /etc/skel/.agent-sandbox/templates "$HOME_DIR/.agent-sandbox/templates"
 
 # Existing users may already have a persisted ~/.zshrc from older images.
 # Add a one-time source hook so new auto-approve wrappers are loaded without

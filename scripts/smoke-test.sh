@@ -138,6 +138,99 @@ check_shared_skills_install_policy() {
   fi
 }
 
+resolve_templates_root() {
+  local templates_root="/etc/skel/.agent-sandbox/templates"
+  if [[ ! -d "$templates_root" ]] && [[ -d "configs/templates" ]]; then
+    # Fallback for local repository runs (outside built container image).
+    templates_root="configs/templates"
+  fi
+  echo "$templates_root"
+}
+
+check_templates_bundle() {
+  local templates_root
+  templates_root="$(resolve_templates_root)"
+
+  if [[ ! -d "$templates_root" ]]; then
+    echo "  FAIL shared-templates-dir ($templates_root missing)"
+    FAILED=1
+    return
+  fi
+
+  local required_files=(
+    "prompt-template.md"
+    "command-checklist.md"
+    "config-snippet.md"
+  )
+
+  local missing=0
+  local required_file
+  for required_file in "${required_files[@]}"; do
+    if [[ ! -f "$templates_root/$required_file" ]]; then
+      echo "  FAIL shared-templates-file ($required_file missing)"
+      FAILED=1
+      missing=1
+    fi
+  done
+
+  local template_count
+  template_count="$(find "$templates_root" -type f | wc -l | tr -d ' ')"
+
+  if [[ "$missing" -eq 0 ]] && [[ "$template_count" -ge 3 ]]; then
+    echo "  OK   shared-templates-bundle (${template_count} files)"
+  elif [[ "$template_count" -lt 3 ]]; then
+    echo "  FAIL shared-templates-bundle (expected at least 3 files, got ${template_count})"
+    FAILED=1
+  fi
+}
+
+check_templates_install_policy() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        start_script="scripts/start.sh"
+      fi
+      ;;
+    *)
+      echo "  FAIL shared-templates-install-policy (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL shared-templates-install-policy ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  local has_function=0
+  local has_install_call=0
+
+  if grep -Fq "install_default_templates()" "$start_script"; then
+    has_function=1
+  fi
+
+  if grep -Eq 'install_default_templates[[:space:]]+/etc/skel/.agent-sandbox/templates[[:space:]]+"[$]HOME_DIR/.agent-sandbox/templates"' "$start_script"; then
+    has_install_call=1
+  fi
+
+  if [[ "$has_function" -eq 1 ]] && [[ "$has_install_call" -eq 1 ]]; then
+    echo "  OK   shared-templates-install-policy"
+  else
+    echo "  FAIL shared-templates-install-policy (function=${has_function}, install_call=${has_install_call})"
+    FAILED=1
+  fi
+}
+
 resolve_codex_default_check_paths() {
   local source_mode="${SMOKE_TEST_SOURCE:-auto}"
   local start_script="/usr/local/bin/start.sh"
@@ -350,6 +443,11 @@ echo "--- Shared Skills ---"
 check_shared_skills_bundle
 check_shared_skills_metadata
 check_shared_skills_install_policy
+
+echo ""
+echo "--- Shared Templates ---"
+check_templates_bundle
+check_templates_install_policy
 
 echo ""
 echo "--- Agent Defaults ---"

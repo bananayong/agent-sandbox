@@ -55,7 +55,7 @@ docker build -t agent-sandbox:latest .
 컨테이너 시작 시 `scripts/start.sh`가 자동 실행됩니다.
 
 1. 기본 dotfiles를 `$HOME`으로 복사(첫 실행), managed config(`settings.json`)는 diff 출력 후 동기화
-2. shared skills, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
+2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
 5. git delta, 기본 에디터(micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
@@ -110,6 +110,19 @@ playwright-cli -s=research close
 
 - 컨테이너를 지워도 `~/.agent-sandbox/home`은 유지됩니다.
 - 따라서 CLI 로그인 상태, shell history, 개인 설정이 살아있습니다.
+
+## Shared Templates
+
+공용 템플릿은 이미지 기본값에서 사용자 홈으로 first-run 시 자동 시드됩니다.
+
+- 이미지 기본 경로: `/etc/skel/.agent-sandbox/templates`
+- 사용자 경로: `~/.agent-sandbox/templates`
+- 설치 정책: 없는 파일만 추가(기존 사용자 파일은 덮어쓰지 않음)
+
+기본 포함 파일:
+- `prompt-template.md`
+- `command-checklist.md`
+- `config-snippet.md`
 
 ## Environment Variables
 
@@ -282,6 +295,7 @@ docker compose up
 - `skills/`: 공유 스킬 번들(Anthropic skills vendored)
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship 설정
+- `configs/templates/`: 공용 프롬프트/커맨드/설정 템플릿 시드 파일
 - `CLAUDE.md`: Claude Code 에이전트 가이드
 - `AGENTS.md`: 범용 에이전트 작업 규칙
 - `TODO.md`: 작업 목록 (모든 에이전트가 공유)
