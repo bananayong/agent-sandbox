@@ -58,7 +58,7 @@ docker build -t agent-sandbox:latest .
 2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
-5. git delta, 기본 에디터(micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
+5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
 6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
 
@@ -217,7 +217,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 
 - Base: Debian bookworm-slim, zsh, tmux, git, python3, node 22, bun
 - Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq
-- UX: starship, eza, bat, zoxide, micro, delta, lazygit, gitui, tokei
+- UX: starship, eza, bat, zoxide, vim, neovim, micro, delta, lazygit, gitui, tokei
 - Agents: claude, codex, gemini, opencode
 
 참고: `broot`는 현재 빌드 안정성 이슈로 비활성화되어 있습니다.

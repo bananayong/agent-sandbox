@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 python3-pip python3-venv \
     zsh tmux locales \
+    vim neovim \
     nnn ncdu jq ripgrep \
     bat zoxide tealdeer \
     dnsutils iputils-ping net-tools openssh-client \
