@@ -255,6 +255,13 @@ RUN bun install -g \
     typescript \
     oh-my-opencode
 
+# Install agent productivity tools via bun.
+RUN bun install -g @beads/bd
+
+# beads package downloads its native runtime via postinstall.
+# Bun blocks postinstall scripts by default, so explicitly trust this package.
+RUN printf 'y\n' | bun pm -g trust @beads/bd
+
 # Install LSP servers for code intelligence.
 # These provide autocomplete, go-to-definition, and diagnostics for coding agents.
 RUN bun install -g \
@@ -288,7 +295,8 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v docker-langserver || { echo "ERROR: docker-langserver not found"; exit 1; } \
     && command -v vscode-json-language-server || { echo "ERROR: vscode-json-language-server not found"; exit 1; } \
     && command -v yaml-language-server || { echo "ERROR: yaml-language-server not found"; exit 1; } \
-    && command -v pyright || { echo "ERROR: pyright not found"; exit 1; }
+    && command -v pyright || { echo "ERROR: pyright not found"; exit 1; } \
+    && command -v bd || { echo "ERROR: bd (beads) not found"; exit 1; }
 
 # Default dotfiles are copied to /etc/skel.
 # start.sh later copies them into user home only when missing.

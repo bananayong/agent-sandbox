@@ -22,7 +22,6 @@ Optionally tag with priority and category:
 
 ## Pending
 
-- [ ] [P2] (setup) 에이전트 보조 도구 설치 — speckit, superpowers, beads 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치
 - [ ] [P2] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 - [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
 - [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
@@ -69,4 +68,5 @@ Optionally tag with priority and category:
 - [x] [P1] (automation) GitHub Issues 기반 자동 작업 환경 구축 — allowlist 기반 안전장치 + `.github/workflows/agent-issue-intake.yml`, `.github/workflows/agent-issue-worker.yml`, `.github/workflows/agent-pr-reviewer.yml`
 - [x] [P1] (setup) 에이전트에게 사용 가능한 도구 목록 알려주기 — TOOLS.md 컨테이너 내부 배치 (`~/.config/agent-sandbox/TOOLS.md`)
 - [x] [P2] (build) 버전 점검/업데이트 스크립트 추가 — `scripts/update-versions.sh`로 Dockerfile ARG, workflow action SHA, Codex 버전의 scan/check/update 지원
+- [x] [P2] (setup) 에이전트 보조 도구 설치 — superpowers, beads, bkit 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치 (beads: Dockerfile bun global, bkit: start.sh marketplace, speckit: arm64 미지원으로 제외)
 - [x] [P1] (automation) 에이전트 권한 프롬프트 최소화 — `AGENT_SANDBOX_AUTO_APPROVE=1` 기본값 + Codex/Claude/Gemini/Copilot auto-approve wrapper로 사용자 확인 없이 실행

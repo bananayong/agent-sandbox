@@ -126,6 +126,10 @@ check "gemini"    gemini --version
 check "opencode"  opencode --version
 
 echo ""
+echo "--- Agent Productivity Tools ---"
+check "beads"     bd --version
+
+echo ""
 echo "--- Shared Skills ---"
 check_shared_skills_bundle
 check_shared_skills_metadata

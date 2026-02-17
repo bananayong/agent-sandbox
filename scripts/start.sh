@@ -383,6 +383,77 @@ if command -v codex &>/dev/null && [[ ! -f "$CODEX_SP_SENTINEL" ]]; then
   fi
 fi
 
+# bkit (Vibecoding Kit) plugin for Claude Code.
+# Installs via marketplace on first run; sentinel prevents repeated installs.
+#
+# Same pattern as Superpowers above: </dev/null prevents interactive prompts,
+# timeout --kill-after sends SIGKILL after grace period, env -u CLAUDECODE
+# allows `claude plugin` to work outside a session.
+BKIT_SENTINEL="$HOME_DIR/.claude/plugins/.bkit-installed"
+
+# Check if bkit marketplace exists in Claude plugin storage.
+claude_has_bkit_marketplace() {
+  local marketplace_dir="$HOME_DIR/.claude/plugins/marketplaces/bkit-marketplace"
+  [[ -d "$marketplace_dir" ]] && [[ -n "$(ls -A "$marketplace_dir" 2>/dev/null)" ]]
+}
+
+# Check if Claude already has bkit installed.
+claude_has_bkit_plugin() {
+  local plugins_json="$HOME_DIR/.claude/plugins/installed_plugins.json"
+  local plugin_cache_dir="$HOME_DIR/.claude/plugins/cache/bkit-marketplace/bkit"
+
+  [[ -f "$plugins_json" ]] \
+    && grep -Fq '"bkit@bkit-marketplace"' "$plugins_json" \
+    && [[ -d "$plugin_cache_dir" ]] \
+    && [[ -n "$(ls -A "$plugin_cache_dir" 2>/dev/null)" ]]
+}
+
+if command -v claude &>/dev/null && [[ ! -f "$BKIT_SENTINEL" ]]; then
+  if claude_has_bkit_plugin; then
+    echo "[init] bkit plugin already present for Claude Code."
+    mkdir -p "$(dirname "$BKIT_SENTINEL")"
+    touch "$BKIT_SENTINEL"
+  else
+    echo "[init] Installing bkit plugin for Claude Code..."
+    bkit_marketplace_ready=0
+    bkit_marketplace_log="$(mktemp)"
+    bkit_marketplace_exit=0
+    # Source repo is bkit-claude-code; Claude resolves this to marketplace id bkit-marketplace.
+    if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin marketplace add popup-studio-ai/bkit-claude-code </dev/null >"$bkit_marketplace_log" 2>&1; then
+      bkit_marketplace_exit=$?
+    fi
+
+    if claude_has_bkit_marketplace; then
+      bkit_marketplace_ready=1
+    fi
+
+    if [[ "$bkit_marketplace_ready" -ne 1 ]]; then
+      echo "[init]   WARNING: bkit marketplace add failed or timed out (non-blocking)" >&2
+      echo "[init]   Exit code: $bkit_marketplace_exit" >&2
+      sed 's/^/[init]   /' "$bkit_marketplace_log" >&2 || true
+    fi
+    rm -f "$bkit_marketplace_log"
+
+    if [[ "$bkit_marketplace_ready" -eq 1 ]]; then
+      bkit_install_log="$(mktemp)"
+      bkit_install_exit=0
+      if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin install bkit@bkit-marketplace </dev/null >"$bkit_install_log" 2>&1; then
+        bkit_install_exit=$?
+      fi
+
+      if claude_has_bkit_plugin; then
+        mkdir -p "$(dirname "$BKIT_SENTINEL")"
+        touch "$BKIT_SENTINEL"
+      else
+        echo "[init]   WARNING: bkit plugin install failed or timed out (non-blocking)" >&2
+        echo "[init]   Exit code: $bkit_install_exit" >&2
+        sed 's/^/[init]   /' "$bkit_install_log" >&2 || true
+      fi
+      rm -f "$bkit_install_log"
+    fi
+  fi
+fi
+
 # Ensure history file exists for zsh sessions.
 touch "$HOME_DIR/.zsh_history"
 

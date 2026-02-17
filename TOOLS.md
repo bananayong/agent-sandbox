@@ -38,6 +38,54 @@ gemini
 
 ---
 
+## Agent Productivity Tools
+
+코딩 에이전트의 생산성을 높이는 보조 도구들이다.
+
+### beads (bd) — Git-native 이슈/태스크 트래커
+
+```bash
+# 프로젝트에 beads 초기화
+bd init
+
+# 태스크 생성
+bd create --title "기능 구현" --type task --priority P2
+
+# 태스크 목록 확인
+bd list
+
+# 준비된 작업 자동 탐지 (우선순위 기반)
+bd ready --json
+
+# 작업 할당 (원자적, race condition 방지)
+bd claim <bead-id>
+
+# 오래된 이슈 요약으로 컨텍스트 압축
+bd compact
+```
+
+> git-native 태스크 관리 시스템. `.beads/` 디렉토리에 저장되어 git으로 추적되므로 모든 에이전트(Claude, Codex, Gemini 등)가 CLI로 공유할 수 있다. 에픽→태스크→서브태스크 계층 구조, P0-P4 우선순위, 의존성 DAG를 지원한다.
+
+### superpowers — 에이전트 스킬 플러그인 (기설치)
+
+```bash
+# Claude Code에서 사용 가능한 스킬 확인 (대화형 세션 내에서)
+# TDD, 코드리뷰, 디버깅, 브레인스토밍 등의 구조화된 워크플로우 제공
+```
+
+> obra/superpowers 플러그인. Claude Code 마켓플레이스와 Codex git clone 방식으로 설치되어 있다.
+
+### bkit — Vibecoding Kit (Claude Code 전용)
+
+```bash
+# Claude Code 대화형 세션 내에서 PDCA 방법론 기반 개발 워크플로우 사용
+# Plan-Do-Check-Act 사이클, 16 전문 에이전트, Gap Analysis 등
+```
+
+> popup-studio-ai/bkit-claude-code 소스를 통해 설치되는 플러그인(`bkit@bkit-marketplace`). PDCA(Plan-Do-Check-Act) 방법론 프레임워크로, 자동 Gap Analysis 및 Fix 사이클을 제공한다. Claude Code 전용.
+
+---
+
 ## Version Control
 
 ### git — 분산 버전 관리
