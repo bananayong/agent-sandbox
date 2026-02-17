@@ -1,0 +1,108 @@
+" Agent sandbox default Vim config.
+" Goal: practical defaults + popular plugins while keeping startup simple.
+
+if &compatible
+  set nocompatible
+endif
+
+let mapleader = " "
+let maplocalleader = ","
+
+" UI / UX defaults.
+set encoding=utf-8
+scriptencoding utf-8
+set number
+set relativenumber
+set cursorline
+set signcolumn=yes
+set scrolloff=8
+set sidescrolloff=8
+set mouse=a
+set splitbelow
+set splitright
+set updatetime=250
+set timeoutlen=400
+set termguicolors
+
+" Editing quality defaults.
+set hidden
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+set smartindent
+set expandtab
+set tabstop=2
+set shiftwidth=2
+set softtabstop=2
+set completeopt=menuone,noinsert,noselect
+set shortmess+=c
+
+if has('clipboard')
+  set clipboard=unnamedplus
+endif
+
+if !isdirectory(expand('~/.vim/undo'))
+  call mkdir(expand('~/.vim/undo'), 'p')
+endif
+set undofile
+set undodir=~/.vim/undo
+
+" Bootstrap vim-plug (popular + fast for classic Vim).
+let s:plug_file = expand('~/.vim/autoload/plug.vim')
+if empty(glob(s:plug_file))
+  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+  autocmd VimEnter * ++once PlugInstall --sync | source $MYVIMRC
+endif
+
+call plug#begin('~/.vim/plugged')
+  " Trendy theme set (pick one default below).
+  Plug 'sainnhe/everforest'
+  Plug 'sainnhe/gruvbox-material'
+  Plug 'dracula/vim', { 'as': 'dracula' }
+
+  " Navigation / search.
+  Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+  Plug 'junegunn/fzf.vim'
+  Plug 'preservim/nerdtree'
+
+  " Git + productivity.
+  Plug 'tpope/vim-fugitive'
+  Plug 'airblade/vim-gitgutter'
+  Plug 'dense-analysis/ale'
+
+  " Editing ergonomics.
+  Plug 'tpope/vim-surround'
+  Plug 'tpope/vim-repeat'
+  Plug 'tpope/vim-commentary'
+  Plug 'jiangmiao/auto-pairs'
+  Plug 'itchyny/lightline.vim'
+call plug#end()
+
+filetype plugin indent on
+syntax on
+
+" Theme defaults.
+set background=dark
+let g:everforest_background = 'hard'
+let g:everforest_better_performance = 1
+colorscheme everforest
+
+" Lint/format defaults for ALE.
+let g:ale_fix_on_save = 1
+let g:ale_completion_enabled = 1
+let g:ale_fixers = {
+\ '*': ['remove_trailing_lines', 'trim_whitespace'],
+\ 'javascript': ['prettier'],
+\ 'typescript': ['prettier'],
+\ 'json': ['prettier'],
+\ 'python': ['black'],
+\}
+
+" Practical keymaps.
+nnoremap <silent> <leader>n :NERDTreeToggle<CR>
+nnoremap <silent> <leader>ff :Files<CR>
+nnoremap <silent> <leader>fg :GFiles<CR>
+nnoremap <silent> <leader>fb :Buffers<CR>
+nnoremap <silent> <leader>gs :Git<CR>
+nnoremap <silent> <leader>h :nohlsearch<CR>

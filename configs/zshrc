@@ -88,8 +88,15 @@ alias mkdir='mkdir -p'
 # ----- Environment -----
 # ~/.local/bin is where native installers (e.g. Claude Code) place binaries.
 export PATH="$HOME/.local/bin:$PATH"
-export EDITOR='micro'
-export VISUAL='micro'
+if command -v nvim &>/dev/null; then
+  export EDITOR='nvim'
+  export VISUAL='nvim'
+  export GIT_EDITOR='nvim'
+else
+  export EDITOR='micro'
+  export VISUAL='micro'
+  export GIT_EDITOR='micro'
+fi
 export PAGER='less'
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8

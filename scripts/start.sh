@@ -250,10 +250,13 @@ install_shared_skills() {
 copy_default /etc/skel/.default.zshrc        "$HOME_DIR/.zshrc"
 copy_default /etc/skel/.default.zimrc         "$HOME_DIR/.zimrc"
 copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
+copy_default /etc/skel/.default.vimrc         "$HOME_DIR/.vimrc"
+copy_default /etc/skel/.config/nvim/init.lua  "$HOME_DIR/.config/nvim/init.lua"
 update_managed /etc/skel/.config/starship.toml "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
 update_managed /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
+update_managed /etc/skel/.config/agent-sandbox/editor-defaults.zsh "$HOME_DIR/.config/agent-sandbox/editor-defaults.zsh"
 install_default_templates /etc/skel/.agent-sandbox/templates "$HOME_DIR/.agent-sandbox/templates"
 
 # Existing users may already have a persisted ~/.zshrc from older images.
@@ -265,6 +268,17 @@ if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$AUTO_APPROVE_HOOK" "$HOME_DIR/.zs
     echo ""
     echo "# Agent auto-approve wrappers (managed by agent-sandbox)."
     echo "$AUTO_APPROVE_HOOK"
+  } >> "$HOME_DIR/.zshrc"
+fi
+
+# Ensure editor defaults are applied for both new and existing persisted homes.
+# This hook is appended at the end so it overrides stale legacy defaults.
+EDITOR_DEFAULTS_HOOK='[[ -f ~/.config/agent-sandbox/editor-defaults.zsh ]] && source ~/.config/agent-sandbox/editor-defaults.zsh'
+if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$EDITOR_DEFAULTS_HOOK" "$HOME_DIR/.zshrc"; then
+  {
+    echo ""
+    echo "# Agent editor defaults (managed by agent-sandbox)."
+    echo "$EDITOR_DEFAULTS_HOOK"
   } >> "$HOME_DIR/.zshrc"
 fi
 
@@ -409,10 +423,12 @@ if command -v delta &>/dev/null; then
   fi
 fi
 
-# Set default git editor to micro when available and unset.
-if command -v micro &>/dev/null; then
-  if [[ -z "$(git config --global core.editor 2>/dev/null)" ]]; then
-    git config --global core.editor micro
+# Set default git editor to nvim.
+# Preserve explicit user customization, but migrate previous micro default.
+if command -v nvim &>/dev/null; then
+  current_git_editor="$(git config --global core.editor 2>/dev/null || true)"
+  if [[ -z "$current_git_editor" ]] || [[ "$current_git_editor" == "micro" ]]; then
+    git config --global core.editor nvim
   fi
 fi
 

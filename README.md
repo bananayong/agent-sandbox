@@ -124,6 +124,34 @@ playwright-cli -s=research close
 - `command-checklist.md`
 - `config-snippet.md`
 
+## Vim / Neovim Defaults
+
+컨테이너 기본 설정에 `vim`과 `neovim` 추천 플러그인/테마가 포함됩니다.
+
+- 기본 에디터 환경변수: `EDITOR=nvim`, `VISUAL=nvim`, `GIT_EDITOR=nvim`
+- Debian `editor` 대안 경로도 `nvim`으로 설정됩니다.
+
+- `vim`:
+  - 플러그인 매니저: `vim-plug`
+  - 기본 설정 파일: `~/.vimrc` (이미지 기본값: `configs/vimrc`)
+  - 포함 플러그인: `fzf`, `nerdtree`, `vim-fugitive`, `vim-gitgutter`, `ale`, `vim-surround`, `vim-commentary` 등
+  - 테마 세트: `everforest`(기본), `gruvbox-material`, `dracula`
+- `neovim`:
+  - 플러그인 매니저: `lazy.nvim`
+  - 기본 설정 파일: `~/.config/nvim/init.lua` (이미지 기본값: `configs/nvim/init.lua`)
+  - 포함 플러그인: `telescope`, `nvim-treesitter`, `nvim-lspconfig + mason`, `nvim-cmp`, `gitsigns`, `lualine`, `which-key`, `conform` 등
+  - 테마 세트: `tokyonight`(기본), `catppuccin`, `kanagawa`, `rose-pine`
+
+첫 실행 후 동기화 명령:
+
+```bash
+# vim
+vim +PlugInstall +qall
+
+# neovim
+nvim --headless "+Lazy! sync" +qa
+```
+
 ## Environment Variables
 
 `run.sh`와 `docker-compose.yml`은 공통 키를 전달하고, 일부 키는 실행 경로별 전용입니다.
@@ -294,7 +322,7 @@ docker compose up
 - `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
 - `skills/`: 공유 스킬 번들(Anthropic skills vendored)
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
-- `configs/`: 기본 zsh/zim/tmux/starship 설정
+- `configs/`: 기본 zsh/zim/tmux/starship/vim/nvim 설정
 - `configs/templates/`: 공용 프롬프트/커맨드/설정 템플릿 시드 파일
 - `CLAUDE.md`: Claude Code 에이전트 가이드
 - `AGENTS.md`: 범용 에이전트 작업 규칙

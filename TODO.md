@@ -30,7 +30,9 @@ Optionally tag with priority and category:
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
-- [x] [P2] (setup) 컨테이너 기본 에디터 확장 — `Dockerfile` apt 설치 단계에 `vim`, `neovim` 추가 및 README 도구 요약 반영
+- [x] [P2] (usability) 컨테이너 기본 EDITOR를 nvim으로 설정 — `EDITOR`/`VISUAL`/`GIT_EDITOR` 기본값을 `nvim`으로 통일하고 Debian `editor` 대안도 `nvim`으로 지정, 기존 `micro` 기본값은 fallback으로만 유지
+- [x] [P2] (usability) Vim/Neovim 기본 개발 환경 구성 — `vim-plug`(vim), `lazy.nvim`(neovim) 기반 플러그인/테마 세트와 베스트 프랙티스 설정을 `configs/`에 추가하고, `start.sh` first-run 자동 배포 및 smoke-test 검증 로직 반영
+- [x] [P2] (setup) 컨테이너 기본 에디터 확장 — `vim`/`neovim` 기본 탑재 및 README 도구 요약 반영
 - [x] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
 - [x] [P2] (quality) GitHub Actions workflow lint 도입 — actionlint를 설치하고 `.github/workflows/*.yml` 정적 검증을 CI에 추가
 - [x] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화

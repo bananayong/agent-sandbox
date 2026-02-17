@@ -426,6 +426,73 @@ check_tmux_plugin_bootstrap() {
   fi
 }
 
+check_editor_defaults() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local vim_config="/etc/skel/.default.vimrc"
+  local nvim_config="/etc/skel/.config/nvim/init.lua"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      vim_config="configs/vimrc"
+      nvim_config="configs/nvim/init.lua"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ ! -f "$vim_config" ]] && [[ ! -f "$nvim_config" ]]; then
+        start_script="scripts/start.sh"
+        vim_config="configs/vimrc"
+        nvim_config="configs/nvim/init.lua"
+      fi
+      ;;
+    *)
+      echo "  FAIL editor-default-config (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL editor-default-config ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -f "$vim_config" ]]; then
+    echo "  FAIL editor-default-config ($vim_config missing)"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -f "$nvim_config" ]]; then
+    echo "  FAIL editor-default-config ($nvim_config missing)"
+    FAILED=1
+    return
+  fi
+
+  local has_vim_hook=0
+  local has_nvim_hook=0
+
+  # shellcheck disable=SC2016
+  if grep -Eq 'copy_default[[:space:]]+/etc/skel/.default.vimrc[[:space:]]+"[$]HOME_DIR/.vimrc"' "$start_script"; then
+    has_vim_hook=1
+  fi
+
+  # shellcheck disable=SC2016
+  if grep -Eq 'copy_default[[:space:]]+/etc/skel/.config/nvim/init.lua[[:space:]]+"[$]HOME_DIR/.config/nvim/init.lua"' "$start_script"; then
+    has_nvim_hook=1
+  fi
+
+  if [[ "$has_vim_hook" -eq 1 ]] && [[ "$has_nvim_hook" -eq 1 ]]; then
+    echo "  OK   editor-default-config"
+  else
+    echo "  FAIL editor-default-config (vim_hook=${has_vim_hook}, nvim_hook=${has_nvim_hook})"
+    FAILED=1
+  fi
+}
+
 echo "=== Agent Sandbox Smoke Test ==="
 echo ""
 echo "--- Coding Agents ---"
@@ -453,6 +520,7 @@ echo ""
 echo "--- Agent Defaults ---"
 check_codex_default_config
 check_tmux_plugin_bootstrap
+check_editor_defaults
 
 echo ""
 echo "--- Core Tools ---"
@@ -465,6 +533,8 @@ check "node"      node --version
 check "bun"       bun --version
 check "python3"   python3 --version
 check "playwright-cli" playwright-cli --version
+check "vim"       vim --version
+check "nvim"      nvim --version
 
 echo ""
 echo "--- Shell Tools ---"

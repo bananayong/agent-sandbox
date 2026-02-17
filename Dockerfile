@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 python3-pip python3-venv \
     zsh tmux locales \
-    vim neovim \
+    vim \
     nnn ncdu jq ripgrep \
     bat zoxide tealdeer \
     dnsutils iputils-ping net-tools openssh-client \
@@ -70,6 +70,7 @@ RUN curl -fsSL https://bun.sh/install | bash
 ARG FZF_VERSION=0.57.0
 ARG EZA_VERSION=0.20.14
 ARG STARSHIP_VERSION=1.22.1
+ARG NEOVIM_VERSION=0.11.5
 ARG MICRO_VERSION=2.0.14
 ARG DUF_VERSION=0.8.1
 ARG GPING_VERSION=1.18.0
@@ -91,6 +92,16 @@ ARG PRE_COMMIT_VERSION=4.5.1
 ARG PLAYWRIGHT_CLI_VERSION=0.1.1
 ARG ACTIONLINT_VERSION=1.7.11
 ARG TRIVY_VERSION=0.69.1
+
+# Install Neovim from upstream release (newer than Debian stable package).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then NVIM_ARCH="arm64"; else NVIM_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz" -o /tmp/nvim.tar.gz \
+    && tar -xzf /tmp/nvim.tar.gz -C /opt \
+    && ln -sf "/opt/nvim-linux-${NVIM_ARCH}/bin/nvim" /usr/local/bin/nvim \
+    && update-alternatives --install /usr/bin/editor editor /usr/local/bin/nvim 120 \
+    && update-alternatives --set editor /usr/local/bin/nvim \
+    && rm -f /tmp/nvim.tar.gz
 
 # Install fzf from release artifact.
 # Architecture names differ by project; map debian arch -> release arch.
@@ -336,6 +347,7 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v codex || { echo "ERROR: codex not found"; exit 1; } \
     && command -v gemini || { echo "ERROR: gemini not found"; exit 1; } \
     && command -v opencode || { echo "ERROR: opencode not found"; exit 1; } \
+    && command -v nvim || { echo "ERROR: nvim not found"; exit 1; } \
     && command -v dust || { echo "ERROR: dust not found"; exit 1; } \
     && command -v procs || { echo "ERROR: procs not found"; exit 1; } \
     && command -v btm || { echo "ERROR: btm not found"; exit 1; } \
@@ -365,6 +377,8 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
 COPY configs/zshrc /etc/skel/.default.zshrc
 COPY configs/zimrc /etc/skel/.default.zimrc
 COPY configs/tmux.conf /etc/skel/.default.tmux.conf
+COPY configs/vimrc /etc/skel/.default.vimrc
+COPY configs/nvim/ /etc/skel/.config/nvim/
 COPY configs/starship.toml /etc/skel/.config/starship.toml
 
 # Pre-commit config template for initializing hooks in projects.
@@ -396,6 +410,8 @@ COPY skills/ /opt/agent-sandbox/skills/
 COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
 # Auto-approve wrapper config for agent CLIs in interactive zsh sessions.
 COPY configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
+# Managed default editor env hook (nvim-first).
+COPY configs/editor-defaults.zsh /etc/skel/.config/agent-sandbox/editor-defaults.zsh
 
 # Smoke test script for build-time and runtime tool verification.
 COPY --chmod=755 scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
@@ -406,7 +422,10 @@ COPY --chmod=755 scripts/start.sh /usr/local/bin/start.sh
 # Run smoke test during build (--build skips docker socket checks).
 RUN /usr/local/bin/smoke-test.sh --build
 
-ENV STARSHIP_CONFIG=/home/sandbox/.config/starship.toml
+ENV STARSHIP_CONFIG=/home/sandbox/.config/starship.toml \
+    EDITOR=nvim \
+    VISUAL=nvim \
+    GIT_EDITOR=nvim
 
 # Runtime defaults:
 # - run as non-root user
