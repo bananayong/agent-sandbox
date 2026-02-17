@@ -1,50 +1,144 @@
 "$schema" = "https://starship.rs/config-schema.json"
 
-format = """
-$directory\
-$git_branch\
-$git_status\
-$nodejs\
-$python\
-$rust\
-$golang\
-$docker_context\
-$cmd_duration\
-$line_break\
-$character"""
+add_newline = false
+command_timeout = 1_200
+scan_timeout = 30
+palette = "okabe_ito"
 
-[character]
-success_symbol = "[❯](bold green)"
-error_symbol = "[❯](bold red)"
+format = """
+$os$username$hostname$directory$git_branch$git_status$nodejs$bun$python$rust$golang$package
+$line_break$character"""
+
+right_format = "$docker_context$cmd_duration$jobs$time$status"
+
+[palettes.okabe_ito]
+orange = "#E69F00"
+sky = "#56B4E9"
+bluish_green = "#009E73"
+yellow = "#F0E442"
+blue = "#0072B2"
+vermillion = "#D55E00"
+purple = "#CC79A7"
+
+[os]
+disabled = false
+style = "bold fg:blue"
+format = "[$symbol ]($style)"
+
+[os.symbols]
+Debian = "󰣚"
+Ubuntu = "󰕈"
+Arch = "󰣇"
+Macos = "󰀵"
+Windows = "󰍲"
+
+[username]
+show_always = true
+style_user = "bold fg:purple"
+style_root = "bold fg:vermillion"
+format = "[$user ]($style)"
+
+[hostname]
+ssh_only = true
+ssh_symbol = " "
+style = "fg:sky"
+format = "[@$hostname ]($style)"
 
 [directory]
-truncation_length = 3
+style = "bold fg:sky"
+format = "[ $path ]($style)[$read_only]($read_only_style)"
+truncation_length = 4
 truncation_symbol = "…/"
-style = "bold cyan"
+read_only = " "
+read_only_style = "bold fg:vermillion"
+
+[directory.substitutions]
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = " "
+"Pictures" = " "
 
 [git_branch]
-symbol = " "
-style = "bold purple"
+symbol = " "
+style = "fg:purple"
+format = "[$symbol$branch ]($style)"
 
 [git_status]
-style = "bold yellow"
+style = "bold fg:yellow"
+format = "[$all_status$ahead_behind ]($style)"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = "*${count}"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
 
 [nodejs]
-symbol = " "
+symbol = " "
+style = "fg:bluish_green"
+format = "[$symbol($version) ]($style)"
 detect_extensions = ["js", "mjs", "cjs", "ts", "mts", "cts"]
 
+[bun]
+symbol = " "
+style = "fg:blue"
+format = "[$symbol($version) ]($style)"
+
 [python]
-symbol = " "
+symbol = " "
+style = "fg:sky"
+format = "[$symbol$version(\\($virtualenv\\)) ]($style)"
 
 [rust]
-symbol = " "
+symbol = " "
+style = "fg:vermillion"
+format = "[$symbol($version) ]($style)"
 
 [golang]
-symbol = " "
+symbol = " "
+style = "fg:sky"
+format = "[$symbol($version) ]($style)"
+
+[package]
+symbol = "󰏗 "
+style = "fg:orange"
+format = "[$symbol($version) ]($style)"
+display_private = true
 
 [docker_context]
-symbol = " "
+symbol = " "
+style = "fg:blue"
+format = "[$symbol$context ]($style)"
 
 [cmd_duration]
-min_time = 2_000
-format = "took [$duration](bold yellow) "
+min_time = 1_000
+show_milliseconds = true
+style = "fg:orange"
+format = "[󱦟 $duration ]($style)"
+
+[jobs]
+symbol = " "
+number_threshold = 1
+symbol_threshold = 1
+style = "fg:purple"
+format = "[$symbol$number ]($style)"
+
+[time]
+disabled = false
+time_format = "%R"
+style = "fg:bluish_green"
+format = "[ $time ]($style)"
+
+[status]
+disabled = false
+symbol = "✘ "
+style = "bold fg:vermillion"
+format = "[$symbol$status ]($style)"
+
+[character]
+success_symbol = "[❯](bold fg:sky)"
+error_symbol = "[❯](bold fg:vermillion)"
+vimcmd_symbol = "[❮](bold fg:sky)"
