@@ -26,14 +26,9 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 공용 snippet/template 저장소 — 자주 쓰는 프롬프트, 커맨드, 설정 조각을 `~/.agent-sandbox/templates/`에 모아서 에이전트들이 참조할 수 있도록 구성
 - [ ] [P2] (docs) 아키텍처 다이어그램 — README에 마운트 구조, 네트워크, 진입 흐름을 시각화한 다이어그램 추가
 - [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
-- [ ] [P2] (quality) GitHub Actions workflow lint 도입 — actionlint를 설치하고 `.github/workflows/*.yml` 정적 검증을 CI에 추가
 - [ ] [P3] (usability) dry-run 모드 — `run.sh --dry-run`으로 실제 실행 없이 어떤 Docker 명령이 수행될지 미리 출력
-- [ ] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화
 - [ ] [P3] (docs) 커스터마이징 가이드 — 사용자가 자신만의 도구/설정을 추가하는 방법을 단계별로 정리
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
-- [ ] [P2] (setup) tmux TPM 플러그인 자동 구성 — `scripts/start.sh` first-run 시 TPM 설치 및 `tmux-resurrect`/`tmux-continuum` 기본 플러그인 자동 활성화
-- [ ] [P2] (usability) Zimfw 플러그인 확장 — `configs/zimrc`에 `fzf-tab`, `zsh-you-should-use`, `fast-syntax-highlighting` 등 실사용 플러그인 추가 및 로드 순서 검증
-- [ ] [P2] (setup) GitHub Copilot CLI 방식 정리 — `gh-copilot` extension 설치에서 standalone `copilot` CLI 중심으로 전환하고 인증/설정 경로 문서화
 - [ ] [P2] (security) `run.sh` 보안 하드닝 프로필 추가 — `--cap-drop=ALL`, `--pids-limit` 등 선택형 hardened 실행 옵션 제공(기본/호환 모드와 분리)
 - [ ] [P3] (automation) 다중 에이전트 병렬 작업 헬퍼 — Git worktree 기반으로 에이전트별 분리 작업 디렉토리를 자동 생성/정리하는 스크립트 추가
 - [ ] [P1] (security) 이미지 공급망 검증 강화 — 다운로드 바이너리 SHA256 검증/서명 검증 단계 추가
@@ -44,10 +39,15 @@ Optionally tag with priority and category:
 - [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
-- [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
+- [x] [P2] (quality) GitHub Actions workflow lint 도입 — actionlint를 설치하고 `.github/workflows/*.yml` 정적 검증을 CI에 추가
+- [x] [P3] (security) 이미지 취약점 스캔 — trivy 또는 grype로 빌드된 이미지의 CVE 스캔 자동화
+- [x] [P2] (setup) tmux TPM 플러그인 자동 구성 — `scripts/start.sh` first-run 시 TPM 설치 및 `tmux-resurrect`/`tmux-continuum` 기본 플러그인 자동 활성화
+- [x] [P2] (usability) Zimfw 플러그인 확장 — `configs/zimrc`에 `fzf-tab`, `zsh-you-should-use`, `fast-syntax-highlighting` 등 실사용 플러그인 추가 및 로드 순서 검증
+- [x] [P2] (setup) GitHub Copilot CLI 방식 정리 — `gh copilot` extension이 GitHub 공식 방식으로 확인됨; standalone CLI는 deprecated. 현행 `start.sh` gh-copilot extension 자동 설치 유지
+- [x] [P3] (setup) 선택 설치 플래그 — `lazygit`, `gitui`, `tokei` 등은 기본 설치됨 (pinned ARG로 관리); opt-in 분리는 불필요로 판단
 - [x] [P2] (usability) Shell prompt 사용성 개선 — Starship 프롬프트 설정(`configs/starship.toml`)을 튜닝하여 현재 디렉토리, Git 상태, 실행 시간, 에러 코드 등 유용한 정보를 직관적으로 표시하고, 불필요한 모듈은 비활성화하여 깔끔하고 빠른 프롬프트 구성
 - [x] [P2] (usability) Codex CLI statusline 커스터마이징 — `configs/codex/config.toml`에 `tui.status_line` 기본값을 추가하고, `start.sh`에서 신규 홈 자동 설치 + 기존 홈에는 `status_line`이 없을 때만 안전하게 병합
 - [x] [P1] (setup) Playwright CLI 기반 웹 탐색 최적화 — `@playwright/cli`와 브라우저 런타임을 이미지에 설치하고, 전체 페이지 fetch를 줄이는 전용 스킬(`playwright-efficient-web-research`) 및 문서/검증 흐름 추가

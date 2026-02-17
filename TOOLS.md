@@ -757,6 +757,58 @@ unxz file.tar.xz
 
 ---
 
+## Security / Quality Scanning
+
+### actionlint — GitHub Actions 워크플로우 린터
+
+```bash
+# 현재 리포의 워크플로우 검증
+actionlint
+
+# 특정 파일만 검사
+actionlint .github/workflows/ci.yml
+
+# JSON 출력
+actionlint -format '{{json .}}'
+```
+
+> `.github/workflows/*.yml` 파일의 구문, 타입, 표현식 오류를 정적 분석한다.
+
+### trivy — 컨테이너/파일시스템 취약점 스캐너
+
+```bash
+# Docker 이미지 CVE 스캔
+trivy image agent-sandbox:latest
+
+# 파일시스템 스캔
+trivy fs /workspace
+
+# 심각도 필터 (CRITICAL, HIGH만)
+trivy image --severity CRITICAL,HIGH myimage:latest
+
+# SBOM 생성
+trivy image --format spdx-json -o sbom.json myimage:latest
+```
+
+> Aqua Security의 종합 보안 스캐너. OS 패키지, 언어 의존성(npm, pip, go 등), IaC, 시크릿을 검사한다.
+
+### yamllint — YAML 린터
+
+```bash
+# YAML 파일 검증
+yamllint config.yaml
+
+# 디렉토리 전체 검사
+yamllint .github/workflows/
+
+# 엄격 모드
+yamllint -s config.yaml
+```
+
+> 구문 오류, 들여쓰기, 중복 키, 줄 길이 등 YAML 스타일 규칙을 검사한다.
+
+---
+
 ## Alias 참조표
 
 zshrc에 설정된 주요 alias 목록:
@@ -789,9 +841,8 @@ zshrc에 설정된 주요 alias 목록:
 
 ## 미설치 도구 (현재)
 
-`dust`, `procs`, `btm`, `xh`, `mcfly`는 현재 이미지에 포함되어 있다.
 아래 항목만 미설치 상태다.
 
-| 도구 | alias | 용도 |
-|------|-------|------|
-| broot | `br` | 파일 트리 탐색기 |
+| 도구 | alias | 용도 | 비고 |
+|------|-------|------|------|
+| broot | `br` | 파일 트리 탐색기 | arm64/x86_64 크로스 빌드 이슈 |

@@ -65,7 +65,7 @@ docker build -t agent-sandbox:latest .
 - Human-maintainer commits should be signed (`git commit -S`); GitHub Actions bot commits may remain unsigned by workflow policy
 - `run.sh` auto-builds the image if missing, attaches to running container instead of creating new
 - Shell aliases replace standard commands when binaries available (cat->bat, ls->eza, find->fd)
-- `configs/zimrc` ordering: `zsh-completions` -> `completion` -> `zsh-syntax-highlighting` -> `zsh-history-substring-search`
+- `configs/zimrc` ordering: `zsh-completions` -> `completion` -> `fzf-tab` -> `zsh-you-should-use` -> `fast-syntax-highlighting` -> `zsh-history-substring-search`
 - Shell scripts and Docker files: prioritize beginner-friendly comments
 - Git signing metadata: `$HOME` global config only (`~/.gitconfig`, `~/.config/git/allowed_signers`), never in repo paths
 - No new `AGENT_SANDBOX_*` env flags. New `start.sh` features install unconditionally with idempotency guards

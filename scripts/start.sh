@@ -398,6 +398,42 @@ fi
 # TODO: Re-enable tealdeer cache bootstrap after fixing intermittent
 # "InvalidArchive" failures during `tldr --update` in this environment.
 
+# Install TPM (Tmux Plugin Manager) and ensure default tmux plugins are present.
+# Retry on later startups when plugin install fails transiently.
+TPM_PLUGIN_ROOT="$HOME_DIR/.tmux/plugins"
+TPM_DIR="$TPM_PLUGIN_ROOT/tpm"
+REQUIRED_TMUX_PLUGINS=(tmux-resurrect tmux-continuum)
+
+if [[ ! -d "$TPM_DIR" ]]; then
+  echo "[init] Installing TPM (Tmux Plugin Manager)..."
+  if ! timeout --kill-after=10 30 git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR" </dev/null; then
+    echo "[init]   WARNING: TPM clone failed or timed out (non-blocking)" >&2
+    rm -rf "$TPM_DIR"
+  fi
+fi
+
+if [[ -d "$TPM_DIR" ]] && command -v tmux &>/dev/null; then
+  missing_tmux_plugins=()
+  for plugin_name in "${REQUIRED_TMUX_PLUGINS[@]}"; do
+    if [[ ! -d "$TPM_PLUGIN_ROOT/$plugin_name" ]]; then
+      missing_tmux_plugins+=("$plugin_name")
+    fi
+  done
+
+  if [[ "${#missing_tmux_plugins[@]}" -gt 0 ]]; then
+    echo "[init] Installing tmux plugins: ${missing_tmux_plugins[*]}..."
+
+    # TPM's install script reads TMUX_PLUGIN_MANAGER_PATH from tmux server env.
+    # Set it explicitly so install works in non-interactive startup contexts.
+    tmux -f "$HOME_DIR/.tmux.conf" start-server >/dev/null 2>&1 || true
+    tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "$TPM_PLUGIN_ROOT" >/dev/null 2>&1 || true
+
+    if ! timeout --kill-after=10 60 "$TPM_DIR/bin/install_plugins" </dev/null; then
+      echo "[init]   WARNING: tmux plugin install failed or timed out (non-blocking)" >&2
+    fi
+  fi
+fi
+
 # Install broot shell launcher script if broot exists.
 if command -v broot &>/dev/null; then
   if [[ ! -f "$HOME_DIR/.config/broot/launcher/bash/br" ]]; then

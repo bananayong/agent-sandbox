@@ -234,6 +234,7 @@ check_codex_default_config() {
 
   local has_start_hook=0
 
+  # shellcheck disable=SC2016
   if grep -Eq 'ensure_codex_status_line[[:space:]]+/etc/skel/.codex/config.toml[[:space:]]+"\$HOME_DIR/.codex/config.toml"' "$start_script"; then
     has_start_hook=1
   fi
@@ -269,6 +270,69 @@ check_codex_default_config() {
   fi
 }
 
+check_tmux_plugin_bootstrap() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local tmux_conf="/etc/skel/.default.tmux.conf"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      tmux_conf="configs/tmux.conf"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ ! -f "$tmux_conf" ]]; then
+        start_script="scripts/start.sh"
+        tmux_conf="configs/tmux.conf"
+      fi
+      ;;
+    *)
+      echo "  FAIL tmux-plugin-bootstrap (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL tmux-plugin-bootstrap ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -f "$tmux_conf" ]]; then
+    echo "  FAIL tmux-plugin-bootstrap ($tmux_conf missing)"
+    FAILED=1
+    return
+  fi
+
+  local has_tpm_config=0
+  local has_plugin_install=0
+  local has_tmux_env_bootstrap=0
+
+  if grep -Fq "set -g @plugin 'tmux-plugins/tpm'" "$tmux_conf" \
+    && grep -Fq "set -g @plugin 'tmux-plugins/tmux-resurrect'" "$tmux_conf" \
+    && grep -Fq "set -g @plugin 'tmux-plugins/tmux-continuum'" "$tmux_conf"; then
+    has_tpm_config=1
+  fi
+
+  if grep -Fq "install_plugins" "$start_script"; then
+    has_plugin_install=1
+  fi
+
+  if grep -Fq "tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH" "$start_script"; then
+    has_tmux_env_bootstrap=1
+  fi
+
+  if [[ "$has_tpm_config" -eq 1 ]] && [[ "$has_plugin_install" -eq 1 ]] && [[ "$has_tmux_env_bootstrap" -eq 1 ]]; then
+    echo "  OK   tmux-plugin-bootstrap"
+  else
+    echo "  FAIL tmux-plugin-bootstrap (config=${has_tpm_config}, install=${has_plugin_install}, tmux_env=${has_tmux_env_bootstrap})"
+    FAILED=1
+  fi
+}
+
 echo "=== Agent Sandbox Smoke Test ==="
 echo ""
 echo "--- Coding Agents ---"
@@ -290,6 +354,7 @@ check_shared_skills_install_policy
 echo ""
 echo "--- Agent Defaults ---"
 check_codex_default_config
+check_tmux_plugin_bootstrap
 
 echo ""
 echo "--- Core Tools ---"
@@ -333,6 +398,9 @@ check "pre-commit"  pre-commit --version
 check "gitleaks"    gitleaks version
 check "hadolint"    hadolint --version
 check "shellcheck"  shellcheck --version
+check "actionlint"  actionlint --version
+check "trivy"       trivy --version
+check "yamllint"    yamllint --version
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

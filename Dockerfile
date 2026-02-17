@@ -38,7 +38,7 @@ ENV LC_ALL=en_US.UTF-8
 
 # Install Node.js 22 (required by agent CLIs and bun global installs).
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI from official apt repo.
@@ -47,7 +47,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
     | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update && apt-get install -y gh \
+    && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker client tools in container.
@@ -88,6 +88,8 @@ ARG HADOLINT_VERSION=2.14.0
 ARG DIRENV_VERSION=2.37.1
 ARG PRE_COMMIT_VERSION=4.5.1
 ARG PLAYWRIGHT_CLI_VERSION=0.1.1
+ARG ACTIONLINT_VERSION=1.7.11
+ARG TRIVY_VERSION=0.69.1
 
 # Install fzf from release artifact.
 # Architecture names differ by project; map debian arch -> release arch.
@@ -223,9 +225,21 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/cantino/mcfly/releases/download/v${MCFLY_VERSION}/mcfly-v${MCFLY_VERSION}-${MCFLY_ARCH}-unknown-linux-musl.tar.gz" \
     | tar -xz -C /usr/local/bin/ mcfly
 
+# Install actionlint (GitHub Actions workflow linter, single static binary).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then AL_ARCH="arm64"; else AL_ARCH="amd64"; fi \
+    && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${AL_ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin/ actionlint
+
+# Install trivy (container image and filesystem vulnerability scanner).
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then TRIVY_ARCH="ARM64"; else TRIVY_ARCH="64bit"; fi \
+    && curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin/ trivy
+
 # Install pre-commit (code quality hook framework).
 # --break-system-packages is safe in container context (no venv needed).
-RUN pip3 install --break-system-packages "pre-commit==${PRE_COMMIT_VERSION}"
+RUN pip3 install --break-system-packages --no-cache-dir "pre-commit==${PRE_COMMIT_VERSION}" yamllint
 
 # Install gitleaks (detect secrets in git commits).
 RUN ARCH=$(dpkg --print-architecture) \
@@ -252,8 +266,12 @@ RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > /tmp/playwright-bootstrap/.playwright/cli.config.json \
     && cd /tmp/playwright-bootstrap \
     && playwright-cli install \
+    && cd / \
     && rm -rf /tmp/playwright-bootstrap \
-    && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
+    && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH" \
+    # Keep this cleanup in the same layer so build-time caches do not inflate image size.
+    && npm cache clean --force \
+    && rm -rf /root/.npm /tmp/node-compile-cache /tmp/bunx-*
 
 # Create non-root runtime user.
 # sudo is configured for compatibility, but run.sh also sets no-new-privileges.
@@ -274,14 +292,31 @@ RUN bun install -g \
     @google/gemini-cli \
     opencode-ai \
     typescript \
-    oh-my-opencode
+    oh-my-opencode \
+    # opencode and oh-my-opencode ship both glibc and musl optional binaries.
+    # Debian runtime only needs glibc binaries, so drop musl variants.
+    && ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
+    && rm -rf \
+      "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
+    # Bun global installs duplicate package tarballs in /usr/local/install/cache.
+    # Clearing in the same RUN layer reclaims substantial space in final image.
+    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # Install agent productivity tools via bun.
-RUN bun install -g @beads/bd
+RUN bun install -g @beads/bd \
+    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # beads package downloads its native runtime via postinstall.
 # Bun blocks postinstall scripts by default, so explicitly trust this package.
-RUN printf 'y\n' | bun pm -g trust @beads/bd
+RUN printf 'y\n' | bun pm -g trust @beads/bd \
+    && ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
+    && rm -rf \
+      "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
+      /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # Install LSP servers for code intelligence.
 # These provide autocomplete, go-to-definition, and diagnostics for coding agents.
@@ -291,7 +326,8 @@ RUN bun install -g \
     dockerfile-language-server-nodejs \
     vscode-langservers-extracted \
     yaml-language-server \
-    pyright
+    pyright \
+    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # Build-time sanity check: fail early if key CLIs are missing.
 # Each check is separate so the error message identifies the missing binary.
@@ -309,6 +345,9 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
     && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
     && command -v direnv || { echo "ERROR: direnv not found"; exit 1; } \
+    && command -v actionlint || { echo "ERROR: actionlint not found"; exit 1; } \
+    && command -v trivy || { echo "ERROR: trivy not found"; exit 1; } \
+    && command -v yamllint || { echo "ERROR: yamllint not found"; exit 1; } \
     && command -v playwright-cli || { echo "ERROR: playwright-cli not found"; exit 1; } \
     && command -v ps || { echo "ERROR: ps not found"; exit 1; } \
     && command -v pkill || { echo "ERROR: pkill not found"; exit 1; } \
@@ -355,12 +394,10 @@ COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
 COPY configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
 
 # Smoke test script for build-time and runtime tool verification.
-COPY scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
-RUN chmod +x /usr/local/bin/smoke-test.sh
+COPY --chmod=755 scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
 
 # Entry script handles first-run bootstrap, then exec CMD.
-COPY scripts/start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+COPY --chmod=755 scripts/start.sh /usr/local/bin/start.sh
 
 # Run smoke test during build (--build skips docker socket checks).
 RUN /usr/local/bin/smoke-test.sh --build

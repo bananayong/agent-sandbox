@@ -18,11 +18,17 @@ zmodule zsh-users/zsh-completions --fpath src
 # Completion
 zmodule completion
 
+# fzf-tab: replace zsh default completion menu with fzf (must be after completion)
+zmodule Aloxaf/fzf-tab
+
+# Remind alias usage when typing full commands
+zmodule MichaelAquilina/zsh-you-should-use
+
 # Autosuggestions
 zmodule zsh-users/zsh-autosuggestions
 
-# Syntax highlighting (must be after completion)
-zmodule zsh-users/zsh-syntax-highlighting
+# Fast syntax highlighting (replaces zsh-syntax-highlighting for speed)
+zmodule zdharma-continuum/fast-syntax-highlighting
 
 # History substring search (must be after syntax-highlighting)
 zmodule zsh-users/zsh-history-substring-search
