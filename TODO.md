@@ -49,9 +49,9 @@ Optionally tag with priority and category:
 - [ ] [P3] (docs) 트러블슈팅 플레이북 분리 — 소켓 권한, TLS, 프록시, rootless 사례를 시나리오별로 문서화
 - [ ] [P3] (setup) 선택 설치 플래그 — 무거운 도구(`lazygit`, `gitui`, `tokei` 등) opt-in 빌드 ARG 제공
 - [ ] [P3] (setup) docker-compose 경로의 Claude MEMORY/AGENT TEAMS env 전달 보강 — `run.sh` 대비 compose 경로 누락 여부 점검 후 README 사용법 반영
-
 ## Done
 
+- [x] [P1] (setup) Playwright CLI 기반 웹 탐색 최적화 — `@playwright/cli`와 브라우저 런타임을 이미지에 설치하고, 전체 페이지 fetch를 줄이는 전용 스킬(`playwright-efficient-web-research`) 및 문서/검증 흐름 추가
 - [x] [P1] (network) Claude Docker 연결 안정화 — `run.sh` DNS override(`--dns`, `AGENT_SANDBOX_DNS_SERVERS`) 추가, `start.sh` DNS 진단 경고 추가, `DISABLE_AUTOUPDATER=1` 기본값 적용, `host.docker.internal` 기본 매핑 및 컨테이너 IPv6 기본 비활성화 적용, IPv6-off 환경과 일치하도록 DNS 선택을 IPv4 우선으로 보정
 - [x] [P1] (setup) 공용 `skills/` 폴더 구성 및 자동 로딩 — Anthropic `skills` 전체 벤더링, 컨테이너 시작 시 `~/.claude/skills`, `~/.codex/skills`, `~/.gemini/skills`로 자동 설치 (`skill-creator`는 Codex/Gemini 내장 스킬 충돌 방지를 위해 제외)
 - [x] [P1] (setup) zshrc에 alias된 미설치 도구 추가 — dust, procs, btm, xh, mcfly 바이너리 설치

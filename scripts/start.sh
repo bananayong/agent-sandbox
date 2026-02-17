@@ -50,12 +50,15 @@ update_managed() {
 }
 
 # Install shared skills from image into one agent's skill directory.
-# Behavior is additive: existing skills are never overwritten.
+# By default behavior is additive: existing skills are never overwritten.
 # Optional 3rd arg is a comma-separated exclude list by skill folder name.
+# Optional 4th arg is a comma-separated force-sync list: matching skills are
+# overwritten from image defaults every startup to keep managed guidance fresh.
 install_shared_skills() {
   local source_root="$1"
   local target_root="$2"
   local exclude_csv="${3:-}"
+  local force_sync_csv="${4:-}"
 
   if [[ ! -d "$source_root" ]]; then
     return
@@ -71,6 +74,7 @@ install_shared_skills() {
 
     local skill_name
     local target_skill
+    local should_force_sync=0
     skill_name="$(basename "$source_skill")"
     target_skill="$target_root/$skill_name"
 
@@ -89,12 +93,30 @@ install_shared_skills() {
       fi
     fi
 
-    # Respect user-managed/customized skills with the same name.
-    if [[ -e "$target_skill" ]]; then
+    if [[ -n "$force_sync_csv" ]]; then
+      local force_sync_name
+      IFS=',' read -r -a force_sync_list <<< "$force_sync_csv"
+      for force_sync_name in "${force_sync_list[@]}"; do
+        if [[ "$skill_name" == "$force_sync_name" ]]; then
+          should_force_sync=1
+          break
+        fi
+      done
+    fi
+
+    # Respect user-managed/customized skills with the same name unless this
+    # skill is explicitly managed via force-sync list.
+    if [[ -e "$target_skill" ]] && [[ "$should_force_sync" -ne 1 ]]; then
       continue
     fi
 
-    echo "[init] Installing shared skill: $target_skill"
+    if [[ "$should_force_sync" -eq 1 ]] && [[ -e "$target_skill" ]]; then
+      echo "[init] Updating managed shared skill: $target_skill"
+      rm -rf "$target_skill"
+    else
+      echo "[init] Installing shared skill: $target_skill"
+    fi
+
     cp -r "$source_skill" "$target_skill"
   done
 }
@@ -151,9 +173,12 @@ fi
 # Codex/Gemini keep their native "skill-creator" to avoid overriding
 # built-in workflow behavior with a third-party variant.
 SHARED_SKILLS_ROOT="/opt/agent-sandbox/skills"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator"
+# Keep this list narrow: only skills that should be centrally managed and
+# always updated even for existing persisted homes.
+FORCE_SYNC_SHARED_SKILLS="playwright-efficient-web-research"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "" "$FORCE_SYNC_SHARED_SKILLS"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
 
 # Claude Code settings are managed: always kept in sync with image defaults.
 # This ensures experimental feature flags reach existing users on image update.

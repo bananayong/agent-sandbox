@@ -6,22 +6,35 @@ license: Complete terms in LICENSE.txt
 
 # Web Application Testing
 
-To test local web applications, write native Python Playwright scripts.
+Use this skill for local web application verification. Prefer `playwright-cli` for quick interactive checks, and use Python Playwright scripts when you need custom assertions or server lifecycle orchestration.
 
 **Helper Scripts Available**:
 - `scripts/with_server.py` - Manages server lifecycle (supports multiple servers)
 
-**Always run scripts with `--help` first** to see usage. DO NOT read the source until you try running the script first and find that a customized solution is abslutely necessary. These scripts can be very large and thus pollute your context window. They exist to be called directly as black-box scripts rather than ingested into your context window.
+**Always run scripts with `--help` first** to see usage. DO NOT read the source until you try running the script first and find that a customized solution is absolutely necessary. These scripts can be large and pollute context, so use them as black-box utilities first.
+
+## Preferred Paths
+
+1. Fast exploratory verification (recommended): `playwright-cli`
+```bash
+playwright-cli open http://localhost:5173 --browser=chromium
+playwright-cli snapshot
+playwright-cli click e12
+playwright-cli console
+playwright-cli close
+```
+
+2. Repeatable scripted testing with custom logic: Python + Playwright (`scripts/with_server.py`)
 
 ## Decision Tree: Choosing Your Approach
 
 ```
-User task → Is it static HTML?
-    ├─ Yes → Read HTML file directly to identify selectors
-    │         ├─ Success → Write Playwright script using selectors
-    │         └─ Fails/Incomplete → Treat as dynamic (below)
+User task → Need quick navigation/selector validation/debug output?
+    ├─ Yes → Use playwright-cli session first
+    │         ├─ Enough for task → finish
+    │         └─ Need custom assertions/complex flow → Python path below
     │
-    └─ No (dynamic webapp) → Is the server already running?
+    └─ No → Is the server already running?
         ├─ No → Run: python scripts/with_server.py --help
         │        Then use the helper + write simplified Playwright script
         │
@@ -82,7 +95,8 @@ with sync_playwright() as p:
 
 ## Best Practices
 
-- **Use bundled scripts as black boxes** - To accomplish a task, consider whether one of the scripts available in `scripts/` can help. These scripts handle common, complex workflows reliably without cluttering the context window. Use `--help` to see usage, then invoke directly. 
+- **Use bundled scripts as black boxes** - Consider whether one of the scripts in `scripts/` solves the task before writing custom orchestration.
+- Prefer `playwright-cli` for lightweight exploration and quick debugging loops.
 - Use `sync_playwright()` for synchronous scripts
 - Always close the browser when done
 - Use descriptive selectors: `text=`, `role=`, CSS selectors, or IDs

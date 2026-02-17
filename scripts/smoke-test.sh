@@ -95,6 +95,8 @@ check_shared_skills_install_policy() {
   local codex_ok=0
   local gemini_ok=0
   local claude_ok=0
+  local managed_sync_ok=0
+  local managed_sync_value=""
 
   if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.codex/skills\" \"skill-creator\"" "$start_script"; then
     codex_ok=1
@@ -109,10 +111,28 @@ check_shared_skills_install_policy() {
     claude_ok=1
   fi
 
-  if [[ "$codex_ok" -eq 1 ]] && [[ "$gemini_ok" -eq 1 ]] && [[ "$claude_ok" -eq 1 ]]; then
+  managed_sync_value="$(
+    grep -E '^[[:space:]]*FORCE_SYNC_SHARED_SKILLS=' "$start_script" \
+      | head -n 1 \
+      | sed -E 's/^[[:space:]]*FORCE_SYNC_SHARED_SKILLS="?([^"]*)"?/\1/'
+  )"
+
+  if [[ -n "$managed_sync_value" ]]; then
+    local managed_sync_name
+    IFS=',' read -r -a managed_sync_list <<< "$managed_sync_value"
+    for managed_sync_name in "${managed_sync_list[@]}"; do
+      managed_sync_name="${managed_sync_name//[[:space:]]/}"
+      if [[ "$managed_sync_name" == "playwright-efficient-web-research" ]]; then
+        managed_sync_ok=1
+        break
+      fi
+    done
+  fi
+
+  if [[ "$codex_ok" -eq 1 ]] && [[ "$gemini_ok" -eq 1 ]] && [[ "$claude_ok" -eq 1 ]] && [[ "$managed_sync_ok" -eq 1 ]]; then
     echo "  OK   shared-skills-install-policy"
   else
-    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok})"
+    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, managed_sync=${managed_sync_ok})"
     FAILED=1
   fi
 }
@@ -145,6 +165,7 @@ check "gh"        gh --version
 check "node"      node --version
 check "bun"       bun --version
 check "python3"   python3 --version
+check "playwright-cli" playwright-cli --version
 
 echo ""
 echo "--- Shell Tools ---"

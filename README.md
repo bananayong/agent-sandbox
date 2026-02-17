@@ -72,10 +72,29 @@ docker build -t agent-sandbox:latest .
 
 동작 원칙:
 
-- 같은 이름의 스킬 폴더가 이미 있으면 덮어쓰지 않습니다(사용자 커스텀 보존).
+- 같은 이름의 스킬 폴더가 이미 있으면 기본적으로 덮어쓰지 않습니다(사용자 커스텀 보존).
 - 아직 없는 스킬만 추가 설치됩니다.
 - Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
+- `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
+
+## Playwright CLI 기반 웹 탐색
+
+웹 조사/탐색에서 전체 페이지를 반복 fetch하는 대신, 이 저장소는 `playwright-cli` 기반 워크플로우를 권장합니다.
+
+- 기본 경로: `playwright-cli` + 스킬(`skills/playwright-efficient-web-research`)
+- 핵심 원칙: 세션 재사용(`-s=<name>`), `snapshot` ref 기반 조작, `eval`로 필요한 필드만 추출
+- 권장 브라우저: `--browser=chromium` (이미지 빌드 시 사전 설치되는 런타임과 일치)
+- MCP 사용 시점: 장시간 상태 유지/자율 루프가 필요한 경우만 fallback
+
+예시:
+
+```bash
+playwright-cli -s=research open https://example.com --browser=chromium
+playwright-cli -s=research snapshot
+playwright-cli -s=research eval "() => ({ title: document.title })"
+playwright-cli -s=research close
+```
 
 ## Mount & Persistence
 

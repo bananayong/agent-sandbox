@@ -20,6 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     less file man-db htop \
     procps \
     shellcheck \
+    # Playwright Chromium runtime dependencies.
+    libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \
+    libcairo2 libcups2 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 \
+    libnspr4 libnss3 libpango-1.0-0 libx11-6 libxcb1 libxcomposite1 \
+    libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 \
+    libfontconfig1 libfreetype6 xvfb xfonts-scalable \
+    fonts-noto-color-emoji fonts-unifont fonts-liberation \
+    fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
+    fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable UTF-8 locale so shells/tools behave consistently.
@@ -52,6 +61,7 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg \
     && rm -rf /var/lib/apt/lists/*
 
 ENV BUN_INSTALL=/usr/local
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # Install Bun runtime/package manager.
 RUN curl -fsSL https://bun.sh/install | bash
 
@@ -77,6 +87,7 @@ ARG GITLEAKS_VERSION=8.30.0
 ARG HADOLINT_VERSION=2.14.0
 ARG DIRENV_VERSION=2.37.1
 ARG PRE_COMMIT_VERSION=4.5.1
+ARG PLAYWRIGHT_CLI_VERSION=0.1.1
 
 # Install fzf from release artifact.
 # Architecture names differ by project; map debian arch -> release arch.
@@ -234,6 +245,16 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/direnv/direnv/releases/download/v${DIRENV_VERSION}/direnv.linux-${DIRENV_ARCH}" -o /usr/local/bin/direnv \
     && chmod +x /usr/local/bin/direnv
 
+# Install Playwright CLI and pin browser payload to Chromium.
+# PLAYWRIGHT_BROWSERS_PATH makes browser binaries available to all users.
+RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
+    && mkdir -p /tmp/playwright-bootstrap/.playwright \
+    && printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > /tmp/playwright-bootstrap/.playwright/cli.config.json \
+    && cd /tmp/playwright-bootstrap \
+    && playwright-cli install \
+    && rm -rf /tmp/playwright-bootstrap \
+    && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
+
 # Create non-root runtime user.
 # sudo is configured for compatibility, but run.sh also sets no-new-privileges.
 # sandbox is added to root group (GID 0) so Docker socket access works on
@@ -288,6 +309,7 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
     && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
     && command -v direnv || { echo "ERROR: direnv not found"; exit 1; } \
+    && command -v playwright-cli || { echo "ERROR: playwright-cli not found"; exit 1; } \
     && command -v ps || { echo "ERROR: ps not found"; exit 1; } \
     && command -v pkill || { echo "ERROR: pkill not found"; exit 1; } \
     && command -v typescript-language-server || { echo "ERROR: typescript-language-server not found"; exit 1; } \

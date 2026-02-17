@@ -9,6 +9,45 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-17 - Force-sync managed Playwright research skill across persisted homes
+- Context: Shared skill install policy is additive (no overwrite), so users with existing persisted homes could keep stale `playwright-efficient-web-research` instructions after updates.
+- Decision:
+  - Extended `install_shared_skills` with a force-sync list for explicitly managed skills.
+  - Added `playwright-efficient-web-research` to that managed list for Claude/Codex/Gemini installs.
+- Impact:
+  - Existing and new workspaces receive the latest Playwright research guidance without manual cleanup.
+  - User customizations remain preserved for non-managed shared skills.
+
+### 2026-02-17 - Prefer Chromium pinning for Playwright CLI in container builds
+- Context: Playwright CLI install defaults can vary by environment/channel detection, which risks mismatch with skill/docs that explicitly use `--browser=chromium`.
+- Decision:
+  - Pinned bootstrap config to `browserName: chromium` before `playwright-cli install` during image build.
+  - Kept docs/skills aligned to explicit `--browser=chromium` usage.
+- Impact:
+  - Improves reproducibility of browser runtime across images and environments.
+  - Removes ambiguity between runtime docs and installed browser payload.
+
+### 2026-02-17 - Use direct `playwright-cli` commands (no wrapper scripts) in shared skill
+- Context: Wrapper shell scripts were added initially for repeated command chains, but this reduced flexibility for LLM-driven navigation and added maintenance overhead.
+- Decision:
+  - Simplified `playwright-efficient-web-research` to direct `playwright-cli` usage only.
+  - Removed helper wrapper scripts (`open_session.sh`, `snapshot_extract.sh`, `capture_evidence.sh`, `close_session.sh`).
+  - Kept session-first and selective extraction guidance in skill instructions.
+- Impact:
+  - Improves agent autonomy and adaptability during exploratory browsing tasks.
+  - Reduces repository complexity and script maintenance burden.
+
+### 2026-02-17 - Default to Playwright CLI + skill for token-efficient web exploration
+- Context: Agents were repeatedly pulling large page payloads during web research, causing unnecessary context/token pressure and inefficient browsing loops.
+- Decision:
+  - Added `@playwright/cli` and Chromium runtime support directly in the image build path.
+  - Added shared skill `playwright-efficient-web-research` with session-first, snapshot-ref, selective `eval` extraction workflow.
+  - Documented CLI-first policy and retained Playwright MCP as a fallback for long-running/state-heavy autonomous loops only.
+  - Updated `webapp-testing` guidance to prefer `playwright-cli` for quick exploration and use Python scripts for deeper custom assertions/workflow control.
+- Impact:
+  - Reduces context waste from repeated full-page fetch patterns in common research tasks.
+  - Improves agent browsing consistency with explicit operational boundaries between CLI and MCP paths.
+
 ### 2026-02-16 - Slim TODO backlog by removing over-engineered runtime option expansions
 - Context: TODO backlog accumulated multiple overlapping `run.sh` expansion items (`--status`, `doctor`, `logs/exec`, profile/hardening modes) and user requested pruning over-engineered or low-value tasks.
 - Decision:
