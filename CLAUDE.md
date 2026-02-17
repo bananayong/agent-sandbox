@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **Shared project context is in [AGENTS.md](./AGENTS.md).** This file contains Claude Code-specific additions only.
 
-## Experimental Features (`configs/claude/settings.json`)
+## Managed Runtime Defaults (`configs/claude/settings.json`)
 
-Settings applied via the `env` block in `settings.json` and forwarded from host via `run.sh`:
+Settings are applied via the managed `env` block in `settings.json`:
 
 | Key | Value | Description |
 |-----|-------|-------------|
@@ -19,4 +19,4 @@ Settings applied via the `env` block in `settings.json` and forwarded from host 
 
 `teammateMode` is set to `"tmux"` — teammates spawn as tmux split panes inside the `main` session.
 
-Host env vars override `settings.json` values when forwarded via `run.sh`.
+These values are managed defaults, not host-side runtime feature flags.

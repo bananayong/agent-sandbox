@@ -437,19 +437,7 @@ run_container() {
     http_proxy https_proxy no_proxy \
     ALL_PROXY all_proxy \
     SSL_CERT_FILE SSL_CERT_DIR \
-    NODE_EXTRA_CA_CERTS \
-    AGENT_SANDBOX_NODE_TLS_COMPAT \
-    AGENT_SANDBOX_AUTO_APPROVE \
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC \
-    DISABLE_ERROR_REPORTING \
-    DISABLE_TELEMETRY \
-    DISABLE_AUTOUPDATER \
-    CLAUDE_CODE_DISABLE_AUTO_MEMORY \
-    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS \
-    ENABLE_TOOL_SEARCH \
-    CLAUDE_CODE_ENABLE_TASKS \
-    CLAUDE_CODE_EFFORT_LEVEL \
-    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE; do
+    NODE_EXTRA_CA_CERTS; do
     if [[ -n "${!key:-}" ]]; then
       docker_args+=(-e "$key")
     fi
@@ -457,38 +445,26 @@ run_container() {
 
   # Default-disable Claude nonessential traffic (telemetry/event export), which
   # is a common failure point on networks that trigger TLS BAD_RECORD_MAC.
-  # Users can opt out by explicitly setting CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=0.
-  local nonessential_traffic="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
-  docker_args+=(-e "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=$nonessential_traffic")
+  docker_args+=(-e "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")
   # Keep error reporting off by default for the same network stability reason.
-  local disable_error_reporting="${DISABLE_ERROR_REPORTING:-1}"
-  docker_args+=(-e "DISABLE_ERROR_REPORTING=$disable_error_reporting")
+  docker_args+=(-e "DISABLE_ERROR_REPORTING=1")
   # Disable telemetry exports by default (BigQuery/metrics path).
-  local disable_telemetry="${DISABLE_TELEMETRY:-1}"
-  docker_args+=(-e "DISABLE_TELEMETRY=$disable_telemetry")
+  docker_args+=(-e "DISABLE_TELEMETRY=1")
   # Disable background auto-update checks to reduce nonessential calls.
-  local disable_autoupdater="${DISABLE_AUTOUPDATER:-1}"
-  docker_args+=(-e "DISABLE_AUTOUPDATER=$disable_autoupdater")
-  # Default to max-autonomy mode for agent CLIs in the sandbox shell.
-  # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to restore interactive prompts.
-  local auto_approve="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
-  docker_args+=(-e "AGENT_SANDBOX_AUTO_APPROVE=$auto_approve")
+  docker_args+=(-e "DISABLE_AUTOUPDATER=1")
 
   # Apply Node TLS compatibility defaults at container runtime (no image rebuild
   # required). This protects Node-based CLIs on networks where TLS 1.3 records
-  # intermittently fail with BAD_RECORD_MAC, while keeping user overrides.
+  # intermittently fail with BAD_RECORD_MAC.
   local node_options_effective="${NODE_OPTIONS:-}"
-  local tls_compat="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
-  if [[ "$tls_compat" == "1" ]]; then
-    if [[ "$node_options_effective" != *"--tls-max-v1.2"* ]]; then
-      node_options_effective="${node_options_effective:+$node_options_effective }--tls-max-v1.2"
-    fi
-    if [[ "$node_options_effective" != *"--tls-min-v1.2"* ]]; then
-      node_options_effective="${node_options_effective:+$node_options_effective }--tls-min-v1.2"
-    fi
-    if [[ "$node_options_effective" != *"--dns-result-order=ipv4first"* ]]; then
-      node_options_effective="${node_options_effective:+$node_options_effective }--dns-result-order=ipv4first"
-    fi
+  if [[ "$node_options_effective" != *"--tls-max-v1.2"* ]]; then
+    node_options_effective="${node_options_effective:+$node_options_effective }--tls-max-v1.2"
+  fi
+  if [[ "$node_options_effective" != *"--tls-min-v1.2"* ]]; then
+    node_options_effective="${node_options_effective:+$node_options_effective }--tls-min-v1.2"
+  fi
+  if [[ "$node_options_effective" != *"--dns-result-order=ipv4first"* ]]; then
+    node_options_effective="${node_options_effective:+$node_options_effective }--dns-result-order=ipv4first"
   fi
   if [[ -n "$node_options_effective" ]]; then
     docker_args+=(-e "NODE_OPTIONS=$node_options_effective")

@@ -131,7 +131,6 @@ if command -v broot &>/dev/null && [[ -f ~/.config/broot/launcher/bash/br ]]; th
 fi
 
 # Agent auto-approve wrappers (Codex/Claude/Gemini/Copilot).
-# Disable with: export AGENT_SANDBOX_AUTO_APPROVE=0
 if [[ -f ~/.config/agent-sandbox/auto-approve.zsh ]]; then
   source ~/.config/agent-sandbox/auto-approve.zsh
 fi

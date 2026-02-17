@@ -68,25 +68,13 @@ services:
       - NODE_EXTRA_CA_CERTS
       # Node TLS compatibility: cap TLS to 1.2 and prefer IPv4 to avoid
       # UND_ERR_SOCKET / BAD_RECORD_MAC on unstable network paths.
-      # Set AGENT_SANDBOX_NODE_TLS_COMPAT=0 on host to disable.
-      - AGENT_SANDBOX_NODE_TLS_COMPAT=${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}
       - "NODE_OPTIONS=${NODE_OPTIONS:---tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first}"
       # Disable Claude telemetry/error reporting by default to reduce
-      # network failure surface. Set to 0 on host to re-enable.
-      - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}
-      - DISABLE_ERROR_REPORTING=${DISABLE_ERROR_REPORTING:-1}
-      - DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}
-      - DISABLE_AUTOUPDATER=${DISABLE_AUTOUPDATER:-1}
-      # Claude experimental/runtime tuning keys (forward from host when set).
-      - CLAUDE_CODE_DISABLE_AUTO_MEMORY
-      - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
-      - ENABLE_TOOL_SEARCH
-      - CLAUDE_CODE_ENABLE_TASKS
-      - CLAUDE_CODE_EFFORT_LEVEL
-      - CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
-      # Auto-approve agent permissions by default (dangerous).
-      # Set AGENT_SANDBOX_AUTO_APPROVE=0 on host to re-enable prompts.
-      - AGENT_SANDBOX_AUTO_APPROVE=${AGENT_SANDBOX_AUTO_APPROVE:-1}
+      # network failure surface.
+      - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+      - DISABLE_ERROR_REPORTING=1
+      - DISABLE_TELEMETRY=1
+      - DISABLE_AUTOUPDATER=1
 
     # Security
     # Block privilege escalation inside container.

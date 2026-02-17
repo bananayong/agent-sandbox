@@ -1,399 +1,45 @@
 # MEMORY.md
 
-Long-lived decisions, important implementation history, and recurring caveats for this repository.
+Long-lived decisions and recurring caveats for this repository.
+This is intentionally compact: only currently relevant guidance is kept.
 
 ## Usage Rules
-- Record significant technical decisions here with a date, rationale, and impact.
-- Keep `AGENTS.md` and `CLAUDE.md` concise; they should reference this file instead of duplicating decision history.
-- When a decision changes, append a new entry instead of rewriting old history.
+- Record only stable technical decisions with clear operational impact.
+- Prefer short entries over narrative history.
+- When direction changes, replace outdated guidance with the new baseline.
 
-## Decision Log
+## Current Baseline (2026-02-17)
+- Runtime behavior is fixed by default, not host-side feature flags:
+  - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
+  - `DISABLE_ERROR_REPORTING=1`
+  - `DISABLE_TELEMETRY=1`
+  - `DISABLE_AUTOUPDATER=1`
+  - Node TLS compat options are always applied (`--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first`).
+- Auto-approve wrappers (Codex/Claude/Gemini/Copilot) are always enabled in sandbox shells.
+- Managed configs are source-of-truth defaults (`configs/*` -> `/etc/skel` -> synced on startup where managed).
+- `auto-approve.zsh` is managed and sync-updated for existing persisted homes.
 
-### 2026-02-17 - Enforce fail-closed allowlist and foreign-fork PR guards on Claude review paths
-- Context: `claude-code-review.yml` used a skip-on-missing-allowlist behavior, which did not match fail-closed documentation, and Claude PR review paths lacked explicit foreign-fork skip handling.
-- Decision:
-  - Changed `claude-code-review.yml` to hard-fail when `AGENT_ALLOWED_ACTORS` is empty.
-  - Added foreign-fork PR skip checks to `claude-code-review.yml` and `claude.yml` PR interaction job.
-  - Updated README and automation guide to reflect foreign-fork review skips and scope push-path hardening to `agent-issue-worker.yml`.
-- Impact:
-  - Allowlist misconfiguration now fails loudly instead of silently skipping.
-  - PR review automation behavior is more consistent and safer across agent and Claude-dedicated workflows.
+## Network/Docker Defaults
+- Container runtime always includes:
+  - `host.docker.internal` mapping (when Docker supports `host-gateway`)
+  - IPv6 disabled in container net namespace
+  - custom bridge MTU default `1280`
+- `run.sh` supports DNS override via `--dns` / `AGENT_SANDBOX_DNS_SERVERS` (IPv4-first).
+- Rootless/user-owned Docker sockets are handled via host UID/GID matching logic (`AGENT_SANDBOX_MATCH_HOST_USER`).
 
-### 2026-02-17 - Align docker-compose Claude experimental env forwarding with run.sh
-- Context: `run.sh` forwarded Claude runtime/experimental env keys (`CLAUDE_CODE_DISABLE_AUTO_MEMORY`, agent teams/tool search/effort/autocompact), but `docker-compose.yml` path did not.
-- Decision:
-  - Added the same Claude experimental/tuning env keys to `docker-compose.yml`.
-  - Updated README environment docs to classify these keys as shared across `run.sh` and compose paths.
-  - Closed corresponding TODO item after code + doc alignment.
-- Impact:
-  - Compose and `run.sh` now expose consistent Claude runtime behavior knobs.
-  - Reduced operator confusion from path-dependent env behavior differences.
+## Skills/Agent Behavior
+- Vendored shared skills are auto-installed for Claude/Codex/Gemini.
+- `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
+- `playwright-efficient-web-research` is force-synced as a managed shared skill.
+- Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).
 
-### 2026-02-17 - Align Claude review workflow hardening and docs with active automation paths
-- Context: Documentation listed only `agent-*` workflows while repository also ships `claude.yml` and `claude-code-review.yml`; additionally `claude-code-review.yml` used tag-based action refs and had no allowlist gate.
-- Decision:
-  - Added allowlist gating to `claude-code-review.yml` using `AGENT_ALLOWED_ACTORS`.
-  - Pinned external actions in `claude-code-review.yml` to commit SHAs.
-  - Updated README and GitHub automation guide to list both `agent-*` and Claude-dedicated workflows, including trigger/secret expectations.
-  - Clarified AGENTS commit-signing rule: human maintainer commits should be signed; bot automation commits may be unsigned by workflow policy.
-- Impact:
-  - Security posture is consistent across all active automation workflows.
-  - Operator docs now match real workflow inventory and reduce setup confusion.
+## Automation Security Baseline
+- GitHub automation is fail-closed on allowlist (`AGENT_ALLOWED_ACTORS` required).
+- Foreign-fork PR review paths are skipped by default.
+- External GitHub Actions are SHA-pinned.
+- Automation bot commits may be unsigned; human maintainer commits should be signed.
+- Agent workflows always publish their outputs (PR/review comments/artifacts), no secret-based visibility toggles.
 
-### 2026-02-17 - Force-sync managed Playwright research skill across persisted homes
-- Context: Shared skill install policy is additive (no overwrite), so users with existing persisted homes could keep stale `playwright-efficient-web-research` instructions after updates.
-- Decision:
-  - Extended `install_shared_skills` with a force-sync list for explicitly managed skills.
-  - Added `playwright-efficient-web-research` to that managed list for Claude/Codex/Gemini installs.
-- Impact:
-  - Existing and new workspaces receive the latest Playwright research guidance without manual cleanup.
-  - User customizations remain preserved for non-managed shared skills.
-
-### 2026-02-17 - Prefer Chromium pinning for Playwright CLI in container builds
-- Context: Playwright CLI install defaults can vary by environment/channel detection, which risks mismatch with skill/docs that explicitly use `--browser=chromium`.
-- Decision:
-  - Pinned bootstrap config to `browserName: chromium` before `playwright-cli install` during image build.
-  - Kept docs/skills aligned to explicit `--browser=chromium` usage.
-- Impact:
-  - Improves reproducibility of browser runtime across images and environments.
-  - Removes ambiguity between runtime docs and installed browser payload.
-
-### 2026-02-17 - Use direct `playwright-cli` commands (no wrapper scripts) in shared skill
-- Context: Wrapper shell scripts were added initially for repeated command chains, but this reduced flexibility for LLM-driven navigation and added maintenance overhead.
-- Decision:
-  - Simplified `playwright-efficient-web-research` to direct `playwright-cli` usage only.
-  - Removed helper wrapper scripts (`open_session.sh`, `snapshot_extract.sh`, `capture_evidence.sh`, `close_session.sh`).
-  - Kept session-first and selective extraction guidance in skill instructions.
-- Impact:
-  - Improves agent autonomy and adaptability during exploratory browsing tasks.
-  - Reduces repository complexity and script maintenance burden.
-
-### 2026-02-17 - Default to Playwright CLI + skill for token-efficient web exploration
-- Context: Agents were repeatedly pulling large page payloads during web research, causing unnecessary context/token pressure and inefficient browsing loops.
-- Decision:
-  - Added `@playwright/cli` and Chromium runtime support directly in the image build path.
-  - Added shared skill `playwright-efficient-web-research` with session-first, snapshot-ref, selective `eval` extraction workflow.
-  - Documented CLI-first policy and retained Playwright MCP as a fallback for long-running/state-heavy autonomous loops only.
-  - Updated `webapp-testing` guidance to prefer `playwright-cli` for quick exploration and use Python scripts for deeper custom assertions/workflow control.
-- Impact:
-  - Reduces context waste from repeated full-page fetch patterns in common research tasks.
-  - Improves agent browsing consistency with explicit operational boundaries between CLI and MCP paths.
-
-### 2026-02-16 - Slim TODO backlog by removing over-engineered runtime option expansions
-- Context: TODO backlog accumulated multiple overlapping `run.sh` expansion items (`--status`, `doctor`, `logs/exec`, profile/hardening modes) and user requested pruning over-engineered or low-value tasks.
-- Decision:
-  - Removed overlapping runtime option expansion tasks and consolidated diagnostics into a single `run.sh doctor` direction.
-  - Dropped profile-style runtime mode tasks (`minimal/full/hardened`, network policy profiles, read-only profile variants) to stay aligned with prior simplification decisions.
-  - Removed low-leverage UX default customization tasks (prompt/statusline/tmux plugin/zim plugin/copilot mode migration) from core backlog.
-  - Reframed Claude MEMORY/AGENT TEAMS TODO from broad feature enablement to compose-path gap check plus README documentation.
-- Impact:
-  - Backlog now emphasizes essential reliability/security work over optional control-surface growth.
-  - Reduces risk of CLI/API surface sprawl in `run.sh` and keeps maintenance burden lower.
-
-### 2026-02-15 - Align DNS resolver selection with default IPv6-off runtime policy
-- Context: Runtime now disables container IPv6 by default, but DNS auto-detection accepted IPv6 nameservers, which could produce resolver failures when only IPv6 DNS entries were selected.
-- Decision:
-  - Updated `run.sh` DNS parser to keep IPv4 nameservers only when building container `--dns` list.
-  - Added fallback behavior when `AGENT_SANDBOX_DNS_SERVERS` contains no valid IPv4 entries (warn + use host-derived IPv4 DNS).
-  - Updated README and startup diagnostic hint to explicitly recommend IPv4 DNS entries.
-- Impact:
-  - Prevents inconsistent "IPv6 off + IPv6 DNS server" combinations from causing avoidable DNS failures.
-  - Keeps DNS override behavior predictable for Claude connectivity troubleshooting.
-
-### 2026-02-15 - Enforce host alias and IPv6-off as default runtime behavior
-- Context: Follow-up request required removing user-facing switches and making network hardening always-on to reduce Claude connection instability in Docker sessions.
-- Decision:
-  - Updated `run.sh` to always apply container sysctls `net.ipv6.conf.all.disable_ipv6=1` and `net.ipv6.conf.default.disable_ipv6=1`.
-  - Updated `run.sh` to add `host.docker.internal:host-gateway` mapping automatically when Docker Engine supports it (20.10+).
-  - Updated `docker-compose.yml` with default `extra_hosts` mapping and fixed IPv6-off sysctls (no env toggle).
-  - Updated README troubleshooting to document default host mapping + IPv6-off behavior.
-- Impact:
-  - Users get stable host reachability alias and IPv6-path avoidance by default without extra flags.
-  - Operational complexity is reduced (fewer tuning switches) while preserving `run.sh` compatibility fallback on older Docker engines.
-
-### 2026-02-15 - Add DNS override path and startup DNS diagnostics for Claude in Docker
-- Context: Claude CLI connection failures in containers were still being reported as `fetch failed`, `Connection error`, and post-idle socket retries failing, with DNS resolution issues (especially systemd-resolved stub `127.0.0.53`) as a recurring trigger.
-- Decision:
-  - Added `run.sh --dns` and `AGENT_SANDBOX_DNS_SERVERS` support to explicitly set container DNS resolvers.
-  - Added automatic non-loopback DNS detection in `run.sh` (`/etc/resolv.conf` with fallback to `/run/systemd/resolve/resolv.conf`).
-  - Added entrypoint DNS sanity check in `scripts/start.sh` that warns when `api.anthropic.com` cannot be resolved and prints actionable restart guidance.
-  - Set `DISABLE_AUTOUPDATER=1` by default in `run.sh`, `docker-compose.yml`, and `start.sh` to reduce nonessential network calls.
-- Impact:
-  - Users can force stable resolver paths without editing Docker daemon config.
-  - DNS-origin failures are surfaced immediately at container startup with direct remediation hints.
-  - Claude startup/operation reduces background network noise in restricted or flaky environments.
-
-### 2026-02-15 - Refine skills install scope: only `skill-creator` is Claude-only
-- Context: Previous policy temporarily disabled all Codex/Gemini shared-skill installs, but intended behavior was narrower: only avoid overriding built-in `skill-creator`.
-- Decision:
-  - Keep shared skill auto-install for Claude/Codex/Gemini.
-  - Exclude only `skill-creator` when installing into `~/.codex/skills` and `~/.gemini/skills`.
-  - Keep full install (including `skill-creator`) for `~/.claude/skills`.
-- Impact:
-  - Codex/Gemini continue to receive Anthropic shared skills while preserving native `skill-creator`.
-  - Claude receives the complete vendored skill set.
-
-### 2026-02-15 - Limit shared skill auto-install to Claude and track upstream SHA (superseded)
-- Context: Initial rollout auto-installed vendored Anthropic skills into Claude/Codex/Gemini, but this can override built-in skills in Codex/Gemini (for example `skill-creator`) and change default behavior unintentionally.
-- Decision:
-  - Keep vendored Anthropic skills in repository `skills/`.
-  - Restrict automatic startup installation to `~/.claude/skills` only.
-  - Do not auto-install into `~/.codex/skills` and `~/.gemini/skills`.
-  - Add `skills/UPSTREAM.txt` to record source repo/path/commit/sync timestamp for reproducible updates.
-- Impact:
-  - Prevents built-in skill override regressions in Codex/Gemini.
-  - Maintains deterministic provenance for future skill syncs.
-
-### 2026-02-15 - Bundle Anthropic skills and auto-install for Claude/Codex/Gemini
-- Context: User requested a repository-level `skills/` folder containing all skills from `anthropics/skills`, and automatic loading in containerized coding agents.
-- Decision:
-  - Vendored `https://github.com/anthropics/skills/tree/main/skills` into repository `skills/`.
-  - Updated `.dockerignore` to include `skills/**` in build context.
-  - Updated `Dockerfile` to bake shared skills into `/opt/agent-sandbox/skills`.
-  - Added `install_shared_skills` flow in `scripts/start.sh` to auto-install missing skills into:
-    - `~/.claude/skills`
-    - `~/.codex/skills`
-    - `~/.gemini/skills`
-  - Implemented additive sync only (do not overwrite existing same-name user skills).
-- Impact:
-  - Claude/Codex/Gemini discover the same shared skill catalog automatically in container sessions.
-  - Existing user-customized skills are preserved while new bundled skills are added.
-
-### 2026-02-15 - Default agent CLIs to maximum autonomy mode in sandbox shell
-- Context: User requested Codex/Claude/Gemini/Copilot to run without interactive permission prompts inside the container.
-- Decision:
-  - Added `configs/agent-auto-approve.zsh` and sourced it from zsh startup.
-  - Enabled default `AGENT_SANDBOX_AUTO_APPROVE=1` in `run.sh`, `docker-compose.yml`, and `start.sh`.
-  - Implemented zsh wrappers:
-    - Codex: `--dangerously-bypass-approvals-and-sandbox`
-    - Claude: `--dangerously-skip-permissions`
-    - Gemini: `--approval-mode yolo`
-    - Copilot: `gh copilot -- --allow-all-tools --allow-all-urls --allow-all-paths`
-  - Added startup migration logic to append the wrapper source hook to existing persisted `~/.zshrc` once.
-- Impact:
-  - Agent CLIs run in non-interactive, maximum-permission mode by default for container sessions.
-  - Users can restore prompt-based behavior by setting `AGENT_SANDBOX_AUTO_APPROVE=0`.
-
-### 2026-02-15 - Add repository-wide pinned-version maintenance script
-- Context: This repository pins many tool/action versions across Dockerfile ARGs and GitHub workflows, but manual updates are error-prone and easy to miss.
-- Decision:
-  - Added `scripts/update-versions.sh` with three modes:
-    - `scan`: list current pins without network calls
-    - `check`: compare local pins with latest upstream releases/tags
-    - `update`: rewrite Dockerfile ARG versions, workflow action SHA pins, and workflow `@openai/codex` npm pin
-  - Included `--dry-run` mode for safe preview before file edits.
-  - Added README usage guidance under `Version Maintenance`.
-- Impact:
-  - Maintainers can run a single command to audit and refresh pinned versions consistently.
-  - Reduces drift risk in security-sensitive action SHA pins and tool version pins.
-
-### 2026-02-16 - Remove AGENT_AUTO_PUBLISH / AGENT_PUBLIC_REVIEW_COMMENT / AGENT_PUBLIC_ARTIFACTS secrets
-- Context: Managing three separate visibility/publish secrets was over-engineered for a personal/public repo. User requested always-on behavior.
-- Decision:
-  - Removed `AGENT_AUTO_PUBLISH`, `AGENT_PUBLIC_REVIEW_COMMENT`, `AGENT_PUBLIC_ARTIFACTS` secrets and all conditional branching from all workflow files.
-  - Issue worker: artifact upload, commit/push, PR creation are now unconditional (when changes exist).
-  - PR reviewer: artifact upload and review comment posting are now unconditional.
-  - Intake: removed pass-through of these secrets to worker.
-  - Updated README and GITHUB_AGENT_AUTOMATION_GUIDE to remove all references.
-- Impact:
-  - Simpler workflow logic with no secret-based branching for visibility control.
-  - All automation outputs (PRs, review comments, artifacts) are always published.
-
-### 2026-02-15 - Simplify bot commits by removing CI GPG signing requirement
-- Context: Signed bot commits using `AGENT_GPG_PRIVATE_KEY_B64` added operational complexity (key provisioning, rotation, failure handling) that outweighed value for this personal/public repository.
-- Decision:
-  - Removed `AGENT_GPG_PRIVATE_KEY_B64` from workflow secret contracts and intake -> worker secret mapping.
-  - Deleted CI signing/import steps from `agent-issue-worker.yml`.
-  - Switched automated bot commit command from `git commit -S` to unsigned `git commit`.
-  - Updated README and operator guide to remove GPG secret setup requirements.
-- Impact:
-  - Automation setup is simpler and has fewer secret management requirements.
-  - Bot commits are now unsigned by design; signed-commit policy should not be enforced for bot-authored automation branches.
-
-### 2026-02-15 - Harden GitHub agent workflows for public personal repo operations
-- Context: Initial allowlist-based automation still had residual risks: reusable workflow inherited all secrets, actions were tag-pinned (not SHA-pinned), Codex install was unpinned, AI execution could attempt premature push, and signed commits were not enforced in CI.
-- Decision:
-  - Removed `secrets: inherit` from issue intake -> worker call and switched to explicit secret mapping only.
-  - Added reusable workflow secret schema in `agent-issue-worker.yml` and retained fail-closed allowlist behavior.
-  - Pinned all external actions to commit SHA (`actions/checkout`, `actions/setup-node`, `actions/github-script`, `anthropics/claude-code-action`).
-  - Pinned Codex CLI install version to `@openai/codex@0.101.0`.
-  - Added timeout controls (`route: 5m`, `issue worker: 45m`, `PR reviewer: 30m`).
-  - Added defense-in-depth allowlist checks inside worker/reviewer jobs (not only in routing jobs).
-  - Added git push hardening before agent execution (`persist-credentials: false`, push URL disabled), and explicit guarded push only to `agent/issue-*` refs.
-  - Enforced signed commits in automation with `AGENT_GPG_PRIVATE_KEY_B64` secret and `git commit -S`.
-  - Added dedicated operator guide `GITHUB_AGENT_AUTOMATION_GUIDE.md` for secret setup, signing key setup, and safe trigger usage.
-- Impact:
-  - Secret blast radius is reduced to explicitly required credentials.
-  - Supply-chain and drift risks are reduced via immutable action pinning and version pinning.
-  - Public-repo abuse window is tightened through layered allowlist checks and branch/push safeguards.
-  - Automated commits now align with signed-commit enforcement expectations.
-
-### 2026-02-15 - Rebuild GitHub agent automation with actor allowlist and OAuth/login-cache auth
-- Context: Initial automation used a single `.github/workflows/claude.yml` with API key auth and broad trigger conditions. User requirement changed to (1) support Claude via OAuth token, (2) support Codex via persisted login cache (`auth.json`) injection, and (3) prevent arbitrary users from triggering workflows.
-- Decision:
-  - Replaced single workflow with split architecture:
-    - `agent-issue-intake.yml`: trigger routing and safety checks
-    - `agent-issue-worker.yml`: issue-to-branch/commit/PR execution
-    - `agent-pr-reviewer.yml`: automated PR review comments
-  - Added fail-closed allowlist gate via `AGENT_ALLOWED_ACTORS` secret (comma-separated GitHub logins).
-  - Added explicit actor verification for issue author/comment author/PR author and label sender before any automation run.
-  - Switched Claude auth to `CLAUDE_CODE_OAUTH_TOKEN` (no Anthropic API key required in workflow).
-  - Added Codex login-cache restoration path using `CODEX_AUTH_JSON_B64` -> `~/.codex/auth.json`, then non-interactive `codex exec`/`codex review`.
-- Impact:
-  - Automation now runs only for explicitly allowlisted users, reducing abuse risk from public issue comments or unauthorized label events.
-  - Claude and Codex workflows can run without storing provider API keys directly in repository secrets, while preserving non-interactive CI execution.
-  - Routing and worker responsibilities are separated, making future policy changes (approval gates, agent selection rules) easier to maintain.
-
-### 2026-02-15 - Harden Docker socket access across platforms
-- Context: Docker socket permission handling had two issues: (1) `run.sh` used macOS `stat -f` before Linux `stat -c`, but on Linux `stat -f` means `--file-system` and outputs filesystem info to stdout even on failure, corrupting the captured GID value; (2) Docker Desktop (macOS/Windows) sockets are always `root:root`, so sandbox user needed GID 0 membership to access them without `--group-add`.
-- Decision:
-  - Swapped `stat` fallback order in `run.sh` to try Linux `-c` first, then macOS `-f` (two locations: `sock_gid` and `sock_uid`).
-  - Added `-G 0` (root supplementary group) to `useradd` in Dockerfile so Docker Desktop socket access works out of the box.
-  - Added Docker socket access diagnostic in `scripts/start.sh` — on startup, checks if `/var/run/docker.sock` is mounted but inaccessible, and prints socket GID, user groups, and fix instructions.
-- Impact:
-  - Fixes silent GID corruption on Linux hosts that caused `--group-add` to receive garbage values.
-  - Docker Desktop users no longer need manual `--group-add 0`.
-  - Misconfigured socket permissions are diagnosed at container startup instead of failing silently when user first runs `docker`.
-
-### 2026-02-15 - Enforce telemetry-off defaults on all runtime paths
-- Context: Claude debug logs still showed `BigQuery metrics export failed ... bad record mac` and `Metrics opt-out API response: enabled=true` even after partial mitigations, indicating telemetry paths were still active in some launch paths.
-- Decision:
-  - Added `DISABLE_TELEMETRY` forwarding/defaults in `run.sh` alongside `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` and `DISABLE_ERROR_REPORTING`.
-  - Added `DISABLE_TELEMETRY=${DISABLE_TELEMETRY:-1}` to `docker-compose.yml`.
-  - Added `DISABLE_TELEMETRY` default export in `scripts/start.sh` as entrypoint fallback (applies even when launch bypasses `run.sh`).
-  - Updated `README.md` environment/troubleshooting docs to include the telemetry flag.
-- Impact:
-  - Reduces TLS failure surface by disabling additional metrics export endpoints by default.
-  - Keeps behavior consistent across `run.sh`, compose, and alternate container launch paths.
-
-### 2026-02-15 - Harden Docker permission handling in run/compose paths
-- Context: Users could still hit `permission denied while trying to connect to the docker API` depending on host socket type (rootful vs rootless) and UID/GID mismatch.
-- Decision:
-  - Added `run.sh` preflight check (`ensure_host_docker_access`) with actionable diagnostics before running Docker commands.
-  - Added rootless socket auto-detection in `run.sh` (`/run/user/<uid>/docker.sock`).
-  - Added host UID/GID compatibility mode in `run.sh` for user-owned sockets (`AGENT_SANDBOX_MATCH_HOST_USER`, default `auto`).
-  - Updated `docker-compose.yml` with host user mapping support and explicit `DOCKER_HOST=unix:///var/run/docker.sock`.
-  - Expanded README troubleshooting and compose examples for rootless Docker.
-- Impact:
-  - Fewer opaque docker permission failures.
-  - Faster recovery with clear host-side actions and safer defaults across socket variants.
-
-### 2026-02-15 - Switch agent installs from npm to bun
-- Context: bun is already present in the image and is faster than npm for global package installs.
-- Decision:
-  - Replaced `npm install -g` with `bun install -g` for all agent CLIs (Claude Code, Codex, Gemini CLI, OpenCode, typescript, oh-my-opencode).
-  - Dropped `npm@11.10.0` upgrade (no longer needed).
-  - Added `$HOME/.local/bin` to PATH in `configs/zshrc` so runtime Claude updates (`~/.local/bin/claude`) are found.
-  - Removed duplicate Node TLS compat logic from `start.sh` (single source of truth is `run.sh`).
-  - Added default compose env values for TLS compatibility (`AGENT_SANDBOX_NODE_TLS_COMPAT=1`, default `NODE_OPTIONS` TLS flags) to align compose behavior with `run.sh`.
-- Impact:
-  - Faster image builds (bun vs npm).
-  - Cleaner Dockerfile with fewer unnecessary layers.
-
-### 2026-02-15 - Stabilize Claude startup for telemetry/TLS edge cases
-- Context: Even after API connectivity hardening, some users still saw `ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR` while `curl` and plain Node HTTPS requests succeeded.
-- Decision:
-  - Updated `scripts/start.sh` to create `~/.claude/remote-settings.json` (`{}`) on first run when missing, preventing repeated startup `ENOENT` exceptions.
-  - Added default Node TLS compatibility guard in `scripts/start.sh` (`AGENT_SANDBOX_NODE_TLS_COMPAT=1`) to apply `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` for unstable TLS 1.3 paths.
-  - Updated `run.sh` env forwarding to include `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` and `DISABLE_ERROR_REPORTING` so host-side troubleshooting flags can reach containerized Claude CLI.
-  - Updated `run.sh` env forwarding to include `NODE_OPTIONS` and `AGENT_SANDBOX_NODE_TLS_COMPAT` so users can explicitly control Node TLS behavior from host.
-  - Added README troubleshooting note for running with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` when only Claude fails.
-- Impact:
-  - Reduced noisy startup exceptions from missing `remote-settings.json`.
-  - Enabled quick host-driven mitigation when nonessential telemetry/event export traffic hits TLS edge failures.
-  - Improved reliability on networks where Node TLS 1.3 sessions intermittently fail with `bad record mac`.
-
-### 2026-02-15 - Harden network handling for Node CLI API connectivity
-- Context: Users saw recurring `Unable to connect to API (UND_ERR_SOCKET)` when running agent CLIs (notably Claude) in the container.
-- Decision:
-  - Updated `run.sh` to forward proxy/trust environment variables (`HTTP[S]_PROXY`, `NO_PROXY`, `ALL_PROXY`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`).
-  - Updated `run.sh` network logic to reconcile MTU drift: if `agent-sandbox-net` exists with non-1280 MTU, recreate it with MTU 1280.
-  - Moved network ensure step to after stale container removal to reduce "active endpoint" failures during network recreation.
-  - Added troubleshooting guidance to `README.md` for `UND_ERR_SOCKET`.
-- Impact:
-  - Corporate proxy and custom CA environments now work without manual `docker run -e ...` overrides.
-  - Existing users with old network settings receive MTU fix automatically on next run.
-  - Reduced frequency of TLS/socket-level API connectivity failures in Node-based agent CLIs.
-
-### 2026-02-15 - Keep Git SSH signing config out of repository files
-- Context: `allowed_signers` was briefly created in repository root, which could be accidentally committed via broad staging commands.
-- Decision:
-  - Moved signing configuration to HOME-global Git settings (`~/.gitconfig` + `~/.config/git/allowed_signers`).
-  - Added repository guardrail by ignoring `.git_allowed_signers`.
-  - Documented rule in `AGENTS.md`, `CLAUDE.md`, and `README.md`.
-- Impact:
-  - Signing remains reusable across future sessions.
-  - Repository now avoids accidental inclusion of local signing metadata.
-
-### 2026-02-15 - Prioritize beginner-friendly comments in shell/Docker files
-- Context: Repository is used by a broad range of users, including beginners who need clearer operational understanding of scripts and container behavior.
-- Decision:
-  - Expanded explanatory comments in `run.sh`, `scripts/start.sh`, `Dockerfile`, and `docker-compose.yml`.
-  - Added explicit convention to `AGENTS.md`, `CLAUDE.md`, and `README.md` to keep beginner-friendly comments as a standing rule.
-- Impact:
-  - Onboarding and maintenance are easier because execution flow, safety flags, and permission handling are documented inline.
-  - Future code changes are expected to update comments together with logic changes.
-
-### 2026-02-14 - Drop `cargo-binstall` in Docker build
-- Context: Docker builds repeatedly failed or stalled due to `cargo-binstall` resolution issues (version mismatches, architecture artifact errors, GitHub API/rate-limit behavior).
-- Decision: Removed `cargo-binstall`/Rust builder approach and switched to stable install paths only:
-  - apt packages for base tooling
-  - pinned GitHub release binaries for CLI tools
-- Impact:
-  - Build reliability improved in this environment.
-  - Tool set may be adjusted by direct binary URLs instead of cargo crate install behavior.
-- Follow-up: Keep release URLs pinned and verify arm64/x86_64 artifact naming when updating versions.
-
-### 2026-02-14 - Re-enable `broot`
-- Context: `broot` is useful for interactive tree navigation and was requested to be restored.
-- Decision: Re-added `broot` installation in `Dockerfile` using `cargo install --locked --version ${BROOT_VERSION} broot` as a targeted exception.
-- Impact:
-  - `broot` remains available even when GitHub release asset naming is inconsistent across architectures.
-  - Build time may increase due to source compilation for this one tool.
-
-### 2026-02-14 - Defer `broot` install (TODO)
-- Context: `broot` source build failed in this image because Debian bookworm `rustc` is too old (`1.63`, while dependency `rav1e` requires `>=1.70`), and release asset paths were not stable for arm64.
-- Decision: Removed `broot` from the active build path and left a TODO in `Dockerfile` to re-enable with a reliable cross-arch install strategy.
-- Impact:
-  - Docker image build/test is stable again.
-  - `broot` is currently excluded until toolchain/install path is upgraded.
-
-### 2026-02-14 - Fill missing core CLI/agent tools
-- Context: Initial build passed, but key requested tools were missing (`starship`, `bat`, `eza`, `opencode`), and agent verification was incomplete.
-- Decision:
-  - Added `bat`, `zoxide`, `tealdeer` via apt.
-  - Added pinned `eza` and `starship` via GitHub release binaries with arch fallback logic.
-  - Added `opencode-ai` npm package and build-time command verification (`command -v opencode`).
-  - Added `npm@11.10.0` global update to keep npm current.
-- Impact:
-  - Requested core shell UX tools are now present by default.
-  - Agent CLI availability is validated during image build.
-
-### 2026-02-14 - Fix zimfw bootstrap invocation
-- Context: First-run init printed `zimfw: Unknown action`, so modules were not installed correctly.
-- Decision: Switched bootstrap call from `source ...; zimfw install` to direct invocation: `ZIM_HOME=... zsh .../zimfw.zsh install -q`.
-- Impact:
-  - First run now produces `~/.zim/init.zsh` correctly (`ZIM_OK` verified).
-  - Startup remains non-interactive and resilient (`|| true` preserved).
-
-### 2026-02-14 - Defer `tldr --update` bootstrap (TODO)
-- Context: First-run `tldr --update` intermittently failed with `InvalidArchive("Could not find central directory end")` and produced noisy panic logs.
-- Decision: Removed automatic `tldr --update` from `scripts/start.sh` and left a TODO comment for re-enablement after root-cause fix.
-- Impact:
-  - Container startup is cleaner and more predictable.
-  - `tealdeer` remains installed, but cache warm-up is currently manual/on-demand.
-
-### 2026-02-15 - Add missing tool binaries, security tools, Claude Code config, direnv, smoke test, and GH Actions
-- Context: zshrc had aliases for dust, procs, btm, xh, mcfly but no binaries installed. Security tools (pre-commit, gitleaks, hadolint, shellcheck) were absent. Claude Code had no custom slash commands, skills, or MCP config. direnv was missing. No build-time tool verification existed. No GitHub Actions automation for issue-to-PR workflow.
-- Decision:
-  - **Batch 1 (Dockerfile):** Added dust v1.2.4, procs v0.14.10, bottom v0.12.3, xh v0.25.3, mcfly v0.9.4 from pinned GitHub release binaries. Key gotchas: procs uses zip, bottom tags have no `v` prefix, xh/mcfly use musl builds, dust needs `--strip-components=1`.
-  - **Batch 2 (Dockerfile + configs):** Added shellcheck via apt, pre-commit via pip3, gitleaks v8.30.0 and hadolint v2.14.0 from GitHub releases. Created `configs/pre-commit-config.yaml` template with gitleaks, shellcheck, hadolint hooks. Template deployed to `~/.pre-commit-config.yaml.template` at first run.
-  - **Batch 3 (configs + Dockerfile + start.sh):** Created 4 Claude Code slash commands (commit, review, test, debug) in `configs/claude/commands/`, 1 skill (sandbox-setup) in `configs/claude/skills/`, and MCP config (`configs/claude/mcp.json`) with filesystem server for /workspace. TOOLS.md deployed to container at `~/.config/agent-sandbox/TOOLS.md` via `/etc/skel/` pattern. Added `!TOOLS.md` exception to `.dockerignore`.
-  - **Batch 4 (Dockerfile + zshrc + scripts):** Added direnv v2.37.1 from GitHub binary. Added direnv hook to zshrc. Created `scripts/smoke-test.sh` with `--build` flag to skip docker checks during image build. Smoke test runs during `docker build` and catches missing tools.
-  - **Batch 5 (.github):** Created `.github/workflows/claude.yml` using `anthropics/claude-code-action@v1` for automated issue-to-PR workflow (triggered by `@claude` mentions or `claude` label).
-- Impact:
-  - All zshrc aliases now have corresponding binaries.
-  - Security scanning infrastructure (gitleaks, shellcheck, hadolint) available out of the box.
-  - Claude Code users get pre-configured slash commands and MCP server on first run.
-  - Build-time smoke test catches missing tools before image ships.
-  - Estimated image size increase: ~63 MB.
+## Known Constraints
+- `broot` remains disabled in current image path due install stability concerns.
+- `tldr --update` bootstrap remains deferred (`InvalidArchive` issue), tracked in `TODO.md`.

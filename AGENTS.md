@@ -44,7 +44,7 @@ docker build -t agent-sandbox:latest .
 6. Checks Docker socket accessibility
 7. Starts tmux session (`main`) for agent teams support (falls back to `exec "$@"` if already inside tmux)
 
-**Config files:** `configs/` -> baked into image at `/etc/skel/` -> copied to `$HOME` on first run. User copies take precedence except managed configs which are always overwritten to keep feature flags current.
+**Config files:** `configs/` -> baked into image at `/etc/skel/` -> copied to `$HOME` on first run. User copies take precedence except managed configs which are always overwritten to keep runtime defaults current.
 
 ## Task Management
 

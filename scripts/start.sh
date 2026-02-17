@@ -12,7 +12,7 @@ HOME_DIR="/home/sandbox"
 # Important behavior:
 # - Most configs are copied only when files are missing (first run).
 # - "Managed" configs (e.g. settings.json) are always overwritten to keep
-#   experimental feature flags in sync with the image. A diff is printed
+#   runtime defaults in sync with the image. A diff is printed
 #   before overwriting so users can see what changed.
 
 # Copy one default config file only if destination does not exist.
@@ -224,7 +224,7 @@ copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
 copy_default /etc/skel/.config/starship.toml  "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
-copy_default /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
+update_managed /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
 
 # Existing users may already have a persisted ~/.zshrc from older images.
 # Add a one-time source hook so new auto-approve wrappers are loaded without
@@ -278,7 +278,7 @@ install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-cre
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
 
 # Claude Code settings are managed: always kept in sync with image defaults.
-# This ensures experimental feature flags reach existing users on image update.
+# This ensures managed runtime defaults reach existing users on image update.
 # WARNING: this overwrites user edits to settings.json (e.g. model choice).
 # The diff printed above lets users recover previous values if needed.
 update_managed /etc/skel/.claude/settings.json "$HOME_DIR/.claude/settings.json"
@@ -298,23 +298,18 @@ ensure_codex_status_line /etc/skel/.codex/config.toml "$HOME_DIR/.codex/config.t
 # Runtime safety defaults for Claude network stability.
 # Keep these here (entrypoint) as a final fallback so they still apply even
 # when container is launched via a path that bypasses run.sh defaults.
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:-1}"
-export DISABLE_ERROR_REPORTING="${DISABLE_ERROR_REPORTING:-1}"
-export DISABLE_TELEMETRY="${DISABLE_TELEMETRY:-1}"
-export DISABLE_AUTOUPDATER="${DISABLE_AUTOUPDATER:-1}"
-# Enable agent auto-approve mode by default (can be disabled with 0).
-export AGENT_SANDBOX_AUTO_APPROVE="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
-export AGENT_SANDBOX_NODE_TLS_COMPAT="${AGENT_SANDBOX_NODE_TLS_COMPAT:-1}"
-if [[ "${AGENT_SANDBOX_NODE_TLS_COMPAT}" == "1" ]]; then
-  if [[ "${NODE_OPTIONS:-}" != *"--tls-max-v1.2"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-max-v1.2"
-  fi
-  if [[ "${NODE_OPTIONS:-}" != *"--tls-min-v1.2"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-min-v1.2"
-  fi
-  if [[ "${NODE_OPTIONS:-}" != *"--dns-result-order=ipv4first"* ]]; then
-    export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
-  fi
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"
+export DISABLE_ERROR_REPORTING="1"
+export DISABLE_TELEMETRY="1"
+export DISABLE_AUTOUPDATER="1"
+if [[ "${NODE_OPTIONS:-}" != *"--tls-max-v1.2"* ]]; then
+  export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-max-v1.2"
+fi
+if [[ "${NODE_OPTIONS:-}" != *"--tls-min-v1.2"* ]]; then
+  export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--tls-min-v1.2"
+fi
+if [[ "${NODE_OPTIONS:-}" != *"--dns-result-order=ipv4first"* ]]; then
+  export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
 fi
 
 # Quick DNS sanity check for Claude API hostname.

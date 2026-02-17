@@ -114,7 +114,7 @@ playwright-cli -s=research close
 ## Environment Variables
 
 `run.sh`와 `docker-compose.yml`은 공통 키를 전달하고, 일부 키는 실행 경로별 전용입니다.
-호스트에 설정된 값은 그대로 전달되고, 일부 안정화 항목은 기본값이 자동 주입됩니다.
+호스트에 설정된 값은 그대로 전달되며, 안정화/보안 성격의 항목은 토글 없이 고정 기본 동작으로 적용됩니다.
 
 **API 키:**
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`, `OPENCODE_API_KEY`
@@ -123,14 +123,17 @@ playwright-cli -s=research close
 - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (및 소문자/`ALL_PROXY`)
 - `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`
 
-**샌드박스 설정 (기본값 자동 적용):**
-- `AGENT_SANDBOX_NODE_TLS_COMPAT` — Node TLS 호환 모드 (기본 `1`, `0`으로 비활성화)
-- `AGENT_SANDBOX_AUTO_APPROVE` — Codex/Claude/Gemini/Copilot 권한 확인 프롬프트 자동 승인 모드 (기본 `1`, `0`으로 비활성화)
-- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` — Claude 텔레메트리 비활성화 (기본 `1`)
-- `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
-- `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
-- `DISABLE_AUTOUPDATER` — 백그라운드 업데이트 확인 비활성화 (기본 `1`)
-- `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `ENABLE_TOOL_SEARCH`, `CLAUDE_CODE_ENABLE_TASKS`, `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` — Claude 실험/운영 튜닝 값(호스트 설정 시 전달)
+**런타임 고정 정책 (환경변수 토글 없음):**
+- Node TLS 호환 옵션(`--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first`)을 항상 적용
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
+- `DISABLE_ERROR_REPORTING=1`
+- `DISABLE_TELEMETRY=1`
+- `DISABLE_AUTOUPDATER=1`
+- Codex/Claude/Gemini/Copilot 자동 승인 wrapper를 항상 활성화
+
+**Claude 기본 튜닝 값:**
+- `configs/claude/settings.json`의 managed `env` 블록으로 고정 적용
+- (예: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `ENABLE_TOOL_SEARCH=auto:5`, `CLAUDE_CODE_EFFORT_LEVEL=high`)
 
 **`run.sh` 전용 키:**
 - `AGENT_SANDBOX_DNS_SERVERS` — 컨테이너 DNS 서버 목록 (IPv4 권장, 쉼표/공백 구분, 예: `10.0.0.2,1.1.1.1`)
@@ -211,7 +214,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 - 컨테이너는 `sandbox` 사용자(UID/GID 1000)로 동작
 - `--security-opt no-new-privileges:true` 적용
 - `sudo`에 의존하는 엔트리포인트/런타임 스크립트는 동작하지 않도록 설계됨
-- 기본값으로 `AGENT_SANDBOX_AUTO_APPROVE=1` (Codex/Claude/Gemini/Copilot 권한 프롬프트 자동 승인). 보수 모드가 필요하면 `AGENT_SANDBOX_AUTO_APPROVE=0`으로 실행
+- Codex/Claude/Gemini/Copilot 권한 프롬프트 자동 승인 wrapper가 기본 내장되어 있습니다(신뢰된 로컬 개발 샌드박스 전제)
 - API 키는 이미지에 bake 하지 않고 환경변수로만 전달
 - Git 서명 설정(`allowed_signers`, `user.signingkey`)은 저장소 파일이 아닌 `$HOME` 글로벌 경로(예: `~/.config/git/allowed_signers`)에만 둡니다.
 
@@ -237,11 +240,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
   - 또는: `AGENT_SANDBOX_DNS_SERVERS="10.0.0.2,1.1.1.1" ./run.sh .`
 - `run.sh`/`docker-compose.yml`은 기본으로 `host.docker.internal` 매핑을 추가하고, 컨테이너 내부 IPv6를 비활성화해 IPv6 경로 지연을 줄입니다.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1280으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
-- `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면 텔레메트리 경로를 함께 끄고 실행해 보세요.
-  - 예: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_ERROR_REPORTING=1 DISABLE_TELEMETRY=1 DISABLE_AUTOUPDATER=1 ./run.sh .`
-- 같은 증상에서 Node TLS `bad record mac`가 보이면 TLS 호환 모드를 사용하세요.
-  - 기본값: `AGENT_SANDBOX_NODE_TLS_COMPAT=1` (run.sh가 `NODE_OPTIONS=--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first` 적용)
-  - 비활성화: `AGENT_SANDBOX_NODE_TLS_COMPAT=0 ./run.sh .`
+- `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면, 이 샌드박스는 이미 텔레메트리 차단 + TLS 호환 옵션을 기본 적용합니다. 먼저 컨테이너 재생성(`./run.sh -s` 후 `./run.sh .`)으로 런타임 옵션 재적용 여부를 확인하세요.
 
 ### 설정을 완전히 초기화하고 싶을 때
 

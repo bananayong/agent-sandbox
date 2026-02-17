@@ -8,13 +8,7 @@
 #
 # Safety:
 # - This mode is intentionally dangerous.
-# - Disable it by exporting AGENT_SANDBOX_AUTO_APPROVE=0 before launching shell.
-
-export AGENT_SANDBOX_AUTO_APPROVE="${AGENT_SANDBOX_AUTO_APPROVE:-1}"
-
-if [[ "${AGENT_SANDBOX_AUTO_APPROVE}" != "1" ]]; then
-  return 0
-fi
+# - Keep this file sourced only in trusted development sandboxes.
 
 # Codex: full access, no sandbox, no approval prompts.
 if command -v codex &>/dev/null; then
