@@ -9,6 +9,37 @@ Long-lived decisions, important implementation history, and recurring caveats fo
 
 ## Decision Log
 
+### 2026-02-17 - Enforce fail-closed allowlist and foreign-fork PR guards on Claude review paths
+- Context: `claude-code-review.yml` used a skip-on-missing-allowlist behavior, which did not match fail-closed documentation, and Claude PR review paths lacked explicit foreign-fork skip handling.
+- Decision:
+  - Changed `claude-code-review.yml` to hard-fail when `AGENT_ALLOWED_ACTORS` is empty.
+  - Added foreign-fork PR skip checks to `claude-code-review.yml` and `claude.yml` PR interaction job.
+  - Updated README and automation guide to reflect foreign-fork review skips and scope push-path hardening to `agent-issue-worker.yml`.
+- Impact:
+  - Allowlist misconfiguration now fails loudly instead of silently skipping.
+  - PR review automation behavior is more consistent and safer across agent and Claude-dedicated workflows.
+
+### 2026-02-17 - Align docker-compose Claude experimental env forwarding with run.sh
+- Context: `run.sh` forwarded Claude runtime/experimental env keys (`CLAUDE_CODE_DISABLE_AUTO_MEMORY`, agent teams/tool search/effort/autocompact), but `docker-compose.yml` path did not.
+- Decision:
+  - Added the same Claude experimental/tuning env keys to `docker-compose.yml`.
+  - Updated README environment docs to classify these keys as shared across `run.sh` and compose paths.
+  - Closed corresponding TODO item after code + doc alignment.
+- Impact:
+  - Compose and `run.sh` now expose consistent Claude runtime behavior knobs.
+  - Reduced operator confusion from path-dependent env behavior differences.
+
+### 2026-02-17 - Align Claude review workflow hardening and docs with active automation paths
+- Context: Documentation listed only `agent-*` workflows while repository also ships `claude.yml` and `claude-code-review.yml`; additionally `claude-code-review.yml` used tag-based action refs and had no allowlist gate.
+- Decision:
+  - Added allowlist gating to `claude-code-review.yml` using `AGENT_ALLOWED_ACTORS`.
+  - Pinned external actions in `claude-code-review.yml` to commit SHAs.
+  - Updated README and GitHub automation guide to list both `agent-*` and Claude-dedicated workflows, including trigger/secret expectations.
+  - Clarified AGENTS commit-signing rule: human maintainer commits should be signed; bot automation commits may be unsigned by workflow policy.
+- Impact:
+  - Security posture is consistent across all active automation workflows.
+  - Operator docs now match real workflow inventory and reduce setup confusion.
+
 ### 2026-02-17 - Force-sync managed Playwright research skill across persisted homes
 - Context: Shared skill install policy is additive (no overwrite), so users with existing persisted homes could keep stale `playwright-efficient-web-research` instructions after updates.
 - Decision:

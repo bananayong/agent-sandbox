@@ -62,7 +62,7 @@ docker build -t agent-sandbox:latest .
 
 - Non-root user `sandbox` (UID/GID 1000). `sudo` blocked at runtime — never use in `start.sh`
 - API keys via environment variables, never baked into the image
-- All commits must be signed (`git commit -S`)
+- Human-maintainer commits should be signed (`git commit -S`); GitHub Actions bot commits may remain unsigned by workflow policy
 - `run.sh` auto-builds the image if missing, attaches to running container instead of creating new
 - Shell aliases replace standard commands when binaries available (cat->bat, ls->eza, find->fd)
 - `configs/zimrc` ordering: `zsh-completions` -> `completion` -> `zsh-syntax-highlighting` -> `zsh-history-substring-search`

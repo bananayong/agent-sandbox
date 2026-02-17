@@ -8,6 +8,7 @@ GitHub Issues/PR 자동화를 안전하게 켜는 절차를 정리합니다.
 - `.github/workflows/agent-issue-worker.yml`
 - `.github/workflows/agent-pr-reviewer.yml`
 - `.github/workflows/claude.yml`
+- `.github/workflows/claude-code-review.yml`
 
 ## 1. 목표와 보안 모델
 
@@ -139,6 +140,19 @@ Repository Settings > Actions:
 /agent review codex 보안 관점으로만 봐줘
 ```
 
+### 5.2.1 Claude Code Review 워크플로우 자동 실행
+
+`claude-code-review.yml`은 아래 PR 이벤트에서 자동 실행됩니다.
+
+- `opened`
+- `synchronize`
+- `ready_for_review`
+- `reopened`
+
+실행 조건:
+- `AGENT_ALLOWED_ACTORS` allowlist에 포함된 actor일 때만 리뷰 실행
+- `CLAUDE_CODE_OAUTH_TOKEN`이 설정되어 있어야 함
+
 ## 6. 내부 안전장치 요약
 
 이 워크플로우는 아래를 강제합니다.
@@ -146,11 +160,13 @@ Repository Settings > Actions:
 - allowlist 비어 있으면 실행 거부 (fail-closed)
 - `github-actions[bot]` 이벤트 무시
 - 작성자/이벤트 발신자/요청자 allowlist 검증
+- Claude 전용 워크플로우(`claude.yml`, `claude-code-review.yml`)도 allowlist 검증 적용
+- PR 리뷰 경로는 foreign fork PR head를 감지하면 자동 실행을 스킵
 - reusable workflow 호출 시 `secrets: inherit` 미사용
 - 필요한 시크릿만 명시 전달
 - `actions/*`, `anthropics/*` 액션 SHA 고정
 - Codex CLI 버전 고정 설치
-- AI 실행 전 `git push` 경로 차단
+- AI 실행 전 `git push` 경로 차단(`agent-issue-worker.yml` 경로에 적용)
 - job timeout 설정
 - 이슈 작업 결과(브랜치/PR), 리뷰 코멘트, artifact 업로드는 항상 활성화
 

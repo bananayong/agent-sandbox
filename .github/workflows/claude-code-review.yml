@@ -12,6 +12,7 @@ on:
 
 jobs:
   claude-review:
+    if: github.actor != 'github-actions[bot]'
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
@@ -27,14 +28,67 @@ jobs:
       id-token: write
 
     steps:
+      - name: Validate actor allowlist
+        id: allowlist
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          ALLOWED_ACTORS: ${{ secrets.AGENT_ALLOWED_ACTORS }}
+        with:
+          script: |
+            const payload = context.payload;
+            const allowedRaw = (process.env.ALLOWED_ACTORS || '').trim();
+            if (!allowedRaw) {
+              core.setFailed('AGENT_ALLOWED_ACTORS secret is empty. Refusing to run.');
+              return;
+            }
+
+            const allowed = new Set(
+              allowedRaw
+                .split(',')
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean)
+            );
+            const actor = context.actor?.toLowerCase() || '';
+            const shouldRun = Boolean(actor) && allowed.has(actor);
+
+            if (!shouldRun) {
+              core.info(`Skip: actor ${actor || 'unknown'} is not allowlisted.`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            const headRepo = payload.pull_request?.head?.repo?.full_name || '';
+            const currentRepo = `${context.repo.owner}/${context.repo.repo}`;
+            if (headRepo && headRepo !== currentRepo) {
+              core.info(`Skip: foreign fork PR head repo ${headRepo} is not supported.`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            core.setOutput('should_run', 'true');
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        if: steps.allowlist.outputs.should_run == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 1
+          persist-credentials: false
+
+      - name: Ensure Claude OAuth token is configured
+        if: steps.allowlist.outputs.should_run == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+            echo "CLAUDE_CODE_OAUTH_TOKEN is required for claude-code-review workflow." >&2
+            exit 1
+          fi
 
       - name: Run Claude Code Review
+        if: steps.allowlist.outputs.should_run == 'true'
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@ea36d6abdedc17fc2a671b36060770b208a6f8f1 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
@@ -54,4 +108,3 @@ jobs:
             }
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-

@@ -54,11 +54,13 @@ docker build -t agent-sandbox:latest .
 
 컨테이너 시작 시 `scripts/start.sh`가 자동 실행됩니다.
 
-1. 첫 실행일 때만 기본 dotfiles를 `$HOME`으로 복사
-2. `zimfw` 부트스트랩 및 모듈 설치
-3. git delta, 기본 에디터(micro), gh-copilot 등 1회성 세팅
-4. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
-5. `/bin/zsh` 실행
+1. 기본 dotfiles를 `$HOME`으로 복사(첫 실행), managed config(`settings.json`)는 diff 출력 후 동기화
+2. shared skills, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
+3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
+4. `zimfw` 부트스트랩 및 모듈 설치
+5. git delta, 기본 에디터(micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
+6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
+7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
 
 ## Shared Skills (Anthropic)
 
@@ -111,7 +113,7 @@ playwright-cli -s=research close
 
 ## Environment Variables
 
-`run.sh`/`docker-compose.yml`은 아래 키를 컨테이너에 전달합니다.
+`run.sh`와 `docker-compose.yml`은 공통 키를 전달하고, 일부 키는 실행 경로별 전용입니다.
 호스트에 설정된 값은 그대로 전달되고, 일부 안정화 항목은 기본값이 자동 주입됩니다.
 
 **API 키:**
@@ -128,25 +130,35 @@ playwright-cli -s=research close
 - `DISABLE_ERROR_REPORTING` — 에러 리포팅 비활성화 (기본 `1`)
 - `DISABLE_TELEMETRY` — 추가 텔레메트리/메트릭 전송 비활성화 (기본 `1`)
 - `DISABLE_AUTOUPDATER` — 백그라운드 업데이트 확인 비활성화 (기본 `1`)
-- `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (docker-compose 전용, 기본 `/var/run/docker.sock`)
+- `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `ENABLE_TOOL_SEARCH`, `CLAUDE_CODE_ENABLE_TASKS`, `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` — Claude 실험/운영 튜닝 값(호스트 설정 시 전달)
+
+**`run.sh` 전용 키:**
+- `AGENT_SANDBOX_DNS_SERVERS` — 컨테이너 DNS 서버 목록 (IPv4 권장, 쉼표/공백 구분, 예: `10.0.0.2,1.1.1.1`)
 - `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
 - `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
-- `AGENT_SANDBOX_DNS_SERVERS` — 컨테이너 DNS 서버 목록 (IPv4 권장, 쉼표/공백 구분, 예: `10.0.0.2,1.1.1.1`, `run.sh` 전용)
-- `DOCKER_GID` — Docker 소켓 GID (docker-compose 전용, 기본 `0`)
+
+**`docker-compose.yml` 전용 키:**
+- `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (기본 `/var/run/docker.sock`)
+- `DOCKER_GID` — Docker 소켓 GID (기본 `0`)
 
 ## GitHub Agent Automation
 
-이 저장소는 이슈 기반 자동 작업과 PR 리뷰 자동화를 위한 GitHub Actions를 포함합니다.
+이 저장소는 이슈/PR 자동화와 Claude 전용 워크플로우를 함께 제공합니다.
 
+**Agent 명령 기반 자동화 (`agent:*` 라벨, `/agent ...` 코멘트):**
 - `.github/workflows/agent-issue-intake.yml`
 - `.github/workflows/agent-issue-worker.yml`
 - `.github/workflows/agent-pr-reviewer.yml`
 
+**Claude 전용 자동화 (`@claude` 멘션, Claude 코드리뷰):**
+- `.github/workflows/claude.yml`
+- `.github/workflows/claude-code-review.yml`
+
 ### Required Secrets
 
 - `AGENT_ALLOWED_ACTORS` — 자동화를 허용할 GitHub 로그인 목록 (쉼표 구분, 예: `myid,teammate`)
-- `CLAUDE_CODE_OAUTH_TOKEN` — Claude Code OAuth 토큰
-- `CODEX_AUTH_JSON_B64` — `~/.codex/auth.json`을 base64로 인코딩한 값
+- `CLAUDE_CODE_OAUTH_TOKEN` — Claude Code OAuth 토큰 (`claude.yml`, `claude-code-review.yml`, `agent:*`의 Claude 경로에서 사용)
+- `CODEX_AUTH_JSON_B64` — `~/.codex/auth.json`을 base64로 인코딩한 값 (`agent:*`의 Codex 경로에서 사용)
 
 보안 기본값: `AGENT_ALLOWED_ACTORS`가 비어 있으면 워크플로우는 자동 실행을 거부합니다(fail-closed).
 
@@ -172,12 +184,17 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 - PR 자동 리뷰:
   - 라벨: `agent:review` + 선택 라벨 `agent:claude` 또는 `agent:codex`
   - 코멘트: `/agent review [claude|codex] [추가 지시사항]`
+- Claude Code Review 자동 실행:
+  - PR 이벤트: `opened`, `synchronize`, `ready_for_review`, `reopened`
+  - allowlist에 포함된 actor일 때만 실행 (`claude-code-review.yml`)
 
 ### Safety Guards
 
 - allowlist(`AGENT_ALLOWED_ACTORS`)에 포함된 사용자 작성 이벤트에만 반응
 - `github-actions[bot]`가 만든 이벤트에는 반응하지 않음
 - 이슈/PR 라벨 기반 실행에서도 라벨을 단 사용자까지 allowlist 검증
+- PR 리뷰 경로는 foreign fork PR을 기본적으로 스킵해 외부 포크 맥락에서의 자동 실행을 차단
+- 외부 액션은 commit SHA로 고정(pin)해 공급망 변동 위험을 줄임
 - 이슈 작업 결과(브랜치/PR), 리뷰 코멘트, artifact 업로드는 기본 활성화
 
 ## Included Tools (요약)
@@ -274,6 +291,7 @@ docker compose up
 ## Version Maintenance
 
 고정 버전 점검/갱신은 아래 스크립트로 실행할 수 있습니다.
+이 스크립트는 컨테이너 내부 실행을 기본 전제로 합니다.
 
 ```bash
 # 현재 고정 버전만 출력 (네트워크 없음)
