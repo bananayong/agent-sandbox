@@ -132,7 +132,23 @@ require("lazy").setup({
       indent = { enable = true },
     },
     config = function(_, opts_)
-      require("nvim-treesitter.configs").setup(opts_)
+      -- Upstream moved setup entrypoint from `nvim-treesitter.configs` to
+      -- `nvim-treesitter`. Keep a legacy fallback for older plugin snapshots.
+      local ok_new, ts = pcall(require, "nvim-treesitter")
+      if ok_new and type(ts.setup) == "function" then
+        ts.setup(opts_)
+        return
+      end
+
+      local ok_legacy, ts_legacy = pcall(require, "nvim-treesitter.configs")
+      if ok_legacy and type(ts_legacy.setup) == "function" then
+        ts_legacy.setup(opts_)
+        return
+      end
+
+      vim.schedule(function()
+        vim.notify("nvim-treesitter setup module not found. Run :Lazy sync", vim.log.levels.WARN)
+      end)
     end,
   },
 
@@ -151,11 +167,19 @@ require("lazy").setup({
       })
 
       local capabilities = require("cmp_nvim_lsp").default_capabilities()
-      local lspconfig = require("lspconfig")
       local servers = { "bashls", "jsonls", "lua_ls", "pyright", "yamlls" }
 
-      for _, server in ipairs(servers) do
-        lspconfig[server].setup({ capabilities = capabilities })
+      -- Prefer Nvim 0.11+ API to avoid deprecated `require("lspconfig")`.
+      if vim.lsp and vim.lsp.config and vim.lsp.enable then
+        for _, server in ipairs(servers) do
+          vim.lsp.config(server, { capabilities = capabilities })
+          vim.lsp.enable(server)
+        end
+      else
+        local lspconfig = require("lspconfig")
+        for _, server in ipairs(servers) do
+          lspconfig[server].setup({ capabilities = capabilities })
+        end
       end
 
       vim.api.nvim_create_autocmd("LspAttach", {

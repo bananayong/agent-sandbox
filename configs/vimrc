@@ -50,9 +50,10 @@ set undodir=~/.vim/undo
 
 " Bootstrap vim-plug (popular + fast for classic Vim).
 let s:plug_file = expand('~/.vim/autoload/plug.vim')
+let s:need_plug_install = 0
 if empty(glob(s:plug_file))
   silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd VimEnter * ++once PlugInstall --sync | source $MYVIMRC
+  let s:need_plug_install = 1
 endif
 
 call plug#begin('~/.vim/plugged')
@@ -79,6 +80,17 @@ call plug#begin('~/.vim/plugged')
   Plug 'itchyny/lightline.vim'
 call plug#end()
 
+if empty(globpath(&runtimepath, 'colors/everforest.vim'))
+  let s:need_plug_install = 1
+endif
+
+if s:need_plug_install && exists(':PlugInstall')
+  augroup agent_sandbox_vim_bootstrap
+    autocmd!
+    autocmd VimEnter * ++once PlugInstall --sync | source $MYVIMRC
+  augroup END
+endif
+
 filetype plugin indent on
 syntax on
 
@@ -86,7 +98,10 @@ syntax on
 set background=dark
 let g:everforest_background = 'hard'
 let g:everforest_better_performance = 1
-colorscheme everforest
+silent! colorscheme everforest
+if !exists('g:colors_name') || g:colors_name !=# 'everforest'
+  colorscheme default
+endif
 
 " Lint/format defaults for ALE.
 let g:ale_fix_on_save = 1
