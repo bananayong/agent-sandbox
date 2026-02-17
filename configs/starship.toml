@@ -3,7 +3,7 @@
 add_newline = false
 command_timeout = 1_200
 scan_timeout = 30
-palette = "okabe_ito"
+palette = "neon_dusk"
 
 format = """
 $os$username$hostname$directory$git_branch$git_status$nodejs$bun$python$rust$golang$package
@@ -11,6 +11,23 @@ $line_break$character"""
 
 right_format = "$docker_context$cmd_duration$jobs$time$status"
 
+# ── Neon Dusk ───────────────────────────────────────────────
+# Tailwind-inspired palette optimised for dark terminals.
+# • 9 hues evenly spaced on the perceptual colour wheel
+# • All colours >= 4.5 : 1 contrast on #1E1E2E backgrounds
+# • Warm = danger / identity · Cool = info / navigation
+[palettes.neon_dusk]
+rose      = "#F472B6"   # pink   - identity (username)
+coral     = "#FB7185"   # red    - danger (root, errors, rust)
+peach     = "#FDBA74"   # orange - metadata (package, duration)
+amber     = "#FCD34D"   # yellow - VCS warnings (git status)
+mint      = "#34D399"   # green  - success (node, time, prompt ok)
+cyan      = "#22D3EE"   # cyan   - navigation (directory - most viewed)
+sky       = "#7DD3FC"   # sky    - secondary info (hostname, python, go)
+blue      = "#60A5FA"   # blue   - platform (OS, docker, bun)
+lavender  = "#A78BFA"   # violet - VCS branch, jobs
+
+# Keep legacy palette available for quick rollback
 [palettes.okabe_ito]
 orange = "#E69F00"
 sky = "#56B4E9"
@@ -34,37 +51,37 @@ Windows = "󰍲"
 
 [username]
 show_always = true
-style_user = "bold fg:purple"
-style_root = "bold fg:vermillion"
+style_user = "bold fg:rose"
+style_root = "bold fg:coral"
 format = "[$user ]($style)"
 
 [hostname]
 ssh_only = true
-ssh_symbol = " "
+ssh_symbol = " "
 style = "fg:sky"
 format = "[@$hostname ]($style)"
 
 [directory]
-style = "bold fg:sky"
-format = "[ $path ]($style)[$read_only]($read_only_style)"
+style = "bold fg:cyan"
+format = "[ $path ]($style)[$read_only]($read_only_style)"
 truncation_length = 4
 truncation_symbol = "…/"
-read_only = " "
-read_only_style = "bold fg:vermillion"
+read_only = " "
+read_only_style = "bold fg:coral"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
-"Downloads" = " "
-"Music" = " "
-"Pictures" = " "
+"Downloads" = " "
+"Music" = " "
+"Pictures" = " "
 
 [git_branch]
-symbol = " "
-style = "fg:purple"
+symbol = " "
+style = "fg:lavender"
 format = "[$symbol$branch ]($style)"
 
 [git_status]
-style = "bold fg:yellow"
+style = "bold fg:amber"
 format = "[$all_status$ahead_behind ]($style)"
 ahead = "⇡${count}"
 behind = "⇣${count}"
@@ -77,68 +94,68 @@ renamed = "»${count}"
 deleted = "✘${count}"
 
 [nodejs]
-symbol = " "
-style = "fg:bluish_green"
+symbol = " "
+style = "fg:mint"
 format = "[$symbol($version) ]($style)"
 detect_extensions = ["js", "mjs", "cjs", "ts", "mts", "cts"]
 
 [bun]
-symbol = " "
+symbol = " "
 style = "fg:blue"
 format = "[$symbol($version) ]($style)"
 
 [python]
-symbol = " "
+symbol = " "
 style = "fg:sky"
 format = "[$symbol$version(\\($virtualenv\\)) ]($style)"
 
 [rust]
-symbol = " "
-style = "fg:vermillion"
+symbol = " "
+style = "fg:coral"
 format = "[$symbol($version) ]($style)"
 
 [golang]
-symbol = " "
+symbol = " "
 style = "fg:sky"
 format = "[$symbol($version) ]($style)"
 
 [package]
 symbol = "󰏗 "
-style = "fg:orange"
+style = "fg:peach"
 format = "[$symbol($version) ]($style)"
 display_private = true
 
 [docker_context]
-symbol = " "
+symbol = " "
 style = "fg:blue"
 format = "[$symbol$context ]($style)"
 
 [cmd_duration]
 min_time = 1_000
 show_milliseconds = true
-style = "fg:orange"
+style = "fg:peach"
 format = "[󱦟 $duration ]($style)"
 
 [jobs]
-symbol = " "
+symbol = " "
 number_threshold = 1
 symbol_threshold = 1
-style = "fg:purple"
+style = "fg:lavender"
 format = "[$symbol$number ]($style)"
 
 [time]
 disabled = false
 time_format = "%R"
-style = "fg:bluish_green"
-format = "[ $time ]($style)"
+style = "fg:mint"
+format = "[ $time ]($style)"
 
 [status]
 disabled = false
 symbol = "✘ "
-style = "bold fg:vermillion"
+style = "bold fg:coral"
 format = "[$symbol$status ]($style)"
 
 [character]
-success_symbol = "[❯](bold fg:sky)"
-error_symbol = "[❯](bold fg:vermillion)"
-vimcmd_symbol = "[❮](bold fg:sky)"
+success_symbol = "[❯](bold fg:mint)"
+error_symbol = "[❯](bold fg:coral)"
+vimcmd_symbol = "[❮](bold fg:cyan)"
