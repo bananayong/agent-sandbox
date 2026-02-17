@@ -221,7 +221,7 @@ install_shared_skills() {
 copy_default /etc/skel/.default.zshrc        "$HOME_DIR/.zshrc"
 copy_default /etc/skel/.default.zimrc         "$HOME_DIR/.zimrc"
 copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
-copy_default /etc/skel/.config/starship.toml  "$HOME_DIR/.config/starship.toml"
+update_managed /etc/skel/.config/starship.toml "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
 update_managed /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"

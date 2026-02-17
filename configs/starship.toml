@@ -6,7 +6,7 @@ scan_timeout = 30
 palette = "neon_dusk"
 
 format = """
-$os$username$hostname$directory$git_branch$git_status$nodejs$bun$python$rust$golang$package
+$os$username$hostname$directory$git_branch$git_status$nodejs$bun$python$rust$golang$package\
 $line_break$character"""
 
 right_format = "$docker_context$cmd_duration$jobs$time$status"
