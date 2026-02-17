@@ -25,12 +25,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
 - [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
 - [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
-- [ ] [P2] (security) `run.sh` 보안 하드닝 프로필 추가 — `--cap-drop=ALL`, `--pids-limit` 등 선택형 hardened 실행 옵션 제공(기본/호환 모드와 분리)
-- [ ] [P3] (automation) 다중 에이전트 병렬 작업 헬퍼 — Git worktree 기반으로 에이전트별 분리 작업 디렉토리를 자동 생성/정리하는 스크립트 추가
-- [ ] [P1] (security) 이미지 공급망 검증 강화 — 다운로드 바이너리 SHA256 검증/서명 검증 단계 추가
 - [ ] [P2] (build) 도구 업데이트 자동 PR — pinned version ARG 업데이트를 주기적으로 제안하는 워크플로우
-- [ ] [P2] (setup) agent config migration 도구 — 기존 `~/.agent-sandbox/home` 구조 변경 시 안전한 마이그레이션 스크립트
-- [ ] [P2] (quality) first-run idempotency 테스트 — `start.sh` 재실행 시 설정 덮어쓰기/오동작 없는지 자동 검증
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
