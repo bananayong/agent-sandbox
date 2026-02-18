@@ -25,6 +25,10 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P1] (quality) 공유 스킬 제외 후속 보완 — `start.sh`에 stale managed/legacy removed shared skills prune 로직을 추가해 persisted home의 제외 대상 스킬이 재시작 시 정리되도록 하고, `README`의 번들 목록을 최신 manifest 기준으로 정정, `smoke-test.sh`에 prune 정책 검증 항목 추가
+- [x] [P1] (quality) `coreyhaines31/marketingskills` 잔여 11개 스킬 완전 제외 — `skills/external-manifest.txt`에서 전량 제거 후 벤더 동기화로 레포에서 prune, remotion 리네임 후 누락 위험이던 신규 룰 파일 3개(`audio-visualization.md`, `ffmpeg.md`, `voiceover.md`)도 인덱스 반영으로 1번 이슈 조치
+- [x] [P1] (quality) 공유 스킬 정리 2차 반영 — 제거된 스킬을 참조하던 11개 스킬(`ab-test-setup`, `copywriting`, `onboarding-cro`, `marketing-ideas`, `seo-audit`, `social-content`, `free-tool-strategy`, `cold-email`, `popup-cro`, `content-strategy`, `launch-strategy`)을 벤더 대상에서 제외하고, `remotion-dev-remotion` 타깃을 `remotion-best-practices`로 정규화
+- [x] [P1] (quality) 공유 스킬 정리 1차 반영 — 중복/저신뢰/품질 이슈로 분류된 13개 스킬을 `skills/external-manifest.txt`에서 제거하고 `scripts/vendor-external-skills.sh` 동기화로 레포에서 완전 제외
 - [x] [P1] (setup) shared skills 최신화 정책 재정비 — `start.sh`에 hash state 기반 managed sync(로컬 수정 감지, legacy 백업/채택, bundle-change 최적화)를 도입해 기존 persisted home도 안전하게 최신 번들 반영, 외부 스킬 주간 갱신 워크플로우(`.github/workflows/update-external-skills.yml`)와 `skills.sh` 실험용 헬퍼(`scripts/skills-helper.sh`) 추가
 - [x] [P1] (setup) 외부 스킬 번들 2차 확장 — `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 `external-manifest` 기반으로 벤더링해 startup shared-skills 자동 설치 경로에 통합
 - [x] [P2] (stability) 서브에이전트 explorer `Permission denied` 대응 가이드 — 일부 런타임에서 explorer 디렉터리 read 제한이 발생할 수 있음을 문서화하고, 코드 리뷰/탐색 fallback을 worker role로 표준화

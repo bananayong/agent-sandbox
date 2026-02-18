@@ -18,7 +18,7 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   synced_at_utc: 2026-02-18T12:04:04Z
 
 # BEGIN external-skill-sources (managed by scripts/vendor-external-skills.sh)
-# generated_at_utc: 2026-02-18T13:30:58Z
+# generated_at_utc: 2026-02-18T14:39:57Z
 # - repository: https://github.com/vercel-labs/agent-skills
 #   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
 #   path: skills/claude.ai/vercel-deploy-claimable
@@ -124,11 +124,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   path: skills/json-render-remotion
 #   target: json-render-remotion
 #   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
-# - repository: https://github.com/vercel-labs/json-render
-#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
-#   path: skills/remotion-best-practices
-#   target: remotion-best-practices
-#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
 # - repository: https://github.com/vercel-labs/before-and-after
 #   ref: 178594233450657b198b965635b3bba443bf9129
 #   path: skill
@@ -139,136 +134,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   path: .claude/skills/ui-ux-pro-max
 #   target: ui-ux-pro-max
 #   commit: 6623f12b4058d09618c89cffb2de59a47c45f999
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/ab-test-setup
-#   target: ab-test-setup
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/analytics-tracking
-#   target: analytics-tracking
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/cold-email
-#   target: cold-email
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/competitor-alternatives
-#   target: competitor-alternatives
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/content-strategy
-#   target: content-strategy
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/copy-editing
-#   target: copy-editing
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/copywriting
-#   target: copywriting
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/email-sequence
-#   target: email-sequence
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/form-cro
-#   target: form-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/free-tool-strategy
-#   target: free-tool-strategy
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/launch-strategy
-#   target: launch-strategy
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/marketing-ideas
-#   target: marketing-ideas
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/marketing-psychology
-#   target: marketing-psychology
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/onboarding-cro
-#   target: onboarding-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/page-cro
-#   target: page-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/paid-ads
-#   target: paid-ads
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/paywall-upgrade-cro
-#   target: paywall-upgrade-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/popup-cro
-#   target: popup-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/pricing-strategy
-#   target: pricing-strategy
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/product-marketing-context
-#   target: product-marketing-context
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/programmatic-seo
-#   target: programmatic-seo
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/referral-program
-#   target: referral-program
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/schema-markup
-#   target: schema-markup
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/seo-audit
-#   target: seo-audit
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/signup-flow-cro
-#   target: signup-flow-cro
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
-# - repository: https://github.com/coreyhaines31/marketingskills
-#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
-#   path: skills/social-content
-#   target: social-content
-#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
 # - repository: https://github.com/supabase/agent-skills
 #   ref: 760460c221d30d0db904ff28e8fa52af85672255
 #   path: skills/supabase-postgres-best-practices
@@ -391,11 +256,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
 # - repository: https://github.com/antfu/skills
 #   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-#   path: skills/turborepo
-#   target: antfu-turborepo
-#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-# - repository: https://github.com/antfu/skills
-#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
 #   path: skills/unocss
 #   target: unocss
 #   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
@@ -431,18 +291,8 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
 # - repository: https://github.com/antfu/skills
 #   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-#   path: skills/vueuse-functions
-#   target: vueuse-functions
-#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-# - repository: https://github.com/antfu/skills
-#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
 #   path: skills/vue
 #   target: vue
-#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-# - repository: https://github.com/antfu/skills
-#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
-#   path: skills/web-design-guidelines
-#   target: antfu-web-design-guidelines
 #   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
 # - repository: https://github.com/better-auth/skills
 #   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
@@ -498,11 +348,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
 #   path: skills/building-ai-agent-on-cloudflare
 #   target: building-ai-agent-on-cloudflare
-#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
-# - repository: https://github.com/cloudflare/skills
-#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
-#   path: skills/building-mcp-server-on-cloudflare
-#   target: building-mcp-server-on-cloudflare
 #   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
 # - repository: https://github.com/cloudflare/skills
 #   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
@@ -596,16 +441,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
 # - repository: https://github.com/jimliu/baoyu-skills
 #   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-#   path: skills/baoyu-danger-gemini-web
-#   target: baoyu-danger-gemini-web
-#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-# - repository: https://github.com/jimliu/baoyu-skills
-#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-#   path: skills/baoyu-danger-x-to-markdown
-#   target: baoyu-danger-x-to-markdown
-#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-# - repository: https://github.com/jimliu/baoyu-skills
-#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
 #   path: skills/baoyu-format-markdown
 #   target: baoyu-format-markdown
 #   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
@@ -631,11 +466,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
 # - repository: https://github.com/jimliu/baoyu-skills
 #   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-#   path: skills/baoyu-post-to-x
-#   target: baoyu-post-to-x
-#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
-# - repository: https://github.com/jimliu/baoyu-skills
-#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
 #   path: skills/baoyu-slide-deck
 #   target: baoyu-slide-deck
 #   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
@@ -652,7 +482,7 @@ synced_at_utc: 2026-02-15T12:19:49Z
 # - repository: https://github.com/remotion-dev/skills
 #   ref: 8969e8729f3e91fc6e8bfbe486c977fdbd25d0e1
 #   path: skills/remotion
-#   target: remotion-dev-remotion
+#   target: remotion-best-practices
 #   commit: 8969e8729f3e91fc6e8bfbe486c977fdbd25d0e1
 # - repository: https://github.com/wshobson/agents
 #   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
@@ -1263,11 +1093,6 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
 #   path: plugins/security-scanning/skills/attack-tree-construction
 #   target: attack-tree-construction
-#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
-# - repository: https://github.com/wshobson/agents
-#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
-#   path: plugins/security-scanning/skills/sast-configuration
-#   target: sast-configuration
 #   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
 # - repository: https://github.com/wshobson/agents
 #   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a

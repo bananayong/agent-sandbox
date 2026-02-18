@@ -79,7 +79,7 @@ docker build -t agent-sandbox:latest .
 ## Shared Skills (Vendored)
 
 루트 `skills/` 폴더에는 기본적으로 `https://github.com/anthropics/skills/tree/main/skills` 기반 스킬 중 재배포 가능한 항목만 포함하며, 운영에 필요한 추가 스킬도 함께 벤더링합니다.
-추가 번들은 `vercel-labs/agent-skills`, `vercel-labs/next-skills`, `vercel/*` 계열(`ai-sdk`, `workflow`, `turborepo` 등), `expo/skills`, `supabase/agent-skills`, `coreyhaines31/marketingskills`와 함께 `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 포함합니다.
+추가 번들은 `vercel-labs/agent-skills`, `vercel-labs/next-skills`, `vercel/*` 계열(`ai-sdk`, `workflow`, `turborepo` 등), `expo/skills`, `supabase/agent-skills`, `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 포함합니다.
 
 컨테이너 시작 시 `scripts/start.sh`가 아래 경로에 스킬을 자동 설치합니다.
 

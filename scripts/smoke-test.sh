@@ -316,6 +316,7 @@ check_shared_skills_install_policy() {
   local managed_sync_ok=0
   local managed_all_ok=0
   local managed_hash_sync_ok=0
+  local stale_prune_ok=0
   local managed_sync_value=""
 
   if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.codex/skills\" \"\$CODEX_SHARED_SKILLS_EXCLUDES\"" "$start_script"; then
@@ -362,16 +363,22 @@ check_shared_skills_install_policy() {
     managed_hash_sync_ok=1
   fi
 
+  if grep -Fq "LEGACY_PRUNED_SHARED_SKILLS=(" "$start_script" \
+    && grep -Fq "Removing stale managed shared skill" "$start_script"; then
+    stale_prune_ok=1
+  fi
+
   if [[ "$codex_ok" -eq 1 ]] \
     && [[ "$gemini_ok" -eq 1 ]] \
     && [[ "$claude_ok" -eq 1 ]] \
     && [[ "$proprietary_exclude_ok" -eq 1 ]] \
     && [[ "$managed_sync_ok" -eq 1 ]] \
     && [[ "$managed_all_ok" -eq 1 ]] \
-    && [[ "$managed_hash_sync_ok" -eq 1 ]]; then
+    && [[ "$managed_hash_sync_ok" -eq 1 ]] \
+    && [[ "$stale_prune_ok" -eq 1 ]]; then
     echo "  OK   shared-skills-install-policy"
   else
-    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, proprietary_exclude=${proprietary_exclude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
+    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, proprietary_exclude=${proprietary_exclude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok}, stale_prune=${stale_prune_ok})"
     FAILED=1
   fi
 }
