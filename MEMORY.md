@@ -32,6 +32,7 @@ This is intentionally compact: only currently relevant guidance is kept.
 - `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.
 - Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).
+- Codex defaults enable `undo`, `multi_agent`, `apps` with `[agents].max_threads=12`; missing keys are auto-merged into existing `~/.codex/config.toml`.
 
 ## Automation Security Baseline
 - GitHub automation is fail-closed on allowlist (`AGENT_ALLOWED_ACTORS` required).

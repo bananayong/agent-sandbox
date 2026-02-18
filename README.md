@@ -136,6 +136,39 @@ playwright-cli -s=research close
 - `command-checklist.md`
 - `config-snippet.md`
 
+## Codex Multi-Agent Defaults
+
+`configs/codex/config.toml` 기본값에 아래 항목이 포함됩니다.
+
+- `[features].multi_agent = true` (실험 기능)
+- `[features].undo = true` (작업 복구 편의)
+- `[features].apps = true` (ChatGPT Apps/Connectors)
+- `[agents].max_threads = 12` (Codex 기본 6에서 상향)
+
+추가로 `start.sh`는 기존 사용자 홈(`~/.codex/config.toml`)에도 아래 키가 비어 있으면 자동 보강합니다.
+
+- `[tui].status_line`
+- `[features].multi_agent`
+- `[features].undo`
+- `[features].apps`
+- `[agents].max_threads`
+
+Built-in 에이전트 role:
+
+- `default` (mixed tasks)
+- `explorer` (코드베이스 조사/리스크 확인, no edits)
+- `worker` (구현/버그 수정/테스트)
+
+예시 프롬프트:
+
+```text
+spawn default agent to debug the failure and propose fix
+spawn explorer to map payment flow and check risks, no edits
+spawn worker for src/auth/* and implement token refresh & run tests
+```
+
+커스텀 role은 `config.toml`의 `[agents.<name>]` + 별도 `config_file` 조합으로 추가할 수 있습니다.
+
 ## Vim / Neovim Defaults
 
 컨테이너 기본 설정에 `vim`과 `neovim` 추천 플러그인/테마가 포함됩니다.

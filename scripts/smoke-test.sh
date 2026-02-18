@@ -457,12 +457,43 @@ extract_codex_status_line_items() {
   ' "$config_path"
 }
 
+extract_toml_section_key_value() {
+  local config_path="$1"
+  local section_name="$2"
+  local key_name="$3"
+
+  awk -v section_name="$section_name" -v key_name="$key_name" '
+    BEGIN {
+      in_section = 0
+    }
+    /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/ {
+      if ($0 ~ ("^[[:space:]]*\\[" section_name "\\][[:space:]]*(#.*)?$")) {
+        in_section = 1
+      } else {
+        in_section = 0
+      }
+      next
+    }
+    in_section && $0 ~ ("^[[:space:]]*" key_name "[[:space:]]*=") {
+      line = $0
+      sub("^[[:space:]]*" key_name "[[:space:]]*=[[:space:]]*", "", line)
+      sub("[[:space:]]*(#.*)?$", "", line)
+      print line
+      exit
+    }
+  ' "$config_path"
+}
+
 check_codex_default_config() {
   local start_script
   local codex_skel_config
   local expected_items
   local actual_items
   local status_items_ok=1
+  local multi_agent_ok=0
+  local undo_ok=0
+  local apps_ok=0
+  local max_threads_ok=0
   local i
 
   if ! resolve_codex_default_check_paths; then
@@ -473,10 +504,34 @@ check_codex_default_config() {
   codex_skel_config="$CODEX_DEFAULT_CONFIG"
 
   local has_start_hook=0
+  local has_multi_agent_merge_hook=0
+  local has_undo_merge_hook=0
+  local has_apps_merge_hook=0
+  local has_max_threads_merge_hook=0
 
   # shellcheck disable=SC2016
   if grep -Eq 'ensure_codex_status_line[[:space:]]+/etc/skel/.codex/config.toml[[:space:]]+"\$HOME_DIR/.codex/config.toml"' "$start_script"; then
     has_start_hook=1
+  fi
+
+  if grep -Fq 'toml_section_has_key "$dest" "features" "multi_agent"' "$start_script" \
+    && grep -Fq 'insert_toml_key_into_section "$dest" "features" "multi_agent = true"' "$start_script"; then
+    has_multi_agent_merge_hook=1
+  fi
+
+  if grep -Fq 'toml_section_has_key "$dest" "features" "undo"' "$start_script" \
+    && grep -Fq 'insert_toml_key_into_section "$dest" "features" "undo = true"' "$start_script"; then
+    has_undo_merge_hook=1
+  fi
+
+  if grep -Fq 'toml_section_has_key "$dest" "features" "apps"' "$start_script" \
+    && grep -Fq 'insert_toml_key_into_section "$dest" "features" "apps = true"' "$start_script"; then
+    has_apps_merge_hook=1
+  fi
+
+  if grep -Fq 'toml_section_has_key "$dest" "agents" "max_threads"' "$start_script" \
+    && grep -Fq 'insert_toml_key_into_section "$dest" "agents" "max_threads = 12"' "$start_script"; then
+    has_max_threads_merge_hook=1
   fi
 
   mapfile -t actual_items < <(extract_codex_status_line_items "$codex_skel_config")
@@ -502,10 +557,35 @@ check_codex_default_config() {
     done
   fi
 
-  if [[ "$has_start_hook" -eq 1 ]] && [[ "$status_items_ok" -eq 1 ]]; then
+  if [[ "$(extract_toml_section_key_value "$codex_skel_config" "features" "multi_agent")" == "true" ]]; then
+    multi_agent_ok=1
+  fi
+
+  if [[ "$(extract_toml_section_key_value "$codex_skel_config" "features" "undo")" == "true" ]]; then
+    undo_ok=1
+  fi
+
+  if [[ "$(extract_toml_section_key_value "$codex_skel_config" "features" "apps")" == "true" ]]; then
+    apps_ok=1
+  fi
+
+  if [[ "$(extract_toml_section_key_value "$codex_skel_config" "agents" "max_threads")" == "12" ]]; then
+    max_threads_ok=1
+  fi
+
+  if [[ "$has_start_hook" -eq 1 ]] \
+    && [[ "$has_multi_agent_merge_hook" -eq 1 ]] \
+    && [[ "$has_undo_merge_hook" -eq 1 ]] \
+    && [[ "$has_apps_merge_hook" -eq 1 ]] \
+    && [[ "$has_max_threads_merge_hook" -eq 1 ]] \
+    && [[ "$status_items_ok" -eq 1 ]] \
+    && [[ "$multi_agent_ok" -eq 1 ]] \
+    && [[ "$undo_ok" -eq 1 ]] \
+    && [[ "$apps_ok" -eq 1 ]] \
+    && [[ "$max_threads_ok" -eq 1 ]]; then
     echo "  OK   codex-default-config"
   else
-    echo "  FAIL codex-default-config (status_items_ok=${status_items_ok}, start_hook=${has_start_hook})"
+    echo "  FAIL codex-default-config (status_items_ok=${status_items_ok}, multi_agent_ok=${multi_agent_ok}, undo_ok=${undo_ok}, apps_ok=${apps_ok}, max_threads_ok=${max_threads_ok}, start_hook=${has_start_hook}, multi_agent_hook=${has_multi_agent_merge_hook}, undo_hook=${has_undo_merge_hook}, apps_hook=${has_apps_merge_hook}, max_threads_hook=${has_max_threads_merge_hook})"
     FAILED=1
   fi
 }

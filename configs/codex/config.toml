@@ -15,3 +15,32 @@ status_line = [
   "five-hour-limit",
   "weekly-limit",
 ]
+
+[features]
+# Enable built-in undo support (ghost commit based recovery).
+undo = true
+
+# Enable experimental multi-agent orchestration in TUI (/experimental menu).
+multi_agent = true
+
+# Enable ChatGPT Apps/Connectors integration via "$" mentions.
+apps = true
+
+[agents]
+# Codex default is 6. Raise to 12 for faster parallel task fan-out.
+max_threads = 12
+
+# Built-in role quick reference:
+# - default: mixed tasks
+# - explorer: codebase research and risk mapping (no edits)
+# - worker: coding + bug fixes + tests
+#
+# Custom role example:
+# [agents.fast_worker]
+# description = "Fast scoped implementation agent."
+# config_file = "/home/sandbox/.codex/agents/fast_worker.toml"
+#
+# ~/.codex/agents/fast_worker.toml
+# model = "gpt-5.3-spark"
+# model_reasoning_effort = "low"
+# model_verbosity = "low"

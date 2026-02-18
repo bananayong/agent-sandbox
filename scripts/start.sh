@@ -78,37 +78,26 @@ update_managed() {
   cp "$src" "$dest"
 }
 
-# Ensure Codex config contains the managed default status line items.
-# - If config does not exist: install the image default as-is.
-# - If config exists and already has status_line: keep user customization.
-# - If config exists but lacks status_line: insert only status_line into [tui].
-ensure_codex_status_line() {
-  local src="$1"
-  local dest="$2"
-  local tmp_file
-  local status_block
+# Check whether a TOML key exists under a specific section.
+# Returns 0 if found, 1 otherwise.
+toml_section_has_key() {
+  local file="$1"
+  local section="$2"
+  local key="$3"
 
-  mkdir -p "$(dirname "$dest")"
-
-  if [[ ! -f "$dest" ]]; then
-    echo "[init] Installing Codex default config: $dest"
-    cp "$src" "$dest"
-    return
-  fi
-
-  if awk '
+  awk -v section="$section" -v key="$key" '
     BEGIN {
-      in_tui = 0
+      in_section = 0
     }
     /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/ {
-      if ($0 ~ /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/) {
-        in_tui = 1
+      if ($0 ~ ("^[[:space:]]*\\[" section "\\][[:space:]]*(#.*)?$")) {
+        in_section = 1
       } else {
-        in_tui = 0
+        in_section = 0
       }
       next
     }
-    in_tui && $0 ~ /^[[:space:]]*status_line[[:space:]]*=/ {
+    in_section && $0 ~ ("^[[:space:]]*" key "[[:space:]]*=") {
       found = 1
       exit 0
     }
@@ -118,11 +107,78 @@ ensure_codex_status_line() {
       }
       exit 1
     }
-  ' "$dest"; then
+  ' "$file"
+}
+
+# Insert a TOML key/value block into a section.
+# - If the section exists, insert at the end of that section.
+# - If the section does not exist, append a new section with the block.
+insert_toml_key_into_section() {
+  local file="$1"
+  local section="$2"
+  local block="$3"
+  local tmp_file
+
+  tmp_file="$(mktemp)"
+
+  awk -v section="$section" -v block="$block" '
+    BEGIN {
+      in_section = 0
+      section_seen = 0
+      inserted = 0
+    }
+    {
+      if ($0 ~ /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/) {
+        if (in_section && inserted == 0) {
+          print block
+          inserted = 1
+        }
+        if ($0 ~ ("^[[:space:]]*\\[" section "\\][[:space:]]*(#.*)?$")) {
+          in_section = 1
+          section_seen = 1
+        } else {
+          in_section = 0
+        }
+      }
+      print $0
+    }
+    END {
+      if (section_seen == 1 && inserted == 0) {
+        print block
+      }
+      if (section_seen == 0) {
+        print ""
+        print "[" section "]"
+        print block
+      }
+    }
+  ' "$file" > "$tmp_file"
+
+  mv "$tmp_file" "$file"
+}
+
+# Ensure Codex config contains managed defaults required by this image:
+# - [tui].status_line
+# - [features].undo
+# - [features].multi_agent
+# - [features].apps
+# - [agents].max_threads
+# Rules:
+# - If config does not exist: install the image default as-is.
+# - If a key already exists: keep user customization.
+# - If a key is missing: insert only that key into the right section.
+ensure_codex_status_line() {
+  local src="$1"
+  local dest="$2"
+  local status_block
+
+  mkdir -p "$(dirname "$dest")"
+
+  if [[ ! -f "$dest" ]]; then
+    echo "[init] Installing Codex default config: $dest"
+    cp "$src" "$dest"
     return
   fi
-
-  echo "[init] Updating Codex config with default status line: $dest"
 
   status_block='status_line = [
   "model-with-reasoning",
@@ -135,44 +191,30 @@ ensure_codex_status_line() {
   "weekly-limit",
 ]'
 
-  tmp_file="$(mktemp)"
+  if ! toml_section_has_key "$dest" "tui" "status_line"; then
+    echo "[init] Updating Codex config with default status line: $dest"
+    insert_toml_key_into_section "$dest" "tui" "$status_block"
+  fi
 
-  # Insert status_line inside existing [tui] section when present.
-  # If [tui] does not exist, append a new [tui] block at the end.
-  awk -v status_block="$status_block" '
-    BEGIN {
-      in_tui = 0
-      tui_seen = 0
-      inserted = 0
-    }
-    {
-      if ($0 ~ /^[[:space:]]*\[[^]]+\][[:space:]]*(#.*)?$/) {
-        if (in_tui && inserted == 0) {
-          print status_block
-          inserted = 1
-        }
-        if ($0 ~ /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/) {
-          in_tui = 1
-          tui_seen = 1
-        } else {
-          in_tui = 0
-        }
-      }
-      print $0
-    }
-    END {
-      if (tui_seen == 1 && inserted == 0) {
-        print status_block
-      }
-      if (tui_seen == 0) {
-        print ""
-        print "[tui]"
-        print status_block
-      }
-    }
-  ' "$dest" > "$tmp_file"
+  if ! toml_section_has_key "$dest" "features" "multi_agent"; then
+    echo "[init] Enabling Codex default multi-agent feature: $dest"
+    insert_toml_key_into_section "$dest" "features" "multi_agent = true"
+  fi
 
-  mv "$tmp_file" "$dest"
+  if ! toml_section_has_key "$dest" "features" "undo"; then
+    echo "[init] Enabling Codex default undo feature: $dest"
+    insert_toml_key_into_section "$dest" "features" "undo = true"
+  fi
+
+  if ! toml_section_has_key "$dest" "features" "apps"; then
+    echo "[init] Enabling Codex default apps feature: $dest"
+    insert_toml_key_into_section "$dest" "features" "apps = true"
+  fi
+
+  if ! toml_section_has_key "$dest" "agents" "max_threads"; then
+    echo "[init] Setting Codex default agent max_threads: $dest"
+    insert_toml_key_into_section "$dest" "agents" "max_threads = 12"
+  fi
 }
 
 # Install shared skills from image into one agent's skill directory.
@@ -332,7 +374,7 @@ update_managed /etc/skel/.gemini/settings.json "$HOME_DIR/.gemini/settings.json"
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
 
 # Codex CLI uses config.toml for TUI/runtime preferences.
-# Keep existing user config, but ensure the default status line exists.
+# Keep existing user config, but ensure managed default keys exist.
 ensure_codex_status_line /etc/skel/.codex/config.toml "$HOME_DIR/.codex/config.toml"
 
 # Runtime safety defaults for Claude network stability.
