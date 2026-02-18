@@ -25,6 +25,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P1] (setup) Playwright companion probe/EACCES 정리 — `~/.cache/ms-playwright` 루트 symlink dedupe를 제거하고 writable 루트 + payload 디렉터리 링크 방식으로 전환, `start.sh`/`smoke-test.sh` probe에 격리 `HOME`/`XDG_CACHE_HOME` 주입으로 daemon 경로 충돌 제거
 - [x] [P1] (quality) Ars Contexta 설치 회복탄력성 보강 — `start.sh`에서 Codex/Claude 설치 sentinel과 실제 설치 상태를 함께 검증해 stale marker 자동 복구, 불필요 marketplace 호출 short-circuit, `smoke-test.sh`에 `arscontexta-install-policy` 체크 추가
 - [x] [P1] (setup) Ars Contexta 자동 설치 통합 — `start.sh`에 Claude marketplace/plugin 설치 자동화(`agenticnotetaking/arscontexta`)를 추가하고, Codex는 `~/.codex/vendor/arscontexta` 로컬 reference clone + `arscontexta-bridge` 스킬 시드로 비공식 브리지 적용
 - [x] [P3] (setup) 컨테이너 기본 도구에 `tree` 추가 — `Dockerfile` apt 기본 설치 목록에 `tree` 포함
@@ -32,7 +33,7 @@ Optionally tag with priority and category:
 - [x] [P2] (setup) startup 체감 멈춤 완화 — `start.sh`의 zimfw 다운로드/모듈 설치, broot 초기화, Docker socket probe에 타임아웃을 추가해 네트워크/데몬 지연 시 엔트리포인트가 장시간 정지되지 않도록 보강
 - [x] [P1] (setup) Playwright CLI 동작 변경 대응 — 브라우저 설치를 `playwright-cli install`에서 `node .../playwright/cli.js install chromium`로 전환하고, 빌드 시 root가 남기는 `/tmp/playwright-cli`를 `1777`로 재설정해 non-root 런타임 `EACCES`를 방지
 - [x] [P1] (setup) Playwright bootstrap 오탐 종료 방지 — `start.sh`/`smoke-test.sh`에서 `INSTALLATION_COMPLETE` 마커 필수 의존을 제거하고, install 후 `fallback/primary` 재검증 + launch probe 성공 시 복구 성공으로 처리하도록 보강
-- [x] [P2] (ops) 컨테이너/이미지 디스크 최적화 — `docker system df`/`du` 실측 기반 병목 분석, Dockerfile bun 글로벌 설치 후 musl 중복 바이너리 정리 보강, `start.sh` Playwright fallback dedupe(심볼릭 링크) 추가, `scripts/home-storage-guard.sh`(`--aggressive` 포함) 및 README home 캐시 정리 가이드 반영
+- [x] [P2] (ops) 컨테이너/이미지 디스크 최적화 — `docker system df`/`du` 실측 기반 병목 분석, Dockerfile bun 글로벌 설치 후 musl 중복 바이너리 정리 보강, `start.sh` Playwright fallback dedupe(루트 writable 유지 + payload 디렉터리 링크) 추가, `scripts/home-storage-guard.sh`(`--aggressive` 포함) 및 README home 캐시 정리 가이드 반영
 - [x] [P2] (ops) Docker 저장공간 재발 방지 가이드 — `scripts/docker-storage-guard.sh` 임계치 기반(`docker system df`) 점검/정리 스크립트 추가 및 `README` Troubleshooting에 `no space left on device` 진단/해결 절차 반영
 - [x] [P1] (setup) Playwright Chromium 동반 설치 보장 — Dockerfile에서 Chromium payload 설치/실행 가능성 assert를 추가하고, `start.sh` fail-closed self-heal(`~/.cache/ms-playwright` fallback + lock + isolated bootstrap) 및 `smoke-test` companion/bootstrap 검증으로 빌드·런타임 보장 강화
 - [x] [P2] (usability) Micro 에디터 Vim/Neovim 스타일 기본 구성 — `configs/micro/settings.json`/`bindings.json` 추가, `start.sh` 누락 플러그인 자동 설치(`detectindent`, `fzf`, `lsp`, `quickfix`, `bookmark`, `manipulator` + 테마), `Dockerfile`/`README`/`smoke-test` 동기화

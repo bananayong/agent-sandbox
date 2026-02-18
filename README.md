@@ -118,7 +118,7 @@ docker build -t agent-sandbox:latest .
 - 권장 브라우저: `--browser=chromium` (이미지 빌드 시 사전 설치되는 런타임과 일치)
 - Chromium 보장: 이미지 빌드 시 `/ms-playwright`에 Chromium payload를 설치하고 실행 가능 여부까지 검증
 - 런타임 복구: `start.sh`가 시작 시 Chromium companion을 점검하고, 손상/누락 시 `~/.cache/ms-playwright`로 자동 복구(실패 시 fail-closed)
-- 런타임 dedupe: `/ms-playwright`가 정상일 때 `~/.cache/ms-playwright` 중복 payload는 심볼릭 링크로 정리해 home 볼륨 사용량을 줄임
+- 런타임 dedupe: `/ms-playwright`가 정상일 때 `~/.cache/ms-playwright` 루트는 writable로 유지하고, 중복 payload 디렉터리(`chromium-*`, `chromium_headless_shell-*`, `ffmpeg-*`)만 심볼릭 링크로 정리해 home 볼륨 사용량을 줄임
 - MCP 사용 시점: 장시간 상태 유지/자율 루프가 필요한 경우만 fallback
 
 예시:
@@ -385,7 +385,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
   - `scripts/home-storage-guard.sh prune --aggressive`
 - `prune` 동작:
   - `~/.npm`/`node-gyp`/Playwright 임시 probe/tmp 등 재생성 가능한 캐시 정리
-  - `/ms-playwright`와 동일한 Chromium revision일 때 `~/.cache/ms-playwright`를 심볼릭 링크로 dedupe
+  - `/ms-playwright`와 동일한 Chromium revision일 때 `~/.cache/ms-playwright`는 writable로 유지하고 payload 디렉터리만 심볼릭 링크로 dedupe
   - `--aggressive` 사용 시 `~/.local/share/claude/versions`, Neovim mason 패키지, Claude telemetry/debug 로그까지 정리
 
 ### Docker 명령이 컨테이너 안에서 권한 오류가 날 때

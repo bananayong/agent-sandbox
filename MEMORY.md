@@ -39,7 +39,8 @@ This is intentionally compact: only currently relevant guidance is kept.
 - Build-time smoke test가 `/tmp/playwright-cli`를 root 소유로 남기지 않도록, 이미지 빌드 마지막에 `/tmp/playwright-cli`를 `1777`로 재초기화한다.
 - Playwright fallback cache가 `/ms-playwright` 심볼릭 링크일 수 있으므로, self-heal install 전에는 fallback 경로를 writable 실제 디렉터리로 재구성해야 한다 (symlink target으로 직접 설치 금지).
 - Startup non-essential network/bootstrap steps are timeout-bounded (zimfw download/install, broot init, docker socket probe) so container entrypoint does not appear frozen under poor network/daemon conditions.
-- When `/ms-playwright` payload is healthy, startup dedupes `~/.cache/ms-playwright` to a symlink target so persisted home does not keep a duplicate Chromium payload.
+- When `/ms-playwright` payload is healthy, startup keeps `~/.cache/ms-playwright` writable and dedupes only heavy payload directories via symlinks so persisted home does not keep a duplicate Chromium payload.
+- Playwright health probes (startup + smoke) run with isolated `HOME`/`XDG_CACHE_HOME` so stale user cache state cannot trigger false-negative launch failures.
 - Codex defaults enable `undo`, `multi_agent`, `apps` with `[agents].max_threads=12`; missing keys are auto-merged into existing `~/.codex/config.toml`.
 - Ars Contexta is auto-installed in dual mode: Claude gets official plugin install (`arscontexta@agenticnotetaking`), Codex gets a local reference clone (`~/.codex/vendor/arscontexta`) plus `arscontexta-bridge` skill; Codex does not run Claude `/arscontexta:*` plugin commands natively.
 - Ars Contexta installer는 sentinel-only gating을 금지하고 실제 설치 상태를 함께 확인해 stale marker를 자동 복구한다 (Codex reference bundle, Claude marketplace/plugin cache). Claude는 marketplace가 이미 존재하면 add를 재시도하지 않는다.

@@ -667,27 +667,36 @@ ensure_playwright_chromium() {
     local probe_timeout_seconds="${3:-45}"
     local probe_dir=""
     local probe_session="playwright-verify-$$"
+    local probe_home=""
+    local probe_cache=""
 
     if ! probe_dir="$(mktemp -d "$probe_tmpdir/playwright-probe.XXXXXXXXXX" 2>/dev/null)"; then
       return 1
     fi
 
+    probe_home="$probe_dir/home"
+    probe_cache="$probe_dir/cache"
+    if ! mkdir -p "$probe_home" "$probe_cache" 2>/dev/null; then
+      rm -rf "$probe_dir"
+      return 1
+    fi
+
     if (
       cd "$probe_dir"
-      timeout --kill-after=10 "$probe_timeout_seconds" env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 "$probe_timeout_seconds" env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" open about:blank --browser=chromium >/dev/null 2>&1
     ); then
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
       rm -rf "$probe_dir"
       return 0
     fi
 
-    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
       playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
-    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
       playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
     rm -rf "$probe_dir"
     return 1
@@ -701,19 +710,17 @@ ensure_playwright_chromium() {
     local canonical_revision=""
     local duplicate_revision=""
     local linked_target=""
+    local dedupe_candidates=0
+    local dedupe_linked=0
+    local canonical_entry=""
+    local duplicate_entry=""
+    local entry_name=""
 
     if [[ "$canonical_root" == "$duplicate_root" ]]; then
       return 0
     fi
     if [[ ! -d "$canonical_root" ]] || [[ ! -e "$duplicate_root" ]]; then
       return 0
-    fi
-
-    if [[ -L "$duplicate_root" ]]; then
-      linked_target="$(readlink "$duplicate_root" 2>/dev/null || true)"
-      if [[ "$linked_target" == "$canonical_root" ]]; then
-        return 0
-      fi
     fi
 
     if ! canonical_bin="$(find_playwright_chromium_binary "$canonical_root" 2>/dev/null)"; then
@@ -730,10 +737,41 @@ ensure_playwright_chromium() {
       fi
     fi
 
-    mkdir -p "$(dirname "$duplicate_root")" 2>/dev/null || true
-    rm -rf "$duplicate_root" 2>/dev/null || true
-    if ln -s "$canonical_root" "$duplicate_root" 2>/dev/null; then
-      echo "[init] Deduplicated Playwright fallback cache: $duplicate_root -> $canonical_root"
+    if ! prepare_playwright_install_root "$duplicate_root"; then
+      return 0
+    fi
+
+    # Keep fallback root writable for daemon/session state; only dedupe payload dirs.
+    while IFS= read -r canonical_entry; do
+      if [[ -z "$canonical_entry" ]]; then
+        continue
+      fi
+      dedupe_candidates=1
+      entry_name="$(basename "$canonical_entry")"
+      duplicate_entry="$duplicate_root/$entry_name"
+
+      if [[ -L "$duplicate_entry" ]]; then
+        linked_target="$(readlink "$duplicate_entry" 2>/dev/null || true)"
+        if [[ "$linked_target" == "$canonical_entry" ]]; then
+          dedupe_linked=1
+          continue
+        fi
+        rm -f "$duplicate_entry" 2>/dev/null || continue
+      elif [[ -e "$duplicate_entry" ]]; then
+        rm -rf "$duplicate_entry" 2>/dev/null || continue
+      fi
+
+      if ln -s "$canonical_entry" "$duplicate_entry" 2>/dev/null; then
+        dedupe_linked=1
+      fi
+    done < <(
+      find "$canonical_root" -mindepth 1 -maxdepth 1 -type d \
+        \( -name 'chromium-*' -o -name 'chromium_headless_shell-*' -o -name 'ffmpeg-*' \) \
+        -print 2>/dev/null
+    )
+
+    if [[ "$dedupe_candidates" -eq 1 ]] && [[ "$dedupe_linked" -eq 1 ]]; then
+      echo "[init] Deduplicated Playwright fallback payload directories under $duplicate_root"
     fi
   }
 

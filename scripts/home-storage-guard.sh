@@ -81,7 +81,9 @@ find_playwright_chromium_binary() {
   if [[ ! -d "$root" ]]; then
     return 1
   fi
-  find "$root" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit
+  find "$root" -type f \
+    \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux-arm64/chrome' \) \
+    -print -quit
 }
 
 chromium_revision() {
@@ -111,15 +113,27 @@ dedupe_playwright_cache() {
   local fallback_bin=""
   local primary_revision=""
   local fallback_revision=""
+  local candidate=""
+  local name=""
+  local fallback_entry=""
+  local linked_target=""
+  local deduped=0
 
   if [[ ! -d "$PLAYWRIGHT_PRIMARY_ROOT" ]]; then
     return 0
   fi
 
   if [[ -L "$PLAYWRIGHT_FALLBACK_ROOT" ]]; then
-    if [[ "$(readlink "$PLAYWRIGHT_FALLBACK_ROOT" 2>/dev/null || true)" == "$PLAYWRIGHT_PRIMARY_ROOT" ]]; then
-      return 0
-    fi
+    rm -f "$PLAYWRIGHT_FALLBACK_ROOT" 2>/dev/null || return 0
+  fi
+  if [[ -e "$PLAYWRIGHT_FALLBACK_ROOT" ]] && [[ ! -d "$PLAYWRIGHT_FALLBACK_ROOT" ]]; then
+    rm -rf "$PLAYWRIGHT_FALLBACK_ROOT" 2>/dev/null || return 0
+  fi
+  if ! mkdir -p "$PLAYWRIGHT_FALLBACK_ROOT" 2>/dev/null; then
+    return 0
+  fi
+  if [[ ! -w "$PLAYWRIGHT_FALLBACK_ROOT" ]]; then
+    return 0
   fi
 
   if ! primary_bin="$(find_playwright_chromium_binary "$PLAYWRIGHT_PRIMARY_ROOT" 2>/dev/null)"; then
@@ -135,10 +149,34 @@ dedupe_playwright_cache() {
     fi
   fi
 
-  mkdir -p "$(dirname "$PLAYWRIGHT_FALLBACK_ROOT")"
-  rm -rf "$PLAYWRIGHT_FALLBACK_ROOT"
-  ln -s "$PLAYWRIGHT_PRIMARY_ROOT" "$PLAYWRIGHT_FALLBACK_ROOT"
-  echo "[home-storage-guard] Deduped Playwright cache: $PLAYWRIGHT_FALLBACK_ROOT -> $PLAYWRIGHT_PRIMARY_ROOT"
+  while IFS= read -r candidate; do
+    [[ -n "$candidate" ]] || continue
+    name="$(basename "$candidate")"
+    fallback_entry="$PLAYWRIGHT_FALLBACK_ROOT/$name"
+
+    if [[ -L "$fallback_entry" ]]; then
+      linked_target="$(readlink "$fallback_entry" 2>/dev/null || true)"
+      if [[ "$linked_target" == "$candidate" ]]; then
+        deduped=1
+        continue
+      fi
+      rm -f "$fallback_entry" 2>/dev/null || continue
+    elif [[ -e "$fallback_entry" ]]; then
+      rm -rf "$fallback_entry" 2>/dev/null || continue
+    fi
+
+    if ln -s "$candidate" "$fallback_entry" 2>/dev/null; then
+      deduped=1
+    fi
+  done < <(
+    find "$PLAYWRIGHT_PRIMARY_ROOT" -mindepth 1 -maxdepth 1 -type d \
+      \( -name 'chromium-*' -o -name 'chromium_headless_shell-*' -o -name 'ffmpeg-*' \) \
+      -print 2>/dev/null
+  )
+
+  if [[ "$deduped" -eq 1 ]]; then
+    echo "[home-storage-guard] Deduped Playwright payload directories under $PLAYWRIGHT_FALLBACK_ROOT"
+  fi
 }
 
 prune_safe_caches() {

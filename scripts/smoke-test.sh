@@ -1073,6 +1073,8 @@ check_playwright_chromium_companion() {
   local probe_session="smoke-playwright-$$"
   local probe_tmpdir="${TMPDIR:-/tmp}"
   local probe_dir=""
+  local probe_home=""
+  local probe_cache=""
 
   if ! chromium_bin="$(find_playwright_chromium_binary "$browsers_root")"; then
     echo "  FAIL playwright-chromium-companion (missing chromium binary under ${browsers_root})"
@@ -1098,16 +1100,25 @@ check_playwright_chromium_companion() {
     return
   fi
 
+  probe_home="$probe_dir/home"
+  probe_cache="$probe_dir/cache"
+  if ! mkdir -p "$probe_home" "$probe_cache" 2>/dev/null; then
+    rm -rf "$probe_dir"
+    echo "  FAIL playwright-chromium-companion (cannot prepare probe cache directories)"
+    FAILED=1
+    return
+  fi
+
   if (
     cd "$probe_dir"
-    timeout --kill-after=10 45 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+    timeout --kill-after=10 45 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
       playwright-cli -s="$probe_session" open about:blank --browser=chromium >/dev/null 2>&1
   ); then
     (
       cd "$probe_dir"
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
     )
     rm -rf "$probe_dir"
@@ -1115,9 +1126,9 @@ check_playwright_chromium_companion() {
   else
     (
       cd "$probe_dir"
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
-      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" HOME="$probe_home" XDG_CACHE_HOME="$probe_cache" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
     )
     rm -rf "$probe_dir"
@@ -1162,6 +1173,7 @@ check_playwright_runtime_bootstrap_policy() {
   local has_isolated_bootstrap=0
   local has_fail_closed=0
   local has_writable_fallback=0
+  local has_payload_only_dedupe=0
   local runtime_behavior_ok=0
 
   if grep -Eq '^ensure_playwright_chromium\(\)' "$start_script"; then
@@ -1198,6 +1210,10 @@ check_playwright_runtime_bootstrap_policy() {
   if grep -Fq 'prepare_playwright_install_root' "$start_script" \
     && grep -Fq 'fallback cache root is not writable' "$start_script"; then
     has_writable_fallback=1
+  fi
+  if grep -Fq 'Deduplicated Playwright fallback payload directories' "$start_script" \
+    && ! grep -Fq 'ln -s "$canonical_root" "$duplicate_root"' "$start_script"; then
+    has_payload_only_dedupe=1
   fi
 
   local find_playwright_definition
@@ -1366,10 +1382,11 @@ EOF
     && [[ "$has_isolated_bootstrap" -eq 1 ]] \
     && [[ "$has_fail_closed" -eq 1 ]] \
     && [[ "$has_writable_fallback" -eq 1 ]] \
+    && [[ "$has_payload_only_dedupe" -eq 1 ]] \
     && [[ "$runtime_behavior_ok" -eq 1 ]]; then
     echo "  OK   playwright-runtime-bootstrap"
   else
-    echo "  FAIL playwright-runtime-bootstrap (helper=${has_helper}, invocation=${has_invocation}, fallback=${has_fallback_path}, install=${has_install_call}, lock=${has_locking}, isolated=${has_isolated_bootstrap}, fail_closed=${has_fail_closed}, writable_fallback=${has_writable_fallback}, runtime=${runtime_behavior_ok})"
+    echo "  FAIL playwright-runtime-bootstrap (helper=${has_helper}, invocation=${has_invocation}, fallback=${has_fallback_path}, install=${has_install_call}, lock=${has_locking}, isolated=${has_isolated_bootstrap}, fail_closed=${has_fail_closed}, writable_fallback=${has_writable_fallback}, payload_only_dedupe=${has_payload_only_dedupe}, runtime=${runtime_behavior_ok})"
     FAILED=1
   fi
 }
