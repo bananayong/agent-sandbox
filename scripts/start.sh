@@ -566,12 +566,24 @@ if [[ -d "$TPM_DIR" ]] && command -v tmux &>/dev/null; then
     echo "[init] Installing tmux plugins: ${missing_tmux_plugins[*]}..."
 
     # TPM's install script reads TMUX_PLUGIN_MANAGER_PATH from tmux server env.
-    # Set it explicitly so install works in non-interactive startup contexts.
-    tmux -f "$HOME_DIR/.tmux.conf" start-server >/dev/null 2>&1 || true
+    # Keep a short-lived detached tmux session while installing so the server
+    # stays alive and retains the environment variable in non-interactive
+    # startup contexts.
+    tmux_bootstrap_session="__agent_sandbox_tpm_bootstrap_$$"
+    tmux_bootstrap_session_created=0
+    if tmux -f "$HOME_DIR/.tmux.conf" new-session -d -s "$tmux_bootstrap_session" >/dev/null 2>&1; then
+      tmux_bootstrap_session_created=1
+    else
+      tmux -f "$HOME_DIR/.tmux.conf" start-server >/dev/null 2>&1 || true
+    fi
     tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "$TPM_PLUGIN_ROOT" >/dev/null 2>&1 || true
 
     if ! timeout --kill-after=10 60 "$TPM_DIR/bin/install_plugins" </dev/null; then
       echo "[init]   WARNING: tmux plugin install failed or timed out (non-blocking)" >&2
+    fi
+
+    if [[ "$tmux_bootstrap_session_created" -eq 1 ]]; then
+      tmux kill-session -t "$tmux_bootstrap_session" >/dev/null 2>&1 || true
     fi
   fi
 fi
