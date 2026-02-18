@@ -76,9 +76,9 @@ docker build -t agent-sandbox:latest .
 
 참고: 시작 시 `tldr --update`를 백그라운드에서 timeout/retry(최대 3회)로 시도하며, `InvalidArchive`가 감지되면 tealdeer 캐시를 정리 후 재시도합니다. 실패해도 시작은 계속 진행됩니다.
 
-## Shared Skills (Anthropic)
+## Shared Skills (Vendored)
 
-루트 `skills/` 폴더에는 `https://github.com/anthropics/skills/tree/main/skills`의 스킬이 포함되어 있습니다.
+루트 `skills/` 폴더에는 기본적으로 `https://github.com/anthropics/skills/tree/main/skills` 스킬이 포함되며, 운영에 필요한 추가 스킬도 함께 벤더링합니다.
 
 컨테이너 시작 시 `scripts/start.sh`가 아래 경로에 스킬을 자동 설치합니다.
 
@@ -91,6 +91,7 @@ docker build -t agent-sandbox:latest .
 - 같은 이름의 스킬 폴더가 이미 있으면 기본적으로 덮어쓰지 않습니다(사용자 커스텀 보존).
 - 아직 없는 스킬만 추가 설치됩니다.
 - Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
+- `find-skills`(`vercel-labs/skills`)도 공유 스킬로 포함되어 시작 시 자동 설치됩니다.
 - `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
 
@@ -449,7 +450,7 @@ docker compose up
 - `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
 - `scripts/docker-storage-guard.sh`: Docker reclaimable 용량 임계치 기반 점검/정리 도우미
 - `scripts/home-storage-guard.sh`: sandbox home 캐시 점검/정리 도우미
-- `skills/`: 공유 스킬 번들(Anthropic skills vendored)
+- `skills/`: 공유 스킬 번들(Anthropic + 운영 추가 스킬 vendored)
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship/vim/nvim 설정
 - `configs/templates/`: 공용 프롬프트/커맨드/설정 템플릿 시드 파일

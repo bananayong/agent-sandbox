@@ -8,3 +8,9 @@ synced_at_utc: 2026-02-15T12:19:49Z
 # 1) git clone --depth 1 https://github.com/anthropics/skills.git <tmp>
 # 2) cp -R <tmp>/skills/. ./skills/
 # 3) Update commit and synced_at_utc in this file
+
+# Additional vendored skills:
+# - repository: https://github.com/vercel-labs/skills
+#   path: skills/find-skills
+#   commit: 66a7b901aad3b30f541f646199ff0df3050b764b
+#   synced_at_utc: 2026-02-18T12:04:04Z

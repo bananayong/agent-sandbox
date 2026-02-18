@@ -25,6 +25,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P2] (setup) `find-skills` 공유 스킬 자동 설치 — `skills/find-skills`를 벤더링하고 startup shared-skills 동기화 경로로 Claude/Codex/Gemini에 시작 시 자동 설치되도록 반영
 - [x] [P1] (setup) Playwright companion probe/EACCES 정리 — `~/.cache/ms-playwright` 루트 symlink dedupe를 제거하고 writable 루트 + payload 디렉터리 링크 방식으로 전환, `start.sh`/`smoke-test.sh` probe에 격리 `HOME`/`XDG_CACHE_HOME` 주입으로 daemon 경로 충돌 제거
 - [x] [P1] (quality) Ars Contexta 설치 회복탄력성 보강 — `start.sh`에서 Codex/Claude 설치 sentinel과 실제 설치 상태를 함께 검증해 stale marker 자동 복구, 불필요 marketplace 호출 short-circuit, `smoke-test.sh`에 `arscontexta-install-policy` 체크 추가
 - [x] [P1] (setup) Ars Contexta 자동 설치 통합 — `start.sh`에 Claude marketplace/plugin 설치 자동화(`agenticnotetaking/arscontexta`)를 추가하고, Codex는 `~/.codex/vendor/arscontexta` 로컬 reference clone + `arscontexta-bridge` 스킬 시드로 비공식 브리지 적용

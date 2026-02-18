@@ -100,17 +100,36 @@ extract_shell_function_definition() {
 }
 
 resolve_shared_skills_root() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
   local skills_root="/opt/agent-sandbox/skills"
-  if [[ ! -d "$skills_root" ]] && [[ -d "skills" ]]; then
-    # Fallback for local repository runs (outside built container image).
-    skills_root="skills"
-  fi
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      skills_root="skills"
+      ;;
+    auto)
+      if [[ ! -d "$skills_root" ]] && [[ -d "skills" ]]; then
+        # Fallback for local repository runs (outside built container image).
+        skills_root="skills"
+      fi
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
   echo "$skills_root"
 }
 
 check_shared_skills_bundle() {
   local skills_root
-  skills_root="$(resolve_shared_skills_root)"
+  if ! skills_root="$(resolve_shared_skills_root)"; then
+    echo "  FAIL shared-skills-dir (invalid SMOKE_TEST_SOURCE=${SMOKE_TEST_SOURCE:-auto})"
+    FAILED=1
+    return
+  fi
 
   if [[ ! -d "$skills_root" ]]; then
     echo "  FAIL shared-skills-dir ($skills_root missing)"
@@ -136,11 +155,23 @@ check_shared_skills_bundle() {
     echo "  FAIL shared-skills-structure (dirs=${skill_dir_count}, skill_md=${skill_md_count})"
     FAILED=1
   fi
+
+  local required_skill="find-skills"
+  if [[ -f "$skills_root/$required_skill/SKILL.md" ]]; then
+    echo "  OK   shared-skill-required (${required_skill})"
+  else
+    echo "  FAIL shared-skill-required (${required_skill} missing)"
+    FAILED=1
+  fi
 }
 
 check_shared_skills_metadata() {
   local skills_root
-  skills_root="$(resolve_shared_skills_root)"
+  if ! skills_root="$(resolve_shared_skills_root)"; then
+    echo "  FAIL shared-skills-upstream-metadata (invalid SMOKE_TEST_SOURCE=${SMOKE_TEST_SOURCE:-auto})"
+    FAILED=1
+    return
+  fi
 
   local upstream_file="$skills_root/UPSTREAM.txt"
   if [[ ! -f "$upstream_file" ]]; then

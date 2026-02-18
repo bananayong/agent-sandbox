@@ -30,6 +30,7 @@ This is intentionally compact: only currently relevant guidance is kept.
 
 ## Skills/Agent Behavior
 - Vendored shared skills are auto-installed for Claude/Codex/Gemini.
+- `find-skills` (`vercel-labs/skills`) is included in the vendored bundle and auto-installed at startup.
 - `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.
 - Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).
