@@ -7,7 +7,9 @@ synced_at_utc: 2026-02-15T12:19:49Z
 # Refresh checklist:
 # 1) git clone --depth 1 https://github.com/anthropics/skills.git <tmp>
 # 2) cp -R <tmp>/skills/. ./skills/
-# 3) Update commit and synced_at_utc in this file
+# 3) Remove Anthropic proprietary document skills from repo bundle:
+#    rm -rf ./skills/pdf ./skills/docx ./skills/pptx ./skills/xlsx
+# 4) Update commit and synced_at_utc in this file
 
 # Additional vendored skills:
 # - repository: https://github.com/vercel-labs/skills

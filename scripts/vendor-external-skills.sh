@@ -8,6 +8,7 @@ UPSTREAM_FILE="$SKILLS_ROOT/UPSTREAM.txt"
 MANIFEST_FILE="$SKILLS_ROOT/external-manifest.txt"
 BEGIN_MARKER="# BEGIN external-skill-sources (managed by scripts/vendor-external-skills.sh)"
 END_MARKER="# END external-skill-sources (managed by scripts/vendor-external-skills.sh)"
+DISALLOWED_TARGET_SKILLS=("pdf" "docx" "pptx" "xlsx")
 
 if [[ ! -d "$SKILLS_ROOT" ]]; then
   echo "[error] skills directory not found: $SKILLS_ROOT" >&2
@@ -47,6 +48,36 @@ is_safe_source_path() {
   return 0
 }
 
+is_disallowed_target_skill() {
+  local target="$1"
+  local disallowed=""
+  for disallowed in "${DISALLOWED_TARGET_SKILLS[@]}"; do
+    if [[ "$target" == "$disallowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+assert_no_disallowed_vendored_skills() {
+  local disallowed=""
+  local found=0
+  for disallowed in "${DISALLOWED_TARGET_SKILLS[@]}"; do
+    if [[ -d "$SKILLS_ROOT/$disallowed" ]]; then
+      echo "[error] disallowed vendored skill directory detected: $SKILLS_ROOT/$disallowed" >&2
+      found=1
+    fi
+  done
+
+  if [[ "$found" -eq 1 ]]; then
+    echo "[error] Anthropic proprietary document skills must not be vendored in this repo." >&2
+    echo "[error] Install via official marketplace instead:" >&2
+    echo "[error]   claude plugin marketplace add anthropics/skills" >&2
+    echo "[error]   claude plugin install --scope user document-skills@anthropic-agent-skills" >&2
+    exit 1
+  fi
+}
+
 load_manifest() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -74,6 +105,11 @@ load_manifest() {
     fi
     if ! is_safe_target_name "$target_name"; then
       echo "[error] unsafe target name in manifest: $target_name" >&2
+      exit 1
+    fi
+    if is_disallowed_target_skill "$target_name"; then
+      echo "[error] manifest includes disallowed proprietary skill target: $target_name" >&2
+      echo "[error] keep this target out of repo vendoring and use official marketplace install." >&2
       exit 1
     fi
     if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]] && [[ ! "$ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
@@ -276,11 +312,13 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 load_manifest
+assert_no_disallowed_vendored_skills
 load_previous_targets
 clone_repos
 sync_skills
 prune_stale_external_skills
 verify_synced_targets
+assert_no_disallowed_vendored_skills
 update_upstream_metadata
 
 echo "[done] synced ${#MAPPINGS[@]} external skills into $SKILLS_ROOT"

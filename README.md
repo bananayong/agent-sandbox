@@ -78,7 +78,7 @@ docker build -t agent-sandbox:latest .
 
 ## Shared Skills (Vendored)
 
-루트 `skills/` 폴더에는 기본적으로 `https://github.com/anthropics/skills/tree/main/skills` 스킬이 포함되며, 운영에 필요한 추가 스킬도 함께 벤더링합니다.
+루트 `skills/` 폴더에는 기본적으로 `https://github.com/anthropics/skills/tree/main/skills` 기반 스킬 중 재배포 가능한 항목만 포함하며, 운영에 필요한 추가 스킬도 함께 벤더링합니다.
 추가 번들은 `vercel-labs/agent-skills`, `vercel-labs/next-skills`, `vercel/*` 계열(`ai-sdk`, `workflow`, `turborepo` 등), `expo/skills`, `supabase/agent-skills`, `coreyhaines31/marketingskills`와 함께 `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 포함합니다.
 
 컨테이너 시작 시 `scripts/start.sh`가 아래 경로에 스킬을 자동 설치합니다.
@@ -101,6 +101,30 @@ docker build -t agent-sandbox:latest .
 - `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
 - 외부 스킬 번들 최신화 PR은 `.github/workflows/update-external-skills.yml`(주간 + 수동 실행)로 자동화되어 있습니다.
+- Anthropic 문서 스킬(`pdf`, `docx`, `pptx`, `xlsx`)은 proprietary 라이선스 정책에 따라 저장소 벤더링 대상에서 제외합니다.
+- 위 4개 스킬은 로컬 복사/커밋 대신 Claude 공식 플러그인 마켓플레이스 경로로만 설치합니다.
+
+### Anthropic Document Skills Official Install
+
+아래 명령은 저장소 파일을 복사하지 않고, Claude 공식 마켓플레이스를 통해 사용자 범위로 설치합니다.
+
+```bash
+# 1) Anthropic skills 마켓플레이스 등록 (1회)
+claude plugin marketplace add anthropics/skills
+
+# 2) 문서 스킬 번들 설치 (pdf/docx/pptx/xlsx 포함)
+claude plugin install --scope user document-skills@anthropic-agent-skills
+
+# 3) 설치 확인
+claude plugin list --json | jq '.[] | select(.name == "document-skills")'
+```
+
+제거가 필요하면:
+
+```bash
+claude plugin uninstall document-skills@anthropic-agent-skills
+claude plugin marketplace remove anthropic-agent-skills
+```
 
 ## Ars Contexta Auto-Install
 
@@ -461,7 +485,7 @@ docker compose up
 - `scripts/home-storage-guard.sh`: sandbox home 캐시 점검/정리 도우미
 - `scripts/vendor-external-skills.sh`: 요청된 외부 스킬 번들을 `skills/`로 벤더링하는 동기화 스크립트
 - `scripts/skills-helper.sh`: `skills.sh` 기반 탐색/설치/업데이트를 위한 실험용 헬퍼 (`list/find/add/check/update/status`)
-- `skills/`: 공유 스킬 번들(Anthropic + 운영 추가 스킬 vendored)
+- `skills/`: 공유 스킬 번들(재배포 가능한 항목만 vendored)
 - `skills/external-manifest.txt`: 외부 벤더링 스킬 소스/핀(ref)/타깃 이름 단일 소스
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship/vim/nvim 설정

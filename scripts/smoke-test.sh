@@ -188,6 +188,20 @@ check_shared_skills_bundle() {
     FAILED=1
   fi
 
+  local disallowed_skill=""
+  local disallowed_found=0
+  local disallowed_shared_skills=("pdf" "docx" "pptx" "xlsx")
+  for disallowed_skill in "${disallowed_shared_skills[@]}"; do
+    if [[ -d "$skills_root/$disallowed_skill" ]]; then
+      echo "  FAIL shared-skill-policy (${disallowed_skill} must not be vendored)"
+      FAILED=1
+      disallowed_found=1
+    fi
+  done
+  if [[ "$disallowed_found" -eq 0 ]]; then
+    echo "  OK   shared-skill-policy (no vendored Anthropic proprietary document skills)"
+  fi
+
   local manifest_file="$skills_root/external-manifest.txt"
   local external_targets=()
   if [[ -f "$manifest_file" ]]; then
@@ -265,6 +279,7 @@ check_shared_skills_metadata() {
       $3 ~ /(^|\/)\.\.($|\/)/ { bad = 1; next }
       $3 ~ /\/\// { bad = 1; next }
       $4 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/ { bad = 1; next }
+      ($4 == "pdf") || ($4 == "docx") || ($4 == "pptx") || ($4 == "xlsx") { bad = 1; next }
       seen[$4]++ > 0 { bad = 1; next }
       { count++ }
       END {
@@ -297,22 +312,28 @@ check_shared_skills_install_policy() {
   local codex_ok=0
   local gemini_ok=0
   local claude_ok=0
+  local proprietary_exclude_ok=0
   local managed_sync_ok=0
   local managed_all_ok=0
   local managed_hash_sync_ok=0
   local managed_sync_value=""
 
-  if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.codex/skills\" \"skill-creator\"" "$start_script"; then
+  if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.codex/skills\" \"\$CODEX_SHARED_SKILLS_EXCLUDES\"" "$start_script"; then
     codex_ok=1
   fi
-  if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.gemini/skills\" \"skill-creator\"" "$start_script"; then
+  if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.gemini/skills\" \"\$GEMINI_SHARED_SKILLS_EXCLUDES\"" "$start_script"; then
     gemini_ok=1
   fi
 
   local claude_line=""
   claude_line="$(grep -F "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.claude/skills\"" "$start_script" | head -n 1 || true)"
-  if [[ -n "$claude_line" ]] && [[ "$claude_line" != *'"skill-creator"'* ]]; then
+  if [[ "$claude_line" == *'"$CLAUDE_SHARED_SKILLS_EXCLUDES"'* ]]; then
     claude_ok=1
+  fi
+  if grep -Fq 'PROPRIETARY_SHARED_SKILLS="pdf,docx,pptx,xlsx"' "$start_script" \
+    && grep -Fq 'CODEX_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"' "$start_script" \
+    && grep -Fq 'GEMINI_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"' "$start_script"; then
+    proprietary_exclude_ok=1
   fi
 
   managed_sync_value="$(
@@ -344,12 +365,13 @@ check_shared_skills_install_policy() {
   if [[ "$codex_ok" -eq 1 ]] \
     && [[ "$gemini_ok" -eq 1 ]] \
     && [[ "$claude_ok" -eq 1 ]] \
+    && [[ "$proprietary_exclude_ok" -eq 1 ]] \
     && [[ "$managed_sync_ok" -eq 1 ]] \
     && [[ "$managed_all_ok" -eq 1 ]] \
     && [[ "$managed_hash_sync_ok" -eq 1 ]]; then
     echo "  OK   shared-skills-install-policy"
   else
-    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
+    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, proprietary_exclude=${proprietary_exclude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
     FAILED=1
   fi
 }

@@ -506,13 +506,19 @@ fi
 # Codex/Gemini keep their native "skill-creator" to avoid overriding
 # built-in workflow behavior with a third-party variant.
 SHARED_SKILLS_ROOT="/opt/agent-sandbox/skills"
+# Do not auto-install Anthropic proprietary document skills from repo bundle.
+# These must be installed via Claude official marketplace path per user.
+PROPRIETARY_SHARED_SKILLS="pdf,docx,pptx,xlsx"
+CLAUDE_SHARED_SKILLS_EXCLUDES="$PROPRIETARY_SHARED_SKILLS"
+CODEX_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"
+GEMINI_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"
 # Managed sync defaults:
 # - `*` enables hash-based managed sync for all shared skills.
 # - explicit names keep compatibility with existing policy checks/documentation.
 FORCE_SYNC_SHARED_SKILLS="*,playwright-efficient-web-research"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "" "$FORCE_SYNC_SHARED_SKILLS" "claude"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS" "codex"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS" "gemini"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "$CLAUDE_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "claude"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "$CODEX_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "codex"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "$GEMINI_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "gemini"
 
 # Agent settings are managed: always synced with image defaults.
 # This ensures runtime defaults reach existing users after image updates.

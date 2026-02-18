@@ -564,7 +564,7 @@ COPY configs/gemini/settings.json /etc/skel/.gemini/settings.json
 COPY configs/codex/config.toml /etc/skel/.codex/config.toml
 COPY configs/codex/skills/ /etc/skel/.codex/skills/
 
-# Shared skills bundle (Anthropic skills repo vendored under ./skills).
+# Shared skills bundle (redistributable skills vendored under ./skills).
 # start.sh installs these into each agent's user skill directory on startup.
 COPY skills/ /opt/agent-sandbox/skills/
 
