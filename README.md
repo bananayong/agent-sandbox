@@ -70,7 +70,7 @@ docker build -t agent-sandbox:latest .
 2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
-5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
+5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit/Ars Contexta 등 1회성 세팅
 6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
 
@@ -93,6 +93,21 @@ docker build -t agent-sandbox:latest .
 - Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
 - `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
+
+## Ars Contexta Auto-Install
+
+`scripts/start.sh`는 첫 실행 시 Ars Contexta를 자동 설치합니다(네트워크 실패 시 경고만 출력하고 계속 진행).
+
+- Claude Code:
+  - `claude plugin marketplace add agenticnotetaking/arscontexta`
+  - `claude plugin install --scope user arscontexta@agenticnotetaking`
+  - 설치 완료 마커: `~/.claude/plugins/.arscontexta-installed`
+  - sentinel만 신뢰하지 않고 실제 plugin/cache 상태를 함께 확인해 stale marker를 자동 복구
+- Codex:
+  - 원본 저장소를 `~/.codex/vendor/arscontexta`에 shallow clone
+  - 브리지 스킬 `~/.codex/skills/arscontexta-bridge/SKILL.md` 시드
+  - Codex에서는 Claude 전용 `/arscontexta:*` 플러그인 명령이 직접 동작하지 않으므로, methodology/reference 기반으로 수동 적용
+  - sentinel과 reference bundle 실제 상태를 함께 확인해 stale marker를 자동 복구
 
 ## Playwright CLI 기반 웹 탐색
 

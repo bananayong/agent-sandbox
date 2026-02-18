@@ -385,6 +385,8 @@ update_managed /etc/skel/.gemini/settings.json "$HOME_DIR/.gemini/settings.json"
 
 # Copy MCP server config template if not already present.
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
+# Seed Codex bridge skill for Ars Contexta reference-mode usage.
+copy_default /etc/skel/.codex/skills/arscontexta-bridge/SKILL.md "$HOME_DIR/.codex/skills/arscontexta-bridge/SKILL.md"
 
 # Codex CLI uses config.toml for TUI/runtime preferences.
 # Keep existing user config, but ensure managed default keys exist.
@@ -1117,6 +1119,41 @@ if command -v codex &>/dev/null && [[ ! -f "$CODEX_SP_SENTINEL" ]]; then
   fi
 fi
 
+# Codex: clone Ars Contexta as a local reference bundle.
+# Codex has no Claude plugin runtime, so this is a docs/methodology bridge.
+CODEX_ARSCONTEXTA_REPO="https://github.com/agenticnotetaking/arscontexta.git"
+CODEX_ARSCONTEXTA_DIR="$HOME_DIR/.codex/vendor/arscontexta"
+CODEX_ARSCONTEXTA_SENTINEL="$HOME_DIR/.codex/.arscontexta-reference-installed"
+codex_has_arscontexta_reference() {
+  [[ -f "$CODEX_ARSCONTEXTA_DIR/README.md" ]]
+}
+
+if command -v codex &>/dev/null; then
+  if [[ -f "$CODEX_ARSCONTEXTA_SENTINEL" ]] && ! codex_has_arscontexta_reference; then
+    echo "[init]   WARNING: Stale Ars Contexta Codex sentinel detected; reinstalling reference bundle." >&2
+    rm -f "$CODEX_ARSCONTEXTA_SENTINEL" 2>/dev/null || true
+  fi
+
+  if ! codex_has_arscontexta_reference; then
+    echo "[init] Installing Ars Contexta reference bundle for Codex..."
+    if [[ -e "$CODEX_ARSCONTEXTA_DIR" ]] && [[ ! -d "$CODEX_ARSCONTEXTA_DIR/.git" ]]; then
+      rm -rf "$CODEX_ARSCONTEXTA_DIR" 2>/dev/null || true
+    fi
+    if [[ ! -d "$CODEX_ARSCONTEXTA_DIR/.git" ]]; then
+      mkdir -p "$(dirname "$CODEX_ARSCONTEXTA_DIR")"
+      if ! timeout --kill-after=10 30 git clone --depth 1 "$CODEX_ARSCONTEXTA_REPO" "$CODEX_ARSCONTEXTA_DIR" </dev/null; then
+        echo "[init]   WARNING: Ars Contexta clone failed or timed out for Codex (non-blocking)" >&2
+        rm -rf "$CODEX_ARSCONTEXTA_DIR"
+      fi
+    fi
+  fi
+
+  if codex_has_arscontexta_reference; then
+    mkdir -p "$(dirname "$CODEX_ARSCONTEXTA_SENTINEL")"
+    touch "$CODEX_ARSCONTEXTA_SENTINEL"
+  fi
+fi
+
 # bkit (Vibecoding Kit) plugin for Claude Code.
 # Installs via marketplace on first run; sentinel prevents repeated installs.
 #
@@ -1184,6 +1221,83 @@ if command -v claude &>/dev/null && [[ ! -f "$BKIT_SENTINEL" ]]; then
         sed 's/^/[init]   /' "$bkit_install_log" >&2 || true
       fi
       rm -f "$bkit_install_log"
+    fi
+  fi
+fi
+
+# Ars Contexta plugin for Claude Code.
+# Installs via marketplace on first run; sentinel prevents repeated installs.
+ARSCONTEXTA_SENTINEL="$HOME_DIR/.claude/plugins/.arscontexta-installed"
+
+# Check if Ars Contexta marketplace exists in Claude plugin storage.
+claude_has_arscontexta_marketplace() {
+  local marketplace_dir="$HOME_DIR/.claude/plugins/marketplaces/agenticnotetaking"
+  [[ -d "$marketplace_dir" ]] && [[ -n "$(ls -A "$marketplace_dir" 2>/dev/null)" ]]
+}
+
+# Check if Claude already has Ars Contexta installed.
+claude_has_arscontexta_plugin() {
+  local plugins_json="$HOME_DIR/.claude/plugins/installed_plugins.json"
+  local plugin_cache_dir="$HOME_DIR/.claude/plugins/cache/agenticnotetaking/arscontexta"
+
+  [[ -f "$plugins_json" ]] \
+    && grep -Fq '"arscontexta@agenticnotetaking"' "$plugins_json" \
+    && [[ -d "$plugin_cache_dir" ]] \
+    && [[ -n "$(ls -A "$plugin_cache_dir" 2>/dev/null)" ]]
+}
+
+if command -v claude &>/dev/null; then
+  if [[ -f "$ARSCONTEXTA_SENTINEL" ]] && ! claude_has_arscontexta_plugin; then
+    echo "[init]   WARNING: Stale Ars Contexta Claude sentinel detected; reinstalling plugin." >&2
+    rm -f "$ARSCONTEXTA_SENTINEL" 2>/dev/null || true
+  fi
+
+  if claude_has_arscontexta_plugin; then
+    echo "[init] Ars Contexta plugin already present for Claude Code."
+    mkdir -p "$(dirname "$ARSCONTEXTA_SENTINEL")"
+    touch "$ARSCONTEXTA_SENTINEL"
+  else
+    echo "[init] Installing Ars Contexta plugin for Claude Code..."
+    arscontexta_marketplace_ready=0
+    arscontexta_marketplace_log=""
+    arscontexta_marketplace_exit=0
+
+    if claude_has_arscontexta_marketplace; then
+      arscontexta_marketplace_ready=1
+    else
+      arscontexta_marketplace_log="$(mktemp)"
+      if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin marketplace add agenticnotetaking/arscontexta </dev/null >"$arscontexta_marketplace_log" 2>&1; then
+        arscontexta_marketplace_exit=$?
+      fi
+
+      if claude_has_arscontexta_marketplace; then
+        arscontexta_marketplace_ready=1
+      fi
+
+      if [[ "$arscontexta_marketplace_ready" -ne 1 ]]; then
+        echo "[init]   WARNING: Ars Contexta marketplace add failed or timed out (non-blocking)" >&2
+        echo "[init]   Exit code: $arscontexta_marketplace_exit" >&2
+        sed 's/^/[init]   /' "$arscontexta_marketplace_log" >&2 || true
+      fi
+      rm -f "$arscontexta_marketplace_log"
+    fi
+
+    if [[ "$arscontexta_marketplace_ready" -eq 1 ]]; then
+      arscontexta_install_log="$(mktemp)"
+      arscontexta_install_exit=0
+      if ! timeout --kill-after=10 30 env -u CLAUDECODE claude plugin install --scope user arscontexta@agenticnotetaking </dev/null >"$arscontexta_install_log" 2>&1; then
+        arscontexta_install_exit=$?
+      fi
+
+      if claude_has_arscontexta_plugin; then
+        mkdir -p "$(dirname "$ARSCONTEXTA_SENTINEL")"
+        touch "$ARSCONTEXTA_SENTINEL"
+      else
+        echo "[init]   WARNING: Ars Contexta plugin install failed or timed out (non-blocking)" >&2
+        echo "[init]   Exit code: $arscontexta_install_exit" >&2
+        sed 's/^/[init]   /' "$arscontexta_install_log" >&2 || true
+      fi
+      rm -f "$arscontexta_install_log"
     fi
   fi
 fi

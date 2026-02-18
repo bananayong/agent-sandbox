@@ -41,6 +41,8 @@ This is intentionally compact: only currently relevant guidance is kept.
 - Startup non-essential network/bootstrap steps are timeout-bounded (zimfw download/install, broot init, docker socket probe) so container entrypoint does not appear frozen under poor network/daemon conditions.
 - When `/ms-playwright` payload is healthy, startup dedupes `~/.cache/ms-playwright` to a symlink target so persisted home does not keep a duplicate Chromium payload.
 - Codex defaults enable `undo`, `multi_agent`, `apps` with `[agents].max_threads=12`; missing keys are auto-merged into existing `~/.codex/config.toml`.
+- Ars Contexta is auto-installed in dual mode: Claude gets official plugin install (`arscontexta@agenticnotetaking`), Codex gets a local reference clone (`~/.codex/vendor/arscontexta`) plus `arscontexta-bridge` skill; Codex does not run Claude `/arscontexta:*` plugin commands natively.
+- Ars Contexta installer는 sentinel-only gating을 금지하고 실제 설치 상태를 함께 확인해 stale marker를 자동 복구한다 (Codex reference bundle, Claude marketplace/plugin cache). Claude는 marketplace가 이미 존재하면 add를 재시도하지 않는다.
 
 ## Automation Security Baseline
 - GitHub automation is fail-closed on allowlist (`AGENT_ALLOWED_ACTORS` required).

@@ -640,6 +640,132 @@ check_codex_default_config() {
   fi
 }
 
+resolve_arscontexta_policy_paths() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local codex_bridge_skill="/etc/skel/.codex/skills/arscontexta-bridge/SKILL.md"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      codex_bridge_skill="configs/codex/skills/arscontexta-bridge/SKILL.md"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ ! -f "$codex_bridge_skill" ]]; then
+        start_script="scripts/start.sh"
+        codex_bridge_skill="configs/codex/skills/arscontexta-bridge/SKILL.md"
+      fi
+      ;;
+    *)
+      echo "  FAIL arscontexta-install-policy (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return 1
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL arscontexta-install-policy ($start_script missing)"
+    FAILED=1
+    return 1
+  fi
+
+  if [[ ! -f "$codex_bridge_skill" ]]; then
+    echo "  FAIL arscontexta-install-policy ($codex_bridge_skill missing)"
+    FAILED=1
+    return 1
+  fi
+
+  ARSCONTEXTA_POLICY_START_SCRIPT="$start_script"
+  ARSCONTEXTA_POLICY_BRIDGE_SKILL="$codex_bridge_skill"
+}
+
+check_arscontexta_install_policy() {
+  local start_script
+  local codex_bridge_skill
+  local has_bridge_seed=0
+  local has_codex_repo=0
+  local has_codex_probe=0
+  local has_codex_stale_heal=0
+  local has_claude_probe=0
+  local has_claude_stale_heal=0
+  local has_marketplace_add=0
+  local has_marketplace_short_circuit=0
+  local has_plugin_install=0
+  local bridge_mode_banner=0
+  local bridge_command_guard=0
+
+  if ! resolve_arscontexta_policy_paths; then
+    return
+  fi
+
+  start_script="$ARSCONTEXTA_POLICY_START_SCRIPT"
+  codex_bridge_skill="$ARSCONTEXTA_POLICY_BRIDGE_SKILL"
+
+  # shellcheck disable=SC2016
+  if grep -Eq 'copy_default[[:space:]]+/etc/skel/.codex/skills/arscontexta-bridge/SKILL.md[[:space:]]+"[$]HOME_DIR/.codex/skills/arscontexta-bridge/SKILL.md"' "$start_script"; then
+    has_bridge_seed=1
+  fi
+
+  if grep -Fq 'CODEX_ARSCONTEXTA_REPO="https://github.com/agenticnotetaking/arscontexta.git"' "$start_script"; then
+    has_codex_repo=1
+  fi
+
+  if grep -Fq 'codex_has_arscontexta_reference()' "$start_script"; then
+    has_codex_probe=1
+  fi
+
+  if grep -Fq 'Stale Ars Contexta Codex sentinel detected' "$start_script"; then
+    has_codex_stale_heal=1
+  fi
+
+  if grep -Fq 'claude_has_arscontexta_plugin()' "$start_script"; then
+    has_claude_probe=1
+  fi
+
+  if grep -Fq 'Stale Ars Contexta Claude sentinel detected' "$start_script"; then
+    has_claude_stale_heal=1
+  fi
+
+  if grep -Fq 'claude plugin marketplace add agenticnotetaking/arscontexta' "$start_script"; then
+    has_marketplace_add=1
+  fi
+
+  if grep -Fq 'if claude_has_arscontexta_marketplace; then' "$start_script"; then
+    has_marketplace_short_circuit=1
+  fi
+
+  if grep -Fq 'claude plugin install --scope user arscontexta@agenticnotetaking' "$start_script"; then
+    has_plugin_install=1
+  fi
+
+  if grep -Fq 'manual bridge mode, not Claude plugin mode' "$codex_bridge_skill"; then
+    bridge_mode_banner=1
+  fi
+
+  if grep -Fq '/arscontexta:setup' "$codex_bridge_skill"; then
+    bridge_command_guard=1
+  fi
+
+  if [[ "$has_bridge_seed" -eq 1 ]] \
+    && [[ "$has_codex_repo" -eq 1 ]] \
+    && [[ "$has_codex_probe" -eq 1 ]] \
+    && [[ "$has_codex_stale_heal" -eq 1 ]] \
+    && [[ "$has_claude_probe" -eq 1 ]] \
+    && [[ "$has_claude_stale_heal" -eq 1 ]] \
+    && [[ "$has_marketplace_add" -eq 1 ]] \
+    && [[ "$has_marketplace_short_circuit" -eq 1 ]] \
+    && [[ "$has_plugin_install" -eq 1 ]] \
+    && [[ "$bridge_mode_banner" -eq 1 ]] \
+    && [[ "$bridge_command_guard" -eq 1 ]]; then
+    echo "  OK   arscontexta-install-policy"
+  else
+    echo "  FAIL arscontexta-install-policy (bridge_seed=${has_bridge_seed}, codex_repo=${has_codex_repo}, codex_probe=${has_codex_probe}, codex_stale_heal=${has_codex_stale_heal}, claude_probe=${has_claude_probe}, claude_stale_heal=${has_claude_stale_heal}, marketplace_add=${has_marketplace_add}, marketplace_short_circuit=${has_marketplace_short_circuit}, plugin_install=${has_plugin_install}, bridge_mode_banner=${bridge_mode_banner}, bridge_command_guard=${bridge_command_guard})"
+    FAILED=1
+  fi
+}
+
 check_tmux_plugin_bootstrap() {
   local source_mode="${SMOKE_TEST_SOURCE:-auto}"
   local start_script="/usr/local/bin/start.sh"
@@ -1275,6 +1401,7 @@ echo ""
 echo "--- Agent Defaults ---"
 check_agent_settings_install_policy
 check_codex_default_config
+check_arscontexta_install_policy
 check_tmux_plugin_bootstrap
 check_tealdeer_update_bootstrap
 check_editor_defaults

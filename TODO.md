@@ -25,6 +25,8 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P1] (quality) Ars Contexta 설치 회복탄력성 보강 — `start.sh`에서 Codex/Claude 설치 sentinel과 실제 설치 상태를 함께 검증해 stale marker 자동 복구, 불필요 marketplace 호출 short-circuit, `smoke-test.sh`에 `arscontexta-install-policy` 체크 추가
+- [x] [P1] (setup) Ars Contexta 자동 설치 통합 — `start.sh`에 Claude marketplace/plugin 설치 자동화(`agenticnotetaking/arscontexta`)를 추가하고, Codex는 `~/.codex/vendor/arscontexta` 로컬 reference clone + `arscontexta-bridge` 스킬 시드로 비공식 브리지 적용
 - [x] [P3] (setup) 컨테이너 기본 도구에 `tree` 추가 — `Dockerfile` apt 기본 설치 목록에 `tree` 포함
 - [x] [P1] (setup) Playwright fallback symlink 복구 실패 수정 — `~/.cache/ms-playwright`가 `/ms-playwright` 심볼릭 링크인 상태에서 self-heal이 read-only 경로로 설치를 시도하던 문제를 수정하여, 설치 전에 fallback 경로를 writable 실제 디렉터리로 재구성하도록 보강
 - [x] [P2] (setup) startup 체감 멈춤 완화 — `start.sh`의 zimfw 다운로드/모듈 설치, broot 초기화, Docker socket probe에 타임아웃을 추가해 네트워크/데몬 지연 시 엔트리포인트가 장시간 정지되지 않도록 보강
