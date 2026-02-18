@@ -101,6 +101,8 @@ docker build -t agent-sandbox:latest .
 - 기본 경로: `playwright-cli` + 스킬(`skills/playwright-efficient-web-research`)
 - 핵심 원칙: 세션 재사용(`-s=<name>`), `snapshot` ref 기반 조작, `eval`로 필요한 필드만 추출
 - 권장 브라우저: `--browser=chromium` (이미지 빌드 시 사전 설치되는 런타임과 일치)
+- Chromium 보장: 이미지 빌드 시 `/ms-playwright`에 Chromium payload를 설치하고 실행 가능 여부까지 검증
+- 런타임 복구: `start.sh`가 시작 시 Chromium companion을 점검하고, 손상/누락 시 `~/.cache/ms-playwright`로 자동 복구(실패 시 fail-closed)
 - MCP 사용 시점: 장시간 상태 유지/자율 루프가 필요한 경우만 fallback
 
 예시:
@@ -338,6 +340,25 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 
 ## Troubleshooting
 
+### 빌드가 `no space left on device`로 실패할 때 (host Docker 저장공간 부족)
+
+- 증상 분리:
+  - `/workspace` 여유가 충분해도 실패할 수 있습니다.
+  - 이 경우는 보통 host의 Docker 저장영역(이미지/빌드 캐시) 포화입니다.
+- 먼저 현황을 확인하세요.
+  - `docker system df`
+  - `df -h`
+- 즉시 정리가 필요하면 수동으로 실행합니다.
+  - `docker builder prune -af`
+  - `docker image prune -af`
+- 재발 방지를 위해 임계치 기반 정리 스크립트를 사용할 수 있습니다.
+  - 점검만: `scripts/docker-storage-guard.sh check`
+  - 12GiB 이상일 때 정리: `scripts/docker-storage-guard.sh prune --threshold-gb 12`
+  - 강제 정리: `scripts/docker-storage-guard.sh prune --force`
+- 기본 동작:
+  - 기본 모드는 `check`(삭제 없음)입니다.
+  - `prune` 모드도 임계치 미달이면 정리하지 않습니다(`--force` 제외).
+
 ### Docker 명령이 컨테이너 안에서 권한 오류가 날 때
 
 - `run.sh`가 socket GID를 자동으로 `--group-add` 하므로, 일반적으로 재실행으로 해결됩니다.
@@ -397,6 +418,7 @@ docker compose up
 - `Dockerfile`: 런타임 이미지 정의
 - `scripts/start.sh`: 컨테이너 시작 시 초기화 로직
 - `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
+- `scripts/docker-storage-guard.sh`: Docker reclaimable 용량 임계치 기반 점검/정리 도우미
 - `skills/`: 공유 스킬 번들(Anthropic skills vendored)
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship/vim/nvim 설정

@@ -526,6 +526,219 @@ install_micro_plugins() {
   fi
 }
 
+find_playwright_chromium_binary() {
+  local browsers_root="$1"
+
+  if [[ ! -d "$browsers_root" ]]; then
+    return 1
+  fi
+
+  find "$browsers_root" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit
+}
+
+ensure_playwright_chromium() {
+  if ! command -v playwright-cli &>/dev/null; then
+    return 0
+  fi
+
+  local primary_root="${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}"
+  local fallback_root="${XDG_CACHE_HOME:-$HOME_DIR/.cache}/ms-playwright"
+  local selected_tmpdir=""
+  local lock_file="${XDG_CACHE_HOME:-$HOME_DIR/.cache}/agent-sandbox/playwright-chromium.lock"
+  local lock_fd=""
+  local bootstrap_dir=""
+  local install_log=""
+
+  choose_playwright_tmpdir() {
+    local candidate
+    local probe_dir=""
+    local candidates=()
+
+    if [[ -n "${TMPDIR:-}" ]]; then
+      candidates+=("$TMPDIR")
+    fi
+    candidates+=(
+      "${XDG_CACHE_HOME:-$HOME_DIR/.cache}/agent-sandbox/tmp"
+      "$HOME_DIR/.cache/agent-sandbox/tmp"
+      "/tmp"
+    )
+
+    for candidate in "${candidates[@]}"; do
+      if [[ -z "$candidate" ]]; then
+        continue
+      fi
+      if ! mkdir -p "$candidate" >/dev/null 2>&1; then
+        continue
+      fi
+      if probe_dir="$(mktemp -d "$candidate/playwright-tmp.XXXXXXXXXX" 2>/dev/null)"; then
+        rm -rf "$probe_dir"
+        echo "$candidate"
+        return 0
+      fi
+    done
+    return 1
+  }
+
+  validate_playwright_root() {
+    local browsers_root="$1"
+    local candidate_bin=""
+    local candidate_marker=""
+
+    if ! candidate_bin="$(find_playwright_chromium_binary "$browsers_root")"; then
+      return 1
+    fi
+    if [[ ! -x "$candidate_bin" ]]; then
+      return 1
+    fi
+
+    candidate_marker="$(dirname "$(dirname "$candidate_bin")")/INSTALLATION_COMPLETE"
+    if [[ ! -f "$candidate_marker" ]]; then
+      return 1
+    fi
+
+    if ! "$candidate_bin" --version >/dev/null 2>&1; then
+      return 1
+    fi
+
+    return 0
+  }
+
+  probe_playwright_launch() {
+    local browsers_root="$1"
+    local probe_tmpdir="$2"
+    local probe_dir=""
+    local probe_session="playwright-verify-$$"
+
+    if ! probe_dir="$(mktemp -d "$probe_tmpdir/playwright-probe.XXXXXXXXXX" 2>/dev/null)"; then
+      return 1
+    fi
+
+    if (
+      cd "$probe_dir"
+      timeout --kill-after=10 45 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" open about:blank --browser=chromium >/dev/null 2>&1
+    ); then
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
+      rm -rf "$probe_dir"
+      return 0
+    fi
+
+    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
+    timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
+    rm -rf "$probe_dir"
+    return 1
+  }
+
+  cleanup_playwright_bootstrap() {
+    if [[ -n "$bootstrap_dir" ]]; then
+      rm -rf "$bootstrap_dir" 2>/dev/null || true
+    fi
+    if [[ -n "$install_log" ]]; then
+      rm -f "$install_log" 2>/dev/null || true
+    fi
+    if [[ -n "${lock_fd:-}" ]]; then
+      eval "exec ${lock_fd}>&-" 2>/dev/null || true
+      lock_fd=""
+    fi
+  }
+
+  fail_playwright_bootstrap() {
+    local reason="$1"
+    echo "[init] ERROR: Playwright Chromium companion bootstrap failed (${reason})." >&2
+    cleanup_playwright_bootstrap
+    return 1
+  }
+
+  if ! selected_tmpdir="$(choose_playwright_tmpdir)"; then
+    fail_playwright_bootstrap "no writable TMPDIR candidate"
+    return 1
+  fi
+
+  if validate_playwright_root "$primary_root" && probe_playwright_launch "$primary_root" "$selected_tmpdir"; then
+    export PLAYWRIGHT_BROWSERS_PATH="$primary_root"
+    return 0
+  fi
+
+  if validate_playwright_root "$fallback_root" && probe_playwright_launch "$fallback_root" "$selected_tmpdir"; then
+    export PLAYWRIGHT_BROWSERS_PATH="$fallback_root"
+    return 0
+  fi
+
+  if ! mkdir -p "$(dirname "$lock_file")" "$fallback_root"; then
+    fail_playwright_bootstrap "cannot prepare lock/cache directories"
+    return 1
+  fi
+  if command -v flock &>/dev/null; then
+    if ! exec {lock_fd}>"$lock_file"; then
+      fail_playwright_bootstrap "cannot open lock file $lock_file"
+      return 1
+    fi
+    if ! flock -w 120 "$lock_fd"; then
+      fail_playwright_bootstrap "cannot acquire install lock"
+      return 1
+    fi
+  fi
+
+  # Another shell may have repaired the payload while we were waiting for the lock.
+  if validate_playwright_root "$primary_root" && probe_playwright_launch "$primary_root" "$selected_tmpdir"; then
+    export PLAYWRIGHT_BROWSERS_PATH="$primary_root"
+    cleanup_playwright_bootstrap
+    return 0
+  fi
+  if validate_playwright_root "$fallback_root" && probe_playwright_launch "$fallback_root" "$selected_tmpdir"; then
+    export PLAYWRIGHT_BROWSERS_PATH="$fallback_root"
+    cleanup_playwright_bootstrap
+    return 0
+  fi
+
+  if ! bootstrap_dir="$(mktemp -d "$selected_tmpdir/playwright-bootstrap.XXXXXXXXXX" 2>/dev/null)"; then
+    fail_playwright_bootstrap "cannot create isolated bootstrap directory"
+    return 1
+  fi
+  if ! mkdir -p "$bootstrap_dir/.playwright"; then
+    fail_playwright_bootstrap "cannot create playwright config directory"
+    return 1
+  fi
+  printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > "$bootstrap_dir/.playwright/cli.config.json"
+
+  if ! install_log="$(mktemp "$selected_tmpdir/playwright-install.XXXXXXXXXX.log" 2>/dev/null)"; then
+    fail_playwright_bootstrap "cannot allocate install log file"
+    return 1
+  fi
+
+  if ! (
+    cd "$bootstrap_dir"
+    timeout --kill-after=10 300 env TMPDIR="$selected_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$fallback_root" \
+      playwright-cli install </dev/null >"$install_log" 2>&1
+  ); then
+    echo "[init]   Playwright install output:" >&2
+    sed 's/^/[init]   /' "$install_log" >&2 || true
+    fail_playwright_bootstrap "playwright-cli install failed"
+    return 1
+  fi
+
+  if ! validate_playwright_root "$fallback_root"; then
+    echo "[init]   Playwright install output:" >&2
+    sed 's/^/[init]   /' "$install_log" >&2 || true
+    fail_playwright_bootstrap "fallback chromium payload is invalid"
+    return 1
+  fi
+  if ! probe_playwright_launch "$fallback_root" "$selected_tmpdir"; then
+    fail_playwright_bootstrap "fallback chromium launch probe failed"
+    return 1
+  fi
+
+  export PLAYWRIGHT_BROWSERS_PATH="$fallback_root"
+  echo "[init] Recovered Playwright Chromium companion in $PLAYWRIGHT_BROWSERS_PATH"
+  cleanup_playwright_bootstrap
+  return 0
+}
+
 # ============================================================
 # Zimfw bootstrap
 # ============================================================
@@ -582,6 +795,9 @@ fi
 
 # Install missing Micro plugins from the curated default set.
 install_micro_plugins
+
+# Ensure Playwright Chromium companion browser is always ready before handoff.
+ensure_playwright_chromium
 
 # Install gh-copilot extension in user scope (inside persisted home).
 # This happens once because extension directory is checked first.

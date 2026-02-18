@@ -421,6 +421,12 @@ RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > /tmp/playwright-bootstrap/.playwright/cli.config.json \
     && cd /tmp/playwright-bootstrap \
     && playwright-cli install \
+    && chromium_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit)" \
+    && test -n "$chromium_bin" \
+    && test -x "$chromium_bin" \
+    && install_marker="$(dirname "$(dirname "$chromium_bin")")/INSTALLATION_COMPLETE" \
+    && test -f "$install_marker" \
+    && "$chromium_bin" --version \
     && cd / \
     && rm -rf /tmp/playwright-bootstrap \
     && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH" \

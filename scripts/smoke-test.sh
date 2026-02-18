@@ -929,6 +929,228 @@ check_editor_defaults() {
   fi
 }
 
+find_playwright_chromium_binary() {
+  local browsers_root="$1"
+
+  if [[ ! -d "$browsers_root" ]]; then
+    return 1
+  fi
+
+  find "$browsers_root" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit
+}
+
+check_playwright_chromium_companion() {
+  local browsers_root="${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}"
+  local chromium_bin=""
+  local install_marker=""
+  local probe_session="smoke-playwright-$$"
+  local probe_tmpdir="${TMPDIR:-/tmp}"
+  local probe_dir=""
+
+  if ! chromium_bin="$(find_playwright_chromium_binary "$browsers_root")"; then
+    echo "  FAIL playwright-chromium-companion (missing chromium binary under ${browsers_root})"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -x "$chromium_bin" ]]; then
+    echo "  FAIL playwright-chromium-companion (binary not executable: ${chromium_bin})"
+    FAILED=1
+    return
+  fi
+
+  install_marker="$(dirname "$(dirname "$chromium_bin")")/INSTALLATION_COMPLETE"
+  if [[ ! -f "$install_marker" ]]; then
+    echo "  FAIL playwright-chromium-companion (missing marker: ${install_marker})"
+    FAILED=1
+    return
+  fi
+
+  if ! "$chromium_bin" --version >/dev/null 2>&1; then
+    echo "  FAIL playwright-chromium-companion (binary --version failed: ${chromium_bin})"
+    FAILED=1
+    return
+  fi
+
+  if ! probe_dir="$(mktemp -d "$probe_tmpdir/playwright-smoke-probe.XXXXXXXXXX" 2>/dev/null)"; then
+    echo "  FAIL playwright-chromium-companion (cannot allocate probe directory)"
+    FAILED=1
+    return
+  fi
+
+  if (
+    cd "$probe_dir"
+    timeout --kill-after=10 45 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      playwright-cli -s="$probe_session" open about:blank --browser=chromium >/dev/null 2>&1
+  ); then
+    (
+      cd "$probe_dir"
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
+    )
+    rm -rf "$probe_dir"
+    echo "  OK   playwright-chromium-companion"
+  else
+    (
+      cd "$probe_dir"
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" close >/dev/null 2>&1 || true
+      timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+        playwright-cli -s="$probe_session" delete-data >/dev/null 2>&1 || true
+    )
+    rm -rf "$probe_dir"
+    echo "  FAIL playwright-chromium-companion (playwright open/close probe failed)"
+    FAILED=1
+  fi
+}
+
+check_playwright_runtime_bootstrap_policy() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        start_script="scripts/start.sh"
+      fi
+      ;;
+    *)
+      echo "  FAIL playwright-runtime-bootstrap (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL playwright-runtime-bootstrap ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  local has_helper=0
+  local has_invocation=0
+  local has_fallback_path=0
+  local has_install_call=0
+  local has_locking=0
+  local has_isolated_bootstrap=0
+  local has_fail_closed=0
+  local runtime_behavior_ok=0
+
+  if grep -Eq '^ensure_playwright_chromium\(\)' "$start_script"; then
+    has_helper=1
+  fi
+
+  if grep -Eq '^[[:space:]]*ensure_playwright_chromium[[:space:]]*$' "$start_script"; then
+    has_invocation=1
+  fi
+
+  if grep -Fq '.cache/ms-playwright' "$start_script" \
+    || grep -Fq 'XDG_CACHE_HOME:-$HOME_DIR/.cache}/ms-playwright' "$start_script"; then
+    has_fallback_path=1
+  fi
+
+  if grep -Fq 'playwright-cli install' "$start_script"; then
+    has_install_call=1
+  fi
+
+  if grep -Fq 'flock -w' "$start_script"; then
+    has_locking=1
+  fi
+
+  if grep -Fq 'playwright-bootstrap.' "$start_script"; then
+    has_isolated_bootstrap=1
+  fi
+
+  if grep -Fq 'Playwright Chromium companion bootstrap failed' "$start_script"; then
+    has_fail_closed=1
+  fi
+
+  local playwright_definition
+  if playwright_definition="$(extract_shell_function_definition "$start_script" "ensure_playwright_chromium" 2>/dev/null)"; then
+    local tmp_root
+    tmp_root="$(mktemp -d)"
+    local stub_bin="$tmp_root/bin"
+    mkdir -p "$stub_bin"
+
+    cat > "$stub_bin/playwright-cli" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+cmd="${1:-}"
+case "$cmd" in
+  install)
+    if [[ "${PLAYWRIGHT_TEST_FORCE_INSTALL_FAIL:-0}" == "1" ]]; then
+      echo "forced install failure" >&2
+      exit 1
+    fi
+    target_root="${PLAYWRIGHT_BROWSERS_PATH:?}"
+    mkdir -p "$target_root/chromium-9999/chrome-linux"
+    cat > "$target_root/chromium-9999/chrome-linux/chrome" <<'INNER'
+#!/bin/bash
+echo "Chromium 9999.0"
+INNER
+    chmod +x "$target_root/chromium-9999/chrome-linux/chrome"
+    touch "$target_root/chromium-9999/INSTALLATION_COMPLETE"
+    ;;
+  open|close|delete-data|--version)
+    ;;
+  *)
+    ;;
+esac
+exit 0
+EOF
+    chmod +x "$stub_bin/playwright-cli"
+
+    if (
+      set -euo pipefail
+      export PATH="$stub_bin:$PATH"
+      export HOME_DIR="$tmp_root/home"
+      export XDG_CACHE_HOME="$tmp_root/xdg-cache"
+      export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary"
+      eval "$playwright_definition"
+      ensure_playwright_chromium >/dev/null 2>&1
+      [[ "$PLAYWRIGHT_BROWSERS_PATH" == "$tmp_root/xdg-cache/ms-playwright" ]]
+    ); then
+      if (
+        set -euo pipefail
+        export PATH="$stub_bin:$PATH"
+        export HOME_DIR="$tmp_root/home-fail"
+        export XDG_CACHE_HOME="$tmp_root/xdg-cache-fail"
+        export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary-fail"
+        export PLAYWRIGHT_TEST_FORCE_INSTALL_FAIL=1
+        eval "$playwright_definition"
+        ensure_playwright_chromium >/dev/null 2>&1
+      ); then
+        runtime_behavior_ok=0
+      else
+        runtime_behavior_ok=1
+      fi
+    fi
+
+    rm -rf "$tmp_root"
+  fi
+
+  if [[ "$has_helper" -eq 1 ]] \
+    && [[ "$has_invocation" -eq 1 ]] \
+    && [[ "$has_fallback_path" -eq 1 ]] \
+    && [[ "$has_install_call" -eq 1 ]] \
+    && [[ "$has_locking" -eq 1 ]] \
+    && [[ "$has_isolated_bootstrap" -eq 1 ]] \
+    && [[ "$has_fail_closed" -eq 1 ]] \
+    && [[ "$runtime_behavior_ok" -eq 1 ]]; then
+    echo "  OK   playwright-runtime-bootstrap"
+  else
+    echo "  FAIL playwright-runtime-bootstrap (helper=${has_helper}, invocation=${has_invocation}, fallback=${has_fallback_path}, install=${has_install_call}, lock=${has_locking}, isolated=${has_isolated_bootstrap}, fail_closed=${has_fail_closed}, runtime=${runtime_behavior_ok})"
+    FAILED=1
+  fi
+}
+
 echo "=== Agent Sandbox Smoke Test ==="
 echo ""
 echo "--- Coding Agents ---"
@@ -959,6 +1181,7 @@ check_codex_default_config
 check_tmux_plugin_bootstrap
 check_tealdeer_update_bootstrap
 check_editor_defaults
+check_playwright_runtime_bootstrap_policy
 
 echo ""
 echo "--- Core Tools ---"
@@ -972,6 +1195,7 @@ check "bun"       bun --version
 check "python3"   python3 --version
 check "uv"        uv --version
 check "playwright-cli" playwright-cli --version
+check_playwright_chromium_companion
 check "vim"       vim --version
 check "nvim"      nvim --version
 

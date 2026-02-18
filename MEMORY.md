@@ -33,6 +33,7 @@ This is intentionally compact: only currently relevant guidance is kept.
 - `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.
 - Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).
+- Playwright Chromium companion is fail-closed by default: build-time payload/executable assert + startup self-heal to `~/.cache/ms-playwright` with lock/TMPDIR isolation.
 - Codex defaults enable `undo`, `multi_agent`, `apps` with `[agents].max_threads=12`; missing keys are auto-merged into existing `~/.codex/config.toml`.
 
 ## Automation Security Baseline
@@ -44,4 +45,4 @@ This is intentionally compact: only currently relevant guidance is kept.
 
 ## Known Constraints
 - `broot` remains disabled in current image path due install stability concerns.
-- `tldr --update` bootstrap remains deferred (`InvalidArchive` issue), tracked in `TODO.md`.
+- Host-side Docker storage pressure can break builds even when `/workspace` has free space; use reclaimable-threshold cleanup (`scripts/docker-storage-guard.sh`) as operational baseline.
