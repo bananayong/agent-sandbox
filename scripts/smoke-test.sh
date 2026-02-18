@@ -804,6 +804,7 @@ check "btm"       btm --version
 check "xh"        xh --version
 check "mcfly"     mcfly --version
 check "zoxide"    zoxide --version
+check "tldr"      tldr --version
 check "starship"  starship --version
 check "micro"     micro --version
 check "delta"     delta --version

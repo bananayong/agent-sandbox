@@ -209,6 +209,7 @@ DOCKER_VERSION_SOURCES=(
   "FZF_VERSION|junegunn/fzf"
   "EZA_VERSION|eza-community/eza"
   "STARSHIP_VERSION|starship/starship"
+  "TEALDEER_VERSION|dbrgn/tealdeer"
   "MICRO_VERSION|zyedidia/micro"
   "DUF_VERSION|muesli/duf"
   "GPING_VERSION|orf/gping"

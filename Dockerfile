@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zsh tmux locales \
     vim \
     nnn ncdu jq ripgrep \
-    bat zoxide tealdeer \
+    bat zoxide \
     dnsutils iputils-ping net-tools openssh-client \
     less file man-db htop \
     procps \
@@ -70,6 +70,7 @@ RUN curl -fsSL https://bun.sh/install | bash
 ARG FZF_VERSION=0.57.0
 ARG EZA_VERSION=0.20.14
 ARG STARSHIP_VERSION=1.22.1
+ARG TEALDEER_VERSION=1.8.1
 ARG NEOVIM_VERSION=0.11.5
 ARG MICRO_VERSION=2.0.14
 ARG DUF_VERSION=0.8.1
@@ -142,6 +143,14 @@ RUN set -eux; \
     tar -xzf /tmp/starship.tar.gz -C /tmp; \
     install -m 0755 /tmp/starship /usr/local/bin/starship; \
     rm -rf /tmp/starship /tmp/starship.tar.gz
+
+# Install tealdeer (tldr client) from upstream release.
+# Debian bookworm ships tealdeer 1.5.0, which uses an outdated update URL and
+# can panic with InvalidArchive on first cache refresh.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then TEALDEER_ARCH="aarch64"; else TEALDEER_ARCH="x86_64"; fi \
+    && curl -fsSL "https://github.com/dbrgn/tealdeer/releases/download/v${TEALDEER_VERSION}/tealdeer-linux-${TEALDEER_ARCH}-musl" -o /usr/local/bin/tldr \
+    && chmod +x /usr/local/bin/tldr
 
 # Install micro editor.
 RUN ARCH=$(dpkg --print-architecture) \
@@ -354,6 +363,7 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v xh || { echo "ERROR: xh not found"; exit 1; } \
     && command -v mcfly || { echo "ERROR: mcfly not found"; exit 1; } \
     && command -v pre-commit || { echo "ERROR: pre-commit not found"; exit 1; } \
+    && command -v tldr || { echo "ERROR: tldr not found"; exit 1; } \
     && command -v gitleaks || { echo "ERROR: gitleaks not found"; exit 1; } \
     && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
     && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \

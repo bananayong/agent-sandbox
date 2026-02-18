@@ -26,6 +26,7 @@ Optionally tag with priority and category:
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
+- [x] [P2] (build) tealdeer 업스트림 바이너리 고정 설치 — Debian `tealdeer` 1.5.0의 `tldr --update` `InvalidArchive` panic을 제거하기 위해 Dockerfile에서 `tealdeer`를 apt 대신 upstream release(`TEALDEER_VERSION`)로 설치하고 smoke/build 검증에 `tldr` 확인 추가
 - [x] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하고 entrypoint managed sync로 사용자 홈에 동기화
 - [x] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
 - [x] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
