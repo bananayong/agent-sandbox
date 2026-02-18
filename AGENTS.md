@@ -4,7 +4,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## What This Is
 
-A Docker sandbox for coding agents (Claude Code, Codex CLI, Gemini CLI, OpenCode, GitHub Copilot). Provides an isolated container with a modern zsh/starship terminal and CLI tools. The host mounts a project directory as `/workspace` and persists `$HOME` at `~/.agent-sandbox/home/`.
+A Docker sandbox for coding agents (Claude Code, Codex CLI, Gemini CLI, OpenCode, GitHub Copilot). Provides an isolated container with a modern zsh/starship terminal and CLI tools. The host mounts a project directory as `/workspace` and persists `$HOME` under `~/.agent-sandbox/.../home/` (container-specific when using `--name`).
 
 ## Build & Run
 
@@ -13,6 +13,8 @@ docker build -t agent-sandbox:latest .
 ./run.sh .          # Run with current directory as workspace
 ./run.sh -b .       # Build + run
 ./run.sh ~/myapp    # Run with specific project
+./run.sh -n codex . # Run with custom container name (isolated home path)
+./run.sh --home ~/.agent-sandbox/team/home .  # Explicit home path
 ./run.sh -s         # Stop container
 ./run.sh -r         # Reset persisted home (wipes all auth/config)
 ```
@@ -26,7 +28,7 @@ docker build -t agent-sandbox:latest .
 
 **Mount strategy (three volumes):**
 - `$TARGET_DIR` -> `/workspace` (user's project)
-- `~/.agent-sandbox/home` -> `/home/sandbox` (persists auth, history, configs)
+- sandbox home (`~/.agent-sandbox/home` for default container, `~/.agent-sandbox/<name>/home` for `--name <name>`) -> `/home/sandbox`
 - Host Docker socket -> `/var/run/docker.sock` (Docker-out-of-Docker)
 
 **Docker-out-of-Docker (DooD):**

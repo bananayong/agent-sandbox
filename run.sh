@@ -13,14 +13,17 @@ set -euo pipefail
 #
 # Important design:
 # - Project files are mounted to /workspace
-# - Sandbox user home is persisted on host at ~/.agent-sandbox/home
+# - Sandbox user home is persisted on host at ~/.agent-sandbox/.../home
 # - Docker socket is forwarded when available for Docker-out-of-Docker (DooD)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="agent-sandbox:latest"
-CONTAINER_NAME="agent-sandbox"
+DEFAULT_CONTAINER_NAME="agent-sandbox"
+CONTAINER_NAME="$DEFAULT_CONTAINER_NAME"
 NETWORK_NAME="agent-sandbox-net"
-SANDBOX_HOME="${HOME}/.agent-sandbox/home"
+SANDBOX_ROOT_DIR="${HOME}/.agent-sandbox"
+SANDBOX_HOME_OVERRIDE=""
+SANDBOX_HOME=""
 
 detect_host_docker_socket() {
   # Pick the most likely host Docker socket path.
@@ -112,6 +115,8 @@ Arguments:
 
 Options:
   -b, --build      Build the Docker image before running
+  -n, --name NAME  Container name (default: $DEFAULT_CONTAINER_NAME)
+      --home DIR    Host directory to mount as /home/sandbox
       --dns LIST    Override container DNS servers (comma/space separated)
   -r, --reset      Reset sandbox home (removes all persisted configs)
   -s, --stop       Stop the running container
@@ -121,12 +126,54 @@ Examples:
   $(basename "$0")                      # Current directory as workspace
   $(basename "$0") ~/projects/myapp     # Specific directory
   $(basename "$0") -b .                 # Build image first, then run
+  $(basename "$0") -n codex .           # Custom container + isolated home
+  $(basename "$0") --home ~/.agent-sandbox/teamA/home .
   $(basename "$0") --dns "10.0.0.2,1.1.1.1" .
   $(basename "$0") -r                   # Reset all persisted settings
 
 Environment:
   AGENT_SANDBOX_DNS_SERVERS   DNS servers for container (comma/space separated)
 EOF
+}
+
+is_valid_container_name() {
+  local name="$1"
+  [[ "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]]
+}
+
+resolve_host_path() {
+  local path_input="$1"
+  if [[ "$path_input" == "~" ]]; then
+    path_input="$HOME"
+  elif [[ "$path_input" == \~/* ]]; then
+    path_input="${HOME}/${path_input#~/}"
+  fi
+  if [[ "$path_input" != /* ]]; then
+    path_input="$PWD/$path_input"
+  fi
+
+  # Normalize parent directory when it already exists (keeps behavior for
+  # non-existing leaf paths while removing visual noise like "/./").
+  local parent_dir base_name
+  parent_dir="$(dirname "$path_input")"
+  base_name="$(basename "$path_input")"
+  if [[ -d "$parent_dir" ]]; then
+    path_input="$(cd "$parent_dir" && pwd)/$base_name"
+  fi
+  # String-level cleanup for visual noise when leaf path doesn't exist yet.
+  path_input="${path_input//\/.\//\/}"
+
+  printf '%s\n' "$path_input"
+}
+
+default_home_for_container() {
+  local container_name="$1"
+  # Keep backward compatibility for the default container path.
+  if [[ "$container_name" == "$DEFAULT_CONTAINER_NAME" ]]; then
+    printf '%s\n' "${SANDBOX_ROOT_DIR}/home"
+    return
+  fi
+  printf '%s\n' "${SANDBOX_ROOT_DIR}/${container_name}/home"
 }
 
 build_image() {
@@ -139,8 +186,7 @@ build_image() {
 
 is_container_running() {
   # Return success when a container with exact name is running.
-  # grep -q . means "any non-empty output exists".
-  docker ps -q -f name="^${CONTAINER_NAME}$" | grep -q .
+  docker ps --format '{{.Names}}' | grep -Fxq "$CONTAINER_NAME"
 }
 
 stop_container() {
@@ -160,7 +206,7 @@ stop_container() {
 reset_home() {
   # Reset means deleting persisted home directory on host.
   # This wipes shell history, agent login state, and dotfiles.
-  read -r -p "This will delete all persisted configs at $SANDBOX_HOME. Continue? [y/N] " confirm
+  read -r -p "This will delete persisted home for '$CONTAINER_NAME' at $SANDBOX_HOME. Continue? [y/N] " confirm
   if [[ "$confirm" =~ ^[Yy]$ ]]; then
     rm -rf "$SANDBOX_HOME"
     echo "Sandbox home reset."
@@ -296,7 +342,7 @@ run_container() {
     running_network="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$CONTAINER_NAME" 2>/dev/null || true)"
     if [[ -n "$running_network" && "$running_network" != "$NETWORK_NAME" ]]; then
       echo "Container is running on network '$running_network' (expected '$NETWORK_NAME')."
-      echo "Run './run.sh -s' then './run.sh .' to recreate with updated network settings."
+      echo "Run './run.sh -s -n $CONTAINER_NAME' and rerun with the same --name value."
       return 1
     fi
     echo "Attaching to running container..."
@@ -315,6 +361,7 @@ run_container() {
   ensure_network
 
   echo "Starting agent sandbox..."
+  echo "  Container: $CONTAINER_NAME"
   echo "  Workspace: $workspace_dir"
   echo "  Home:      $SANDBOX_HOME"
 
@@ -500,6 +547,22 @@ while [[ $# -gt 0 ]]; do
       DO_BUILD=true
       shift
       ;;
+    -n|--name)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --name requires a value (example: --name codex)"
+        exit 1
+      fi
+      CONTAINER_NAME="$2"
+      shift 2
+      ;;
+    --home)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --home requires a directory path."
+        exit 1
+      fi
+      SANDBOX_HOME_OVERRIDE="$2"
+      shift 2
+      ;;
     -r|--reset)
       DO_RESET=true
       shift
@@ -531,6 +594,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if ! is_valid_container_name "$CONTAINER_NAME"; then
+  echo "Error: invalid container name '$CONTAINER_NAME'."
+  echo "Allowed characters: letters, numbers, dot(.), underscore(_), hyphen(-)."
+  exit 1
+fi
+
+if [[ -n "$SANDBOX_HOME_OVERRIDE" ]]; then
+  SANDBOX_HOME="$(resolve_host_path "$SANDBOX_HOME_OVERRIDE")"
+else
+  SANDBOX_HOME="$(default_home_for_container "$CONTAINER_NAME")"
+fi
 
 # Execute action flags first, then run container flow.
 if $DO_RESET; then

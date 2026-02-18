@@ -9,7 +9,7 @@
 호스트 환경과 분리된 컨테이너에서 실행하기 위한 개발용 런타임입니다.
 
 - 프로젝트는 `/workspace`로 마운트
-- 에이전트 로그인/히스토리/쉘 설정은 `~/.agent-sandbox/home`에 영구 저장
+- 에이전트 로그인/히스토리/쉘 설정은 컨테이너별 홈(`~/.agent-sandbox/.../home`)에 영구 저장
 - Docker socket을 연결해 컨테이너 안에서도 `docker` 명령 사용 가능 (DooD)
 
 ## TL;DR (30초 시작)
@@ -43,11 +43,23 @@ docker build -t agent-sandbox:latest .
 # 특정 프로젝트 폴더 실행
 ./run.sh ~/projects/myapp
 
+# 컨테이너 이름 지정 (기본 홈도 컨테이너별로 자동 분리)
+./run.sh --name codex-main .
+
+# 홈 경로 직접 지정
+./run.sh --name codex-main --home ~/.agent-sandbox/team-a/home .
+
 # 컨테이너 중지
 ./run.sh -s
 
+# 특정 컨테이너 중지
+./run.sh -s --name codex-main
+
 # 샌드박스 홈 초기화 (로그인/히스토리/설정 삭제)
 ./run.sh -r
+
+# 특정 컨테이너 홈만 초기화
+./run.sh -r --name codex-main
 ```
 
 ## Runtime Flow
@@ -105,12 +117,14 @@ playwright-cli -s=research close
 기본 마운트는 아래 3가지입니다.
 
 - `WORKSPACE_DIR` -> `/workspace`
-- `~/.agent-sandbox/home` -> `/home/sandbox`
+- sandbox home -> `/home/sandbox`
+  - 기본 컨테이너(`agent-sandbox`): `~/.agent-sandbox/home`
+  - 커스텀 컨테이너(`--name <name>`): `~/.agent-sandbox/<name>/home` (단, `--home` 미지정 시)
 - host Docker socket -> `/var/run/docker.sock` (존재 시 자동 연결)
 
 핵심 포인트:
 
-- 컨테이너를 지워도 `~/.agent-sandbox/home`은 유지됩니다.
+- 컨테이너를 지워도 해당 컨테이너의 sandbox home은 유지됩니다.
 - 따라서 CLI 로그인 상태, shell history, 개인 설정이 살아있습니다.
 
 ## Shared Templates
@@ -226,6 +240,10 @@ nvim --headless "+Lazy! sync" +qa
 - `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
 - `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
 
+**`run.sh` 주요 옵션:**
+- `--name`, `-n` — 컨테이너 이름 지정 (기본: `agent-sandbox`)
+- `--home` — `/home/sandbox`에 마운트할 host 경로 지정
+
 **`docker-compose.yml` 전용 키:**
 - `DOCKER_SOCK` — Docker 소켓 경로 오버라이드 (기본 `/var/run/docker.sock`)
 - `DOCKER_GID` — Docker 소켓 GID (기본 `0`)
@@ -321,7 +339,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 
 ### Claude에서 `Unable to connect to API (UND_ERR_SOCKET)`가 날 때
 
-- 가장 먼저 컨테이너를 재시작하세요: `./run.sh -s` 후 `./run.sh .`
+- 가장 먼저 컨테이너를 재시작하세요: `./run.sh -s` 후 `./run.sh .` (커스텀 컨테이너는 같은 `--name` 사용)
 - 프록시/VPN 환경이라면 host에 `HTTPS_PROXY`/`HTTP_PROXY`/`NO_PROXY`를 설정한 뒤 다시 실행하세요.
 - 사내 CA를 쓰면 host에 `NODE_EXTRA_CA_CERTS` 또는 `SSL_CERT_FILE`을 설정한 뒤 다시 실행하세요.
 - DNS 이슈가 의심되면 컨테이너 DNS를 명시하세요.
@@ -329,7 +347,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
   - 또는: `AGENT_SANDBOX_DNS_SERVERS="10.0.0.2,1.1.1.1" ./run.sh .`
 - `run.sh`/`docker-compose.yml`은 기본으로 `host.docker.internal` 매핑을 추가하고, 컨테이너 내부 IPv6를 비활성화해 IPv6 경로 지연을 줄입니다.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1280으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
-- `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면, 이 샌드박스는 이미 텔레메트리 차단 + TLS 호환 옵션을 기본 적용합니다. 먼저 컨테이너 재생성(`./run.sh -s` 후 `./run.sh .`)으로 런타임 옵션 재적용 여부를 확인하세요.
+- `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면, 이 샌드박스는 이미 텔레메트리 차단 + TLS 호환 옵션을 기본 적용합니다. 먼저 컨테이너 재생성(`./run.sh -s` 후 `./run.sh .`)으로 런타임 옵션 재적용 여부를 확인하세요. 커스텀 컨테이너는 같은 `--name`으로 재생성해야 합니다.
 
 ### 설정을 완전히 초기화하고 싶을 때
 
@@ -337,7 +355,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 ./run.sh -r
 ```
 
-주의: `~/.agent-sandbox/home`이 삭제되어 로그인/히스토리/설정이 모두 초기화됩니다.
+주의: 현재 대상 컨테이너 이름 기준의 sandbox home이 삭제되어 로그인/히스토리/설정이 모두 초기화됩니다.
 
 ## Optional: docker compose
 

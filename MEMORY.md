@@ -26,6 +26,7 @@ This is intentionally compact: only currently relevant guidance is kept.
   - custom bridge MTU default `1280`
 - `run.sh` supports DNS override via `--dns` / `AGENT_SANDBOX_DNS_SERVERS` (IPv4-first).
 - Rootless/user-owned Docker sockets are handled via host UID/GID matching logic (`AGENT_SANDBOX_MATCH_HOST_USER`).
+- `run.sh` supports container-specific persisted homes: default container keeps `~/.agent-sandbox/home`, custom `--name <name>` defaults to `~/.agent-sandbox/<name>/home` (or explicit `--home` override).
 
 ## Skills/Agent Behavior
 - Vendored shared skills are auto-installed for Claude/Codex/Gemini.
