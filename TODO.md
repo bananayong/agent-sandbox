@@ -25,6 +25,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P3] (setup) 컨테이너 기본 도구에 `tree` 추가 — `Dockerfile` apt 기본 설치 목록에 `tree` 포함
 - [x] [P1] (setup) Playwright fallback symlink 복구 실패 수정 — `~/.cache/ms-playwright`가 `/ms-playwright` 심볼릭 링크인 상태에서 self-heal이 read-only 경로로 설치를 시도하던 문제를 수정하여, 설치 전에 fallback 경로를 writable 실제 디렉터리로 재구성하도록 보강
 - [x] [P2] (setup) startup 체감 멈춤 완화 — `start.sh`의 zimfw 다운로드/모듈 설치, broot 초기화, Docker socket probe에 타임아웃을 추가해 네트워크/데몬 지연 시 엔트리포인트가 장시간 정지되지 않도록 보강
 - [x] [P1] (setup) Playwright CLI 동작 변경 대응 — 브라우저 설치를 `playwright-cli install`에서 `node .../playwright/cli.js install chromium`로 전환하고, 빌드 시 root가 남기는 `/tmp/playwright-cli`를 `1777`로 재설정해 non-root 런타임 `EACCES`를 방지

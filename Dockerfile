@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv \
     zsh tmux locales \
     vim \
-    nnn ncdu \
+    nnn ncdu tree \
     dnsutils iputils-ping net-tools openssh-client \
     less file man-db help2man htop \
     procps \
