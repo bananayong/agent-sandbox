@@ -72,46 +72,6 @@ install_default_templates() {
 # multiple agents don't re-hash the same source tree.
 declare -A SHARED_SKILL_HASH_CACHE=()
 
-# One-time cleanup targets for skills previously managed by agent-sandbox that
-# were intentionally removed from the shared bundle.
-LEGACY_PRUNED_SHARED_SKILLS=(
-  ab-test-setup
-  analytics-tracking
-  antfu-turborepo
-  antfu-web-design-guidelines
-  baoyu-danger-gemini-web
-  baoyu-danger-x-to-markdown
-  baoyu-post-to-x
-  building-mcp-server-on-cloudflare
-  cold-email
-  competitor-alternatives
-  content-strategy
-  copy-editing
-  copywriting
-  email-sequence
-  form-cro
-  free-tool-strategy
-  launch-strategy
-  marketing-ideas
-  marketing-psychology
-  onboarding-cro
-  page-cro
-  paid-ads
-  paywall-upgrade-cro
-  popup-cro
-  pricing-strategy
-  product-marketing-context
-  programmatic-seo
-  referral-program
-  remotion-dev-remotion
-  sast-configuration
-  schema-markup
-  seo-audit
-  signup-flow-cro
-  social-content
-  vueuse-functions
-)
-
 # Update a managed config file, overwriting even if it already exists.
 # Prints a unified diff before replacing so users can see what changed
 # and restore manually if needed. Skips when contents are identical.
@@ -283,7 +243,6 @@ ensure_codex_status_line() {
 # - Uses hash state to detect local modifications and avoid clobbering edits.
 # - Updates only when source bundle changed or target is missing state.
 # - Legacy targets (no state file) are backed up once, then adopted by default.
-# - Stale managed skills (removed from source bundle) are pruned from target.
 #
 # Legacy adoption can be disabled by setting:
 #   AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT=0
@@ -337,21 +296,6 @@ install_shared_skills() {
   local managed_bundle_changed=1
   local legacy_adopt_managed_skills="${AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT:-1}"
   local managed_state_exclude_file=".agent-sandbox-managed-skill.sha256"
-  local -A desired_skill_map=()
-  local -A legacy_pruned_skill_map=()
-  local pruned_skill_name=""
-  local state_file=""
-  local stale_skill_name=""
-  local stale_target=""
-  local stale_hash=""
-  local stale_target_hash=""
-  local stale_backup_root=""
-  local stale_backup_timestamp=""
-  local stale_backup_path=""
-
-  for pruned_skill_name in "${LEGACY_PRUNED_SHARED_SKILLS[@]}"; do
-    legacy_pruned_skill_map["$pruned_skill_name"]=1
-  done
 
   if [[ ! -d "$source_root" ]]; then
     return
@@ -400,8 +344,6 @@ install_shared_skills() {
         continue
       fi
     fi
-
-    desired_skill_map["$skill_name"]=1
 
     if [[ -n "$force_sync_csv" ]]; then
       local force_sync_name
@@ -489,55 +431,6 @@ install_shared_skills() {
     cp -r "$source_skill" "$target_skill"
     printf '%s\n' "$source_hash" > "$managed_state_file"
   done
-
-  # Prune stale managed skills that no longer exist in source bundle.
-  # We prune when either:
-  # - The skill has managed state (*.sha256), or
-  # - It's a known legacy removed target from previous bundle revisions.
-  while IFS= read -r -d '' stale_target; do
-    stale_skill_name="$(basename "$stale_target")"
-    if [[ -n "${desired_skill_map[$stale_skill_name]+x}" ]]; then
-      continue
-    fi
-
-    state_file="$managed_state_root/$stale_skill_name.sha256"
-    if [[ ! -f "$state_file" ]] && [[ -z "${legacy_pruned_skill_map[$stale_skill_name]+x}" ]]; then
-      continue
-    fi
-
-    stale_backup_root="$managed_state_root/backups/$stale_skill_name"
-    stale_backup_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    stale_backup_path="$stale_backup_root/stale-$stale_backup_timestamp"
-    mkdir -p "$stale_backup_root"
-
-    if [[ -f "$state_file" ]]; then
-      stale_hash="$(<"$state_file")"
-      stale_target_hash="$(hash_skill_dir "$stale_target" "$managed_state_exclude_file")"
-      if [[ "$stale_target_hash" == "$stale_hash" ]]; then
-        echo "[init] Removing stale managed shared skill: $stale_target"
-      else
-        cp -r "$stale_target" "$stale_backup_path"
-        echo "[init] Removing stale managed shared skill with local edits: $stale_target"
-        echo "[init]   Previous copy backed up to: $stale_backup_path"
-      fi
-    else
-      cp -r "$stale_target" "$stale_backup_path"
-      echo "[init] Removing stale legacy shared skill: $stale_target"
-      echo "[init]   Previous copy backed up to: $stale_backup_path"
-    fi
-
-    rm -rf "$stale_target"
-    rm -f "$state_file"
-  done < <(find "$target_root" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
-
-  # Remove orphan managed-state files whose target directory no longer exists.
-  while IFS= read -r -d '' state_file; do
-    stale_skill_name="$(basename "$state_file" .sha256)"
-    stale_target="$target_root/$stale_skill_name"
-    if [[ ! -d "$stale_target" ]]; then
-      rm -f "$state_file"
-    fi
-  done < <(find "$managed_state_root" -maxdepth 1 -type f -name '*.sha256' -print0 | sort -z)
 
   if [[ -n "$managed_bundle_id" ]]; then
     printf '%s\n' "$managed_bundle_id" > "$managed_bundle_state_file"

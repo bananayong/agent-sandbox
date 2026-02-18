@@ -25,6 +25,8 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P1] (quality) stale prune 로직 제거 — home 잔존 스킬 정리가 완료된 이후 유지 비용을 줄이기 위해 `start.sh`의 stale skill prune/관련 state 정리 분기를 제거하고, `smoke-test.sh` install-policy 체크도 stale-prune 전제 없이 managed sync 정책만 검증하도록 정리
+- [x] [P1] (quality) stale skill 정리 정책 단순화 — `LEGACY_PRUNED_SHARED_SKILLS` 강제 제거 목록을 폐기하고, `start.sh` stale prune을 managed state(`*.sha256`) 보유 항목으로 한정해 사용자 커스텀 동명이인 스킬 오삭제 가능성을 제거. `smoke-test.sh`도 해당 가드(`state file required`, legacy 목록 미사용) 검증으로 강화
 - [x] [P1] (quality) 공유 스킬 제외 후속 보완 — `start.sh`에 stale managed/legacy removed shared skills prune 로직을 추가해 persisted home의 제외 대상 스킬이 재시작 시 정리되도록 하고, `README`의 번들 목록을 최신 manifest 기준으로 정정, `smoke-test.sh`에 prune 정책 검증 항목 추가
 - [x] [P1] (quality) `coreyhaines31/marketingskills` 잔여 11개 스킬 완전 제외 — `skills/external-manifest.txt`에서 전량 제거 후 벤더 동기화로 레포에서 prune, remotion 리네임 후 누락 위험이던 신규 룰 파일 3개(`audio-visualization.md`, `ffmpeg.md`, `voiceover.md`)도 인덱스 반영으로 1번 이슈 조치
 - [x] [P1] (quality) 공유 스킬 정리 2차 반영 — 제거된 스킬을 참조하던 11개 스킬(`ab-test-setup`, `copywriting`, `onboarding-cro`, `marketing-ideas`, `seo-audit`, `social-content`, `free-tool-strategy`, `cold-email`, `popup-cro`, `content-strategy`, `launch-strategy`)을 벤더 대상에서 제외하고, `remotion-dev-remotion` 타깃을 `remotion-best-practices`로 정규화
