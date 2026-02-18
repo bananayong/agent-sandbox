@@ -1,14 +1,19 @@
+# syntax=docker/dockerfile:1.10
 FROM debian:bookworm-slim AS runtime
 
 LABEL maintainer="agent-sandbox"
 LABEL description="Coding agent Docker sandbox with modern CLI tools"
 
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Base OS package install.
 # - Keep to --no-install-recommends to reduce image size/noise.
-# - Remove apt list cache after install to keep layers smaller.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# - Use BuildKit cache mounts for apt metadata/packages to speed rebuilds.
+# hadolint ignore=DL3008
+RUN --mount=type=cache,id=agent-sandbox-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,id=agent-sandbox-apt-cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget git git-lfs gnupg sudo \
     unzip zip xz-utils \
     build-essential \
@@ -27,12 +32,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 libfreetype6 xvfb xfonts-scalable \
     fonts-noto-color-emoji fonts-unifont fonts-liberation \
     fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
-    fonts-freefont-ttf \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-freefont-ttf
 
 # Debian slim은 /usr/share/man/*를 기본 제외하므로,
 # 필요한 apt CLI의 man 페이지만 선택적으로 추출해 /usr/local/share/man에 둔다.
-RUN set -eux; \
+# hadolint ignore=DL3003
+RUN --mount=type=cache,id=agent-sandbox-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,id=agent-sandbox-apt-cache,target=/var/cache/apt,sharing=locked \
+    set -eux; \
     apt-get update; \
     mkdir -p /tmp/apt-man/extract /usr/local/share/man; \
     cd /tmp/apt-man; \
@@ -45,36 +52,34 @@ RUN set -eux; \
       | tar -x -C /tmp/apt-man/extract --wildcards './usr/share/man/*'; \
     done; \
     cp -a /tmp/apt-man/extract/usr/share/man/. /usr/local/share/man/; \
-    rm -rf /tmp/apt-man /var/lib/apt/lists/*
+    rm -rf /tmp/apt-man
 
 # Enable UTF-8 locale so shells/tools behave consistently.
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
-# Install Node.js 22 (required by agent CLIs and bun global installs).
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install GitHub CLI from official apt repo.
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+# Install Node.js 22, GitHub CLI, and Docker client tools from official repos.
+# This image does not run docker daemon itself; it uses host socket mount (DooD).
+# hadolint ignore=DL3008
+RUN --mount=type=cache,id=agent-sandbox-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,id=agent-sandbox-apt-cache,target=/var/cache/apt,sharing=locked \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update && apt-get install -y --no-install-recommends gh \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Docker client tools in container.
-# This image does not run docker daemon itself; it uses host socket mount (DooD).
-RUN curl -fsSL https://download.docker.com/linux/debian/gpg \
+    > /etc/apt/sources.list.d/github-cli.list \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
     | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" \
-    | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update && apt-get install -y --no-install-recommends \
-       docker-ce-cli docker-compose-plugin docker-buildx-plugin \
-    && rm -rf /var/lib/apt/lists/*
+    > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    nodejs \
+    gh \
+    docker-ce-cli docker-compose-plugin docker-buildx-plugin
 
 ENV BUN_INSTALL=/usr/local
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -106,6 +111,7 @@ ARG GITLEAKS_VERSION=8.30.0
 ARG HADOLINT_VERSION=2.14.0
 ARG DIRENV_VERSION=2.37.1
 ARG PRE_COMMIT_VERSION=4.5.1
+ARG YAMLLINT_VERSION=1.38.0
 ARG PLAYWRIGHT_CLI_VERSION=0.1.1
 ARG ACTIONLINT_VERSION=1.7.11
 ARG TRIVY_VERSION=0.69.1
@@ -391,7 +397,10 @@ RUN mkdir -p /usr/local/share/man/man1 \
 
 # Install pre-commit (code quality hook framework).
 # --break-system-packages is safe in container context (no venv needed).
-RUN pip3 install --break-system-packages --no-cache-dir "pre-commit==${PRE_COMMIT_VERSION}" yamllint
+RUN --mount=type=cache,id=agent-sandbox-pip-cache,target=/root/.cache/pip,sharing=locked \
+    pip3 install --break-system-packages \
+    "pre-commit==${PRE_COMMIT_VERSION}" \
+    "yamllint==${YAMLLINT_VERSION}"
 
 # Install gitleaks (detect secrets in git commits).
 RUN ARCH=$(dpkg --print-architecture) \
@@ -413,7 +422,9 @@ RUN ARCH=$(dpkg --print-architecture) \
 
 # Install Playwright CLI and pin browser payload to Chromium.
 # PLAYWRIGHT_BROWSERS_PATH makes browser binaries available to all users.
-RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
+# hadolint ignore=DL3003
+RUN --mount=type=cache,id=agent-sandbox-npm-cache,target=/root/.npm,sharing=locked \
+    npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && mkdir -p /tmp/playwright-bootstrap/.playwright \
     && printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > /tmp/playwright-bootstrap/.playwright/cli.config.json \
     && cd /tmp/playwright-bootstrap \
@@ -427,9 +438,7 @@ RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && cd / \
     && rm -rf /tmp/playwright-bootstrap \
     && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH" \
-    # Keep this cleanup in the same layer so build-time caches do not inflate image size.
-    && npm cache clean --force \
-    && rm -rf /root/.npm /tmp/node-compile-cache /tmp/bunx-*
+    && rm -rf /tmp/node-compile-cache /tmp/bunx-*
 
 # Create non-root runtime user.
 # sudo is configured for compatibility, but run.sh also sets no-new-privileges.
@@ -444,51 +453,25 @@ RUN groupadd -g 1000 sandbox \
 
 # Install coding-agent CLIs globally via bun (faster than npm).
 # BUN_INSTALL=/usr/local means global binaries land in /usr/local/bin/.
-RUN bun install -g \
+RUN --mount=type=cache,id=agent-sandbox-bun-install-cache,target=/usr/local/install/cache,sharing=locked \
+    --mount=type=cache,id=agent-sandbox-bun-home-cache,target=/root/.cache,sharing=locked \
+    bun install -g \
     @anthropic-ai/claude-code \
     @openai/codex \
     @google/gemini-cli \
     opencode-ai \
     typescript \
     oh-my-opencode \
-    # opencode and oh-my-opencode ship both glibc and musl optional binaries.
-    # Debian runtime only needs glibc binaries, so drop musl variants.
-    && ARCH="$(dpkg --print-architecture)" \
-    && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
-    && rm -rf \
-      "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
-      "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
-      "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
-      "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
-    # Bun global installs duplicate package tarballs in /usr/local/install/cache.
-    # Clearing in the same RUN layer reclaims substantial space in final image.
-    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
-
-# Install agent productivity tools via bun.
-RUN bun install -g @beads/bd \
-    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
-
-# beads package downloads its native runtime via postinstall.
-# Bun blocks postinstall scripts by default, so explicitly trust this package.
-RUN printf 'y\n' | bun pm -g trust @beads/bd \
-    && ARCH="$(dpkg --print-architecture)" \
-    && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
-    && rm -rf \
-      "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
-      "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
-      "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
-      "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
-      /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
-
-# Install LSP servers for code intelligence.
-# These provide autocomplete, go-to-definition, and diagnostics for coding agents.
-RUN bun install -g \
+    @beads/bd \
     typescript-language-server \
     bash-language-server \
     dockerfile-language-server-nodejs \
     vscode-langservers-extracted \
     yaml-language-server \
     pyright \
+    # beads package downloads its native runtime via postinstall.
+    # Bun blocks postinstall scripts by default, so explicitly trust this package.
+    && printf 'y\n' | bun pm -g trust @beads/bd \
     && ARCH="$(dpkg --print-architecture)" \
     && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
     # Keep only glibc builds for opencode companions in Debian runtime.
@@ -497,87 +480,67 @@ RUN bun install -g \
       "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
       "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
       "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
-      /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
+      /tmp/node-compile-cache /tmp/bunx-*
 
 # Build-time sanity check: fail early if key CLIs are missing.
-# Each check is separate so the error message identifies the missing binary.
-RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
-    && command -v codex || { echo "ERROR: codex not found"; exit 1; } \
-    && command -v gemini || { echo "ERROR: gemini not found"; exit 1; } \
-    && command -v opencode || { echo "ERROR: opencode not found"; exit 1; } \
-    && command -v nvim || { echo "ERROR: nvim not found"; exit 1; } \
-    && command -v dust || { echo "ERROR: dust not found"; exit 1; } \
-    && command -v procs || { echo "ERROR: procs not found"; exit 1; } \
-    && command -v btm || { echo "ERROR: btm not found"; exit 1; } \
-    && command -v xh || { echo "ERROR: xh not found"; exit 1; } \
-    && command -v mcfly || { echo "ERROR: mcfly not found"; exit 1; } \
-    && command -v pre-commit || { echo "ERROR: pre-commit not found"; exit 1; } \
-    && command -v tldr || { echo "ERROR: tldr not found"; exit 1; } \
-    && command -v gitleaks || { echo "ERROR: gitleaks not found"; exit 1; } \
-    && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
-    && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
-    && command -v uv || { echo "ERROR: uv not found"; exit 1; } \
-    && command -v direnv || { echo "ERROR: direnv not found"; exit 1; } \
-    && command -v actionlint || { echo "ERROR: actionlint not found"; exit 1; } \
-    && command -v trivy || { echo "ERROR: trivy not found"; exit 1; } \
-    && command -v yamllint || { echo "ERROR: yamllint not found"; exit 1; } \
-    && command -v playwright-cli || { echo "ERROR: playwright-cli not found"; exit 1; } \
-    && command -v ps || { echo "ERROR: ps not found"; exit 1; } \
-    && command -v pkill || { echo "ERROR: pkill not found"; exit 1; } \
-    && command -v typescript-language-server || { echo "ERROR: typescript-language-server not found"; exit 1; } \
-    && command -v bash-language-server || { echo "ERROR: bash-language-server not found"; exit 1; } \
-    && command -v docker-langserver || { echo "ERROR: docker-langserver not found"; exit 1; } \
-    && command -v vscode-json-language-server || { echo "ERROR: vscode-json-language-server not found"; exit 1; } \
-    && command -v yaml-language-server || { echo "ERROR: yaml-language-server not found"; exit 1; } \
-    && command -v pyright || { echo "ERROR: pyright not found"; exit 1; } \
-    && command -v bd || { echo "ERROR: bd (beads) not found"; exit 1; }
+RUN set -e; \
+    for cmd in \
+      claude codex gemini opencode nvim dust procs btm xh mcfly pre-commit \
+      tldr gitleaks hadolint shellcheck uv direnv actionlint trivy yamllint \
+      playwright-cli ps pkill typescript-language-server bash-language-server \
+      docker-langserver vscode-json-language-server yaml-language-server pyright bd; do \
+      if ! command -v "$cmd" >/dev/null 2>&1; then \
+        echo "ERROR: $cmd not found"; \
+        exit 1; \
+      fi; \
+    done
 
 # Default dotfiles are copied to /etc/skel.
 # start.sh later copies them into user home only when missing.
-COPY configs/zshrc /etc/skel/.default.zshrc
-COPY configs/zimrc /etc/skel/.default.zimrc
-COPY configs/tmux.conf /etc/skel/.default.tmux.conf
-COPY configs/vimrc /etc/skel/.default.vimrc
-COPY configs/nvim/ /etc/skel/.config/nvim/
-COPY configs/micro/ /etc/skel/.config/micro/
-COPY configs/starship.toml /etc/skel/.config/starship.toml
+COPY --link configs/zshrc /etc/skel/.default.zshrc
+COPY --link configs/zimrc /etc/skel/.default.zimrc
+COPY --link configs/tmux.conf /etc/skel/.default.tmux.conf
+COPY --link configs/vimrc /etc/skel/.default.vimrc
+COPY --link configs/nvim/ /etc/skel/.config/nvim/
+COPY --link configs/micro/ /etc/skel/.config/micro/
+COPY --link configs/starship.toml /etc/skel/.config/starship.toml
 
 # Pre-commit config template for initializing hooks in projects.
-COPY configs/pre-commit-config.yaml /etc/skel/.default.pre-commit-config.yaml
+COPY --link configs/pre-commit-config.yaml /etc/skel/.default.pre-commit-config.yaml
 
 # Shared prompt/snippet templates seeded into user home on first run.
-COPY configs/templates/ /etc/skel/.agent-sandbox/templates/
+COPY --link configs/templates/ /etc/skel/.agent-sandbox/templates/
 
 # Claude Code slash commands, skills, agents, settings, and MCP server config.
-COPY configs/claude/commands/ /etc/skel/.claude/commands/
-COPY configs/claude/skills/ /etc/skel/.claude/skills/
-COPY configs/claude/agents/ /etc/skel/.claude/agents/
-COPY configs/claude/settings.json /etc/skel/.claude/settings.json
-COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
+COPY --link configs/claude/commands/ /etc/skel/.claude/commands/
+COPY --link configs/claude/skills/ /etc/skel/.claude/skills/
+COPY --link configs/claude/agents/ /etc/skel/.claude/agents/
+COPY --link configs/claude/settings.json /etc/skel/.claude/settings.json
+COPY --link configs/claude/mcp.json /etc/skel/.claude/.mcp.json
 
 # Agent-specific settings templates for first-run defaults.
-COPY configs/codex/settings.json /etc/skel/.codex/settings.json
-COPY configs/gemini/settings.json /etc/skel/.gemini/settings.json
-COPY configs/codex/config.toml /etc/skel/.codex/config.toml
-COPY configs/codex/skills/ /etc/skel/.codex/skills/
+COPY --link configs/codex/settings.json /etc/skel/.codex/settings.json
+COPY --link configs/gemini/settings.json /etc/skel/.gemini/settings.json
+COPY --link configs/codex/config.toml /etc/skel/.codex/config.toml
+COPY --link configs/codex/skills/ /etc/skel/.codex/skills/
 
 # Shared skills bundle (redistributable skills vendored under ./skills).
 # start.sh installs these into each agent's user skill directory on startup.
-COPY skills/ /opt/agent-sandbox/skills/
+COPY --link skills/ /opt/agent-sandbox/skills/
 
 # TOOLS.md reference for agents working on other projects.
 # .dockerignore needs !TOOLS.md exception (after *.md) to include this file.
-COPY TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
+COPY --link TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
 # Auto-approve wrapper config for agent CLIs in interactive zsh sessions.
-COPY configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
+COPY --link configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
 # Managed default editor env hook (nvim-first).
-COPY configs/editor-defaults.zsh /etc/skel/.config/agent-sandbox/editor-defaults.zsh
+COPY --link configs/editor-defaults.zsh /etc/skel/.config/agent-sandbox/editor-defaults.zsh
 
 # Smoke test script for build-time and runtime tool verification.
-COPY --chmod=755 scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
+COPY --link --chmod=755 scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
 
 # Entry script handles first-run bootstrap, then exec CMD.
-COPY --chmod=755 scripts/start.sh /usr/local/bin/start.sh
+COPY --link --chmod=755 scripts/start.sh /usr/local/bin/start.sh
 
 # Run smoke test during build (--build skips docker socket checks).
 RUN /usr/local/bin/smoke-test.sh --build
