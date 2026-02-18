@@ -15,6 +15,46 @@ if [[ "${1:-}" == "--build" ]]; then
   SKIP_DOCKER=true
 fi
 
+# Resolve a writable temp root before checks that rely on mktemp.
+# Why: some hosts/CI workers mount /tmp with very small quotas.
+configure_tmpdir() {
+  local candidate
+  local probe_dir=""
+  local candidates=()
+
+  if [[ -n "${TMPDIR:-}" ]]; then
+    candidates+=("$TMPDIR")
+  fi
+  candidates+=(
+    "/tmp"
+    "${XDG_RUNTIME_DIR:-}"
+    "${HOME:-/home/sandbox}/.cache/agent-sandbox/tmp"
+    "$(pwd)/.tmp"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -z "$candidate" ]]; then
+      continue
+    fi
+    if ! mkdir -p "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    if probe_dir="$(mktemp -d "$candidate/smoke-test.XXXXXXXXXX" 2>/dev/null)"; then
+      rm -rf "$probe_dir"
+      export TMPDIR="$candidate"
+      return 0
+    fi
+  done
+
+  echo "  FAIL temp-dir (unable to allocate writable TMPDIR)"
+  FAILED=1
+  return 1
+}
+
+if ! configure_tmpdir; then
+  exit 1
+fi
+
 check() {
   local name="$1"
   shift
@@ -640,6 +680,8 @@ check_tmux_plugin_bootstrap() {
   local has_tpm_config=0
   local has_plugin_install=0
   local has_tmux_env_bootstrap=0
+  local has_tmux_tmpdir_bootstrap=0
+  local has_tmux_start_fallback=0
 
   if grep -Fq "set -g @plugin 'tmux-plugins/tpm'" "$tmux_conf" \
     && grep -Fq "set -g @plugin 'tmux-plugins/tmux-resurrect'" "$tmux_conf" \
@@ -655,10 +697,24 @@ check_tmux_plugin_bootstrap() {
     has_tmux_env_bootstrap=1
   fi
 
-  if [[ "$has_tpm_config" -eq 1 ]] && [[ "$has_plugin_install" -eq 1 ]] && [[ "$has_tmux_env_bootstrap" -eq 1 ]]; then
+  # shellcheck disable=SC2016
+  if grep -Fq 'TMUX_RUNTIME_DIR="$HOME_DIR/.local/state/tmux"' "$start_script" \
+    && grep -Fq 'export TMUX_TMPDIR="$TMUX_RUNTIME_DIR"' "$start_script"; then
+    has_tmux_tmpdir_bootstrap=1
+  fi
+
+  if grep -Fq "tmux session startup failed; falling back to direct command." "$start_script"; then
+    has_tmux_start_fallback=1
+  fi
+
+  if [[ "$has_tpm_config" -eq 1 ]] \
+    && [[ "$has_plugin_install" -eq 1 ]] \
+    && [[ "$has_tmux_env_bootstrap" -eq 1 ]] \
+    && [[ "$has_tmux_tmpdir_bootstrap" -eq 1 ]] \
+    && [[ "$has_tmux_start_fallback" -eq 1 ]]; then
     echo "  OK   tmux-plugin-bootstrap"
   else
-    echo "  FAIL tmux-plugin-bootstrap (config=${has_tpm_config}, install=${has_plugin_install}, tmux_env=${has_tmux_env_bootstrap})"
+    echo "  FAIL tmux-plugin-bootstrap (config=${has_tpm_config}, install=${has_plugin_install}, tmux_env=${has_tmux_env_bootstrap}, tmux_tmpdir=${has_tmux_tmpdir_bootstrap}, tmux_fallback=${has_tmux_start_fallback})"
     FAILED=1
   fi
 }
@@ -774,6 +830,8 @@ check_editor_defaults() {
   local start_script="/usr/local/bin/start.sh"
   local vim_config="/etc/skel/.default.vimrc"
   local nvim_config="/etc/skel/.config/nvim/init.lua"
+  local micro_settings_config="/etc/skel/.config/micro/settings.json"
+  local micro_bindings_config="/etc/skel/.config/micro/bindings.json"
 
   case "$source_mode" in
     installed)
@@ -782,12 +840,16 @@ check_editor_defaults() {
       start_script="scripts/start.sh"
       vim_config="configs/vimrc"
       nvim_config="configs/nvim/init.lua"
+      micro_settings_config="configs/micro/settings.json"
+      micro_bindings_config="configs/micro/bindings.json"
       ;;
     auto)
-      if [[ ! -f "$start_script" ]] && [[ ! -f "$vim_config" ]] && [[ ! -f "$nvim_config" ]]; then
+      if [[ ! -f "$start_script" ]] && [[ ! -f "$vim_config" ]] && [[ ! -f "$nvim_config" ]] && [[ ! -f "$micro_settings_config" ]] && [[ ! -f "$micro_bindings_config" ]]; then
         start_script="scripts/start.sh"
         vim_config="configs/vimrc"
         nvim_config="configs/nvim/init.lua"
+        micro_settings_config="configs/micro/settings.json"
+        micro_bindings_config="configs/micro/bindings.json"
       fi
       ;;
     *)
@@ -815,8 +877,23 @@ check_editor_defaults() {
     return
   fi
 
+  if [[ ! -f "$micro_settings_config" ]]; then
+    echo "  FAIL editor-default-config ($micro_settings_config missing)"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -f "$micro_bindings_config" ]]; then
+    echo "  FAIL editor-default-config ($micro_bindings_config missing)"
+    FAILED=1
+    return
+  fi
+
   local has_vim_hook=0
   local has_nvim_hook=0
+  local has_micro_settings_hook=0
+  local has_micro_bindings_hook=0
+  local has_micro_plugin_bootstrap=0
 
   # shellcheck disable=SC2016
   if grep -Eq 'copy_default[[:space:]]+/etc/skel/.default.vimrc[[:space:]]+"[$]HOME_DIR/.vimrc"' "$start_script"; then
@@ -828,10 +905,26 @@ check_editor_defaults() {
     has_nvim_hook=1
   fi
 
-  if [[ "$has_vim_hook" -eq 1 ]] && [[ "$has_nvim_hook" -eq 1 ]]; then
+  # shellcheck disable=SC2016
+  if grep -Eq 'copy_default[[:space:]]+/etc/skel/.config/micro/settings.json[[:space:]]+"[$]HOME_DIR/.config/micro/settings.json"' "$start_script"; then
+    has_micro_settings_hook=1
+  fi
+
+  # shellcheck disable=SC2016
+  if grep -Eq 'copy_default[[:space:]]+/etc/skel/.config/micro/bindings.json[[:space:]]+"[$]HOME_DIR/.config/micro/bindings.json"' "$start_script"; then
+    has_micro_bindings_hook=1
+  fi
+
+  if grep -Eq '^install_micro_plugins\(\)' "$start_script" \
+    && grep -Eq '^[[:space:]]*install_micro_plugins[[:space:]]*$' "$start_script" \
+    && grep -Eq 'detectindent|fzf|lsp' "$start_script"; then
+    has_micro_plugin_bootstrap=1
+  fi
+
+  if [[ "$has_vim_hook" -eq 1 ]] && [[ "$has_nvim_hook" -eq 1 ]] && [[ "$has_micro_settings_hook" -eq 1 ]] && [[ "$has_micro_bindings_hook" -eq 1 ]] && [[ "$has_micro_plugin_bootstrap" -eq 1 ]]; then
     echo "  OK   editor-default-config"
   else
-    echo "  FAIL editor-default-config (vim_hook=${has_vim_hook}, nvim_hook=${has_nvim_hook})"
+    echo "  FAIL editor-default-config (vim_hook=${has_vim_hook}, nvim_hook=${has_nvim_hook}, micro_settings_hook=${has_micro_settings_hook}, micro_bindings_hook=${has_micro_bindings_hook}, micro_plugin_bootstrap=${has_micro_plugin_bootstrap})"
     FAILED=1
   fi
 }

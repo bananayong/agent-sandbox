@@ -1,0 +1,17 @@
+{
+  "Ctrl-p": "command:fzf",
+  "<Ctrl-w>h": "PreviousSplit|LastSplit",
+  "<Ctrl-w>j": "NextSplit|FirstSplit",
+  "<Ctrl-w>k": "PreviousSplit|LastSplit",
+  "<Ctrl-w>l": "NextSplit|FirstSplit",
+  "<Ctrl-w>v": "VSplit",
+  "<Ctrl-w>s": "HSplit",
+  "<Ctrl-w>q": "Quit",
+  "<Ctrl-w>t": "AddTab",
+  "F2": "command:nextBookmark",
+  "Shift-F2": "command:prevBookmark",
+  "Ctrl-F2": "command:toggleBookmark",
+  "CtrlShift-F2": "command:clearBookmarks",
+  "F8": "command-edit:fexec ",
+  "Shift-F8": "command:fjump"
+}

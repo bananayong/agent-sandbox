@@ -183,9 +183,9 @@ spawn worker for src/auth/* and implement token refresh & run tests
 
 커스텀 role은 `config.toml`의 `[agents.<name>]` + 별도 `config_file` 조합으로 추가할 수 있습니다.
 
-## Vim / Neovim Defaults
+## Vim / Neovim / Micro Defaults
 
-컨테이너 기본 설정에 `vim`과 `neovim` 추천 플러그인/테마가 포함됩니다.
+컨테이너 기본 설정에 `vim`, `neovim`, `micro` 추천 플러그인/테마가 포함됩니다.
 
 - 기본 에디터 환경변수: `EDITOR=nvim`, `VISUAL=nvim`, `GIT_EDITOR=nvim`
 - Debian `editor` 대안 경로도 `nvim`으로 설정됩니다.
@@ -200,6 +200,12 @@ spawn worker for src/auth/* and implement token refresh & run tests
   - 기본 설정 파일: `~/.config/nvim/init.lua` (이미지 기본값: `configs/nvim/init.lua`)
   - 포함 플러그인: `telescope`, `nvim-treesitter`, `nvim-lspconfig + mason`, `nvim-cmp`, `gitsigns`, `lualine`, `which-key`, `conform` 등
   - 테마 세트: `tokyonight`(기본), `catppuccin`, `kanagawa`, `rose-pine`
+- `micro`:
+  - 기본 설정 파일: `~/.config/micro/settings.json`, `~/.config/micro/bindings.json` (이미지 기본값: `configs/micro/`)
+  - 첫 실행 시 누락된 추천 플러그인 자동 설치: `detectindent`, `fzf`, `lsp`, `quickfix`, `bookmark`, `manipulator`, `nordcolors`, `monokai-dark`, `gotham-colors`
+  - 기본 테마: `gruvbox-tc` (안정 기본값), 추가 테마: `nord-tc`, `monokai-dark`, `gotham`
+  - Vim-like 키맵: `Ctrl-p`(fzf 파일 열기), `<Ctrl-w>{h,j,k,l,v,s,q,t}`(분할/탭 이동), `F8`(quickfix `fexec` 커맨드 프롬프트), `Shift-F8`(quickfix 점프), `F2` 계열(bookmark)
+  - LSP 기본 서버 매핑: `pyright`, `typescript-language-server`, `yaml-language-server`, `vscode-json-language-server`, `vscode-html-language-server`, `vscode-css-language-server`, `bash-language-server`, `docker-langserver`
 
 첫 실행 후 동기화 명령:
 
@@ -209,6 +215,10 @@ vim +PlugInstall +qall
 
 # neovim
 nvim --headless "+Lazy! sync" +qa
+
+# micro
+micro -plugin list
+micro -plugin update
 ```
 
 ## Environment Variables

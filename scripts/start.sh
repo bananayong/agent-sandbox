@@ -3,6 +3,17 @@ set -euo pipefail
 
 HOME_DIR="/home/sandbox"
 
+# Keep tmux sockets/logs off /tmp.
+# Why: some hosts enforce tiny /tmp quotas, which can make tmux startup fail
+# with "No space left on device" even when the persisted home volume is healthy.
+TMUX_RUNTIME_DIR="$HOME_DIR/.local/state/tmux"
+if mkdir -p "$TMUX_RUNTIME_DIR"; then
+  chmod 700 "$TMUX_RUNTIME_DIR" 2>/dev/null || true
+  export TMUX_TMPDIR="$TMUX_RUNTIME_DIR"
+else
+  echo "[init] WARNING: cannot create tmux runtime dir ($TMUX_RUNTIME_DIR); falling back to /tmp" >&2
+fi
+
 # ============================================================
 # First-run initialization
 # ============================================================
@@ -294,6 +305,8 @@ copy_default /etc/skel/.default.zimrc         "$HOME_DIR/.zimrc"
 copy_default /etc/skel/.default.tmux.conf     "$HOME_DIR/.tmux.conf"
 copy_default /etc/skel/.default.vimrc         "$HOME_DIR/.vimrc"
 copy_default /etc/skel/.config/nvim/init.lua  "$HOME_DIR/.config/nvim/init.lua"
+copy_default /etc/skel/.config/micro/settings.json "$HOME_DIR/.config/micro/settings.json"
+copy_default /etc/skel/.config/micro/bindings.json "$HOME_DIR/.config/micro/bindings.json"
 update_managed /etc/skel/.config/starship.toml "$HOME_DIR/.config/starship.toml"
 copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-config.yaml.template"
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
@@ -473,6 +486,46 @@ update_tealdeer_cache() {
   return 0
 }
 
+# Install a curated set of Micro plugins for Vim/Neovim-like workflows.
+# Missing plugins are installed once and retried automatically on later starts.
+install_micro_plugins() {
+  if ! command -v micro &>/dev/null; then
+    return 0
+  fi
+
+  local micro_config_dir="$HOME_DIR/.config/micro"
+  local micro_plug_dir="$micro_config_dir/plug"
+  local micro_plugins=(
+    detectindent
+    fzf
+    lsp
+    quickfix
+    bookmark
+    manipulator
+    nordcolors
+    monokai-dark
+    gotham-colors
+  )
+  local missing_micro_plugins=()
+  local plugin_name
+
+  mkdir -p "$micro_config_dir"
+  for plugin_name in "${micro_plugins[@]}"; do
+    if [[ ! -d "$micro_plug_dir/$plugin_name" ]]; then
+      missing_micro_plugins+=("$plugin_name")
+    fi
+  done
+
+  if [[ "${#missing_micro_plugins[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  echo "[init] Installing micro plugins: ${missing_micro_plugins[*]}..."
+  if ! timeout --kill-after=10 120 micro -plugin install "${missing_micro_plugins[@]}" </dev/null; then
+    echo "[init]   WARNING: micro plugin install failed or timed out (non-blocking)" >&2
+  fi
+}
+
 # ============================================================
 # Zimfw bootstrap
 # ============================================================
@@ -527,6 +580,9 @@ if command -v nvim &>/dev/null; then
   fi
 fi
 
+# Install missing Micro plugins from the curated default set.
+install_micro_plugins
+
 # Install gh-copilot extension in user scope (inside persisted home).
 # This happens once because extension directory is checked first.
 if command -v gh &>/dev/null; then
@@ -571,15 +627,23 @@ if [[ -d "$TPM_DIR" ]] && command -v tmux &>/dev/null; then
     # startup contexts.
     tmux_bootstrap_session="__agent_sandbox_tpm_bootstrap_$$"
     tmux_bootstrap_session_created=0
+    tmux_server_ready=0
     if tmux -f "$HOME_DIR/.tmux.conf" new-session -d -s "$tmux_bootstrap_session" >/dev/null 2>&1; then
       tmux_bootstrap_session_created=1
+      tmux_server_ready=1
     else
-      tmux -f "$HOME_DIR/.tmux.conf" start-server >/dev/null 2>&1 || true
+      if tmux -f "$HOME_DIR/.tmux.conf" start-server >/dev/null 2>&1; then
+        tmux_server_ready=1
+      fi
     fi
-    tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "$TPM_PLUGIN_ROOT" >/dev/null 2>&1 || true
 
-    if ! timeout --kill-after=10 60 "$TPM_DIR/bin/install_plugins" </dev/null; then
-      echo "[init]   WARNING: tmux plugin install failed or timed out (non-blocking)" >&2
+    if [[ "$tmux_server_ready" -eq 1 ]]; then
+      tmux set-environment -g TMUX_PLUGIN_MANAGER_PATH "$TPM_PLUGIN_ROOT" >/dev/null 2>&1 || true
+      if ! timeout --kill-after=10 60 "$TPM_DIR/bin/install_plugins" </dev/null; then
+        echo "[init]   WARNING: tmux plugin install failed or timed out (non-blocking)" >&2
+      fi
+    else
+      echo "[init]   WARNING: tmux server startup failed; skipping tmux plugin install (non-blocking)" >&2
     fi
 
     if [[ "$tmux_bootstrap_session_created" -eq 1 ]]; then
@@ -802,7 +866,10 @@ echo ""
 # CMD arguments are forwarded as the tmux session shell command so custom
 # commands like `docker run agent-sandbox claude` are not silently dropped.
 if [[ -z "${TMUX:-}" ]] && command -v tmux &>/dev/null; then
-  exec tmux new-session -s main "$@"
-else
-  exec "$@"
+  if exec tmux new-session -s main "$@"; then
+    :
+  else
+    echo "[init] WARNING: tmux session startup failed; falling back to direct command." >&2
+  fi
 fi
+exec "$@"

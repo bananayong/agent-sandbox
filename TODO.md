@@ -27,6 +27,7 @@ Optionally tag with priority and category:
 - [ ] [P1] (setup) Playwright Chromium 동반 설치 보장 — `@playwright/cli`만 설치된 상태에서도 즉시 사용 가능하도록 컨테이너 빌드/런타임에서 Chromium 브라우저 바이너리를 함께 설치
 ## Done
 
+- [x] [P2] (usability) Micro 에디터 Vim/Neovim 스타일 기본 구성 — `configs/micro/settings.json`/`bindings.json` 추가, `start.sh` 누락 플러그인 자동 설치(`detectindent`, `fzf`, `lsp`, `quickfix`, `bookmark`, `manipulator` + 테마), `Dockerfile`/`README`/`smoke-test` 동기화
 - [x] [P2] (build) modern CLI + 매뉴얼 개선 — `uv` 추가 설치, `jq/ripgrep/bat/zoxide/shellcheck`를 upstream 바이너리 pin(+sha256 검증)으로 전환, slim의 man exclude 정책을 유지한 채 핵심 CLI man 페이지를 선택 설치하고 `help2man` fallback(재현성 고정) 적용
 - [x] [P2] (setup) tmux 플러그인 설치 안정화 — `scripts/start.sh`에서 TPM 설치 시 임시 detached tmux 세션으로 서버 생존을 보장하고 `TMUX_PLUGIN_MANAGER_PATH`를 확실히 주입해 `unknown variable`/`Tmux Plugin Manager not configured` 오류를 방지
 - [x] [P2] (usability) 컨테이너별 sandbox home 분리 지원 — `run.sh`에 `--name/-n`, `--home` 옵션을 추가하고 기본 컨테이너는 기존 `~/.agent-sandbox/home`를 유지하면서 커스텀 컨테이너는 `~/.agent-sandbox/<name>/home`를 자동 사용하도록 개선, `-s/-r` 대상 동기화 및 README/AGENTS 문서 반영

@@ -94,6 +94,7 @@ ARG FD_VERSION=10.3.0
 ARG LAZYGIT_VERSION=0.59.0
 ARG GITUI_VERSION=0.28.0
 ARG TOKEI_VERSION=14.0.0
+ARG TOKEI_FALLBACK_VERSION=12.1.2
 ARG YQ_VERSION=4.52.4
 ARG DELTA_VERSION=0.18.2
 ARG DUST_VERSION=1.2.4
@@ -197,11 +198,24 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/muesli/duf/releases/download/v${DUF_VERSION}/duf_${DUF_VERSION}_linux_${DUF_ARCH}.deb" -o /tmp/duf.deb \
     && dpkg -i /tmp/duf.deb && rm /tmp/duf.deb
 
-# Install gping.
-RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "arm64" ]; then GPING_ARCH="aarch64"; else GPING_ARCH="x86_64"; fi \
-    && curl -fsSL "https://github.com/orf/gping/releases/download/gping-v${GPING_VERSION}/gping-${GPING_ARCH}-unknown-linux-gnu.tar.gz" \
-    | tar -xz -C /usr/local/bin/
+# Install gping with release naming fallback (gnu/musl variants).
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    if [ "$ARCH" = "arm64" ]; then GPING_ARCH="arm64"; else GPING_ARCH="x86_64"; fi; \
+    FOUND=""; \
+    for URL in \
+      "https://github.com/orf/gping/releases/download/gping-v${GPING_VERSION}/gping-Linux-gnu-${GPING_ARCH}.tar.gz" \
+      "https://github.com/orf/gping/releases/download/gping-v${GPING_VERSION}/gping-Linux-musl-${GPING_ARCH}.tar.gz"; do \
+      if curl -fsSL "$URL" -o /tmp/gping.tar.gz; then FOUND="$URL"; break; fi; \
+    done; \
+    test -n "$FOUND"; \
+    tar -xzf /tmp/gping.tar.gz -C /tmp; \
+    install -m 0755 /tmp/gping /usr/local/bin/gping; \
+    if [ -f /tmp/gping.1 ]; then \
+      mkdir -p /usr/local/share/man/man1; \
+      install -m 0644 /tmp/gping.1 /usr/local/share/man/man1/gping.1; \
+    fi; \
+    rm -f /tmp/gping /tmp/gping.1 /tmp/gping.tar.gz
 
 # Install fd binary.
 RUN ARCH=$(dpkg --print-architecture) \
@@ -288,10 +302,23 @@ RUN ARCH=$(dpkg --print-architecture) \
     | tar -xz -C /usr/local/bin/
 
 # Install tokei.
-RUN ARCH=$(dpkg --print-architecture) \
-    && if [ "$ARCH" = "arm64" ]; then TOKEI_ARCH="aarch64"; else TOKEI_ARCH="x86_64"; fi \
-    && curl -fsSL "https://github.com/XAMPPRocky/tokei/releases/download/v${TOKEI_VERSION}/tokei-${TOKEI_ARCH}-unknown-linux-gnu.tar.gz" \
-    | tar -xz -C /usr/local/bin/
+# Upstream releases >= v13 currently publish no Linux binary assets, so try the
+# requested version first and fall back to the latest known binary release.
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    if [ "$ARCH" = "arm64" ]; then TOKEI_ARCH="aarch64"; else TOKEI_ARCH="x86_64"; fi; \
+    FOUND=""; \
+    for URL in \
+      "https://github.com/XAMPPRocky/tokei/releases/download/v${TOKEI_VERSION}/tokei-${TOKEI_ARCH}-unknown-linux-gnu.tar.gz" \
+      "https://github.com/XAMPPRocky/tokei/releases/download/v${TOKEI_VERSION}/tokei-${TOKEI_ARCH}-unknown-linux-musl.tar.gz" \
+      "https://github.com/XAMPPRocky/tokei/releases/download/v${TOKEI_FALLBACK_VERSION}/tokei-${TOKEI_ARCH}-unknown-linux-gnu.tar.gz" \
+      "https://github.com/XAMPPRocky/tokei/releases/download/v${TOKEI_FALLBACK_VERSION}/tokei-${TOKEI_ARCH}-unknown-linux-musl.tar.gz"; do \
+      if curl -fsSL "$URL" -o /tmp/tokei.tar.gz; then FOUND="$URL"; break; fi; \
+    done; \
+    test -n "$FOUND"; \
+    tar -xzf /tmp/tokei.tar.gz -C /tmp; \
+    install -m 0755 /tmp/tokei /usr/local/bin/tokei; \
+    rm -f /tmp/tokei /tmp/tokei.tar.gz
 
 # TODO: Re-enable broot after adopting a reliable install path across arm64/x86_64
 # and a modern Rust toolchain in build steps.
@@ -497,6 +524,7 @@ COPY configs/zimrc /etc/skel/.default.zimrc
 COPY configs/tmux.conf /etc/skel/.default.tmux.conf
 COPY configs/vimrc /etc/skel/.default.vimrc
 COPY configs/nvim/ /etc/skel/.config/nvim/
+COPY configs/micro/ /etc/skel/.config/micro/
 COPY configs/starship.toml /etc/skel/.config/starship.toml
 
 # Pre-commit config template for initializing hooks in projects.
