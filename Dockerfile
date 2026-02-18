@@ -320,9 +320,6 @@ RUN set -eux; \
     install -m 0755 /tmp/tokei /usr/local/bin/tokei; \
     rm -f /tmp/tokei /tmp/tokei.tar.gz
 
-# TODO: Re-enable broot after adopting a reliable install path across arm64/x86_64
-# and a modern Rust toolchain in build steps.
-
 # Install yq (single static binary).
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "arm64" ]; then YQ_ARCH="arm64"; else YQ_ARCH="amd64"; fi \

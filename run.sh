@@ -244,20 +244,14 @@ ensure_network() {
 
 collect_nonloopback_nameservers_from_file() {
   local resolv_file="$1"
-  local ip_mode="${2:-any}"
   if [[ ! -r "$resolv_file" ]]; then
     return
   fi
   # Skip loopback resolvers because they usually point to host-local stubs
   # (for example 127.0.0.53) that are unreachable from inside containers.
-  # When container IPv6 is disabled, keep IPv4 DNS only to avoid resolver stalls.
-  if [[ "$ip_mode" == "ipv4" ]]; then
-    awk '/^nameserver[[:space:]]+/ {print $2}' "$resolv_file" \
-      | awk '$1 !~ /^127\./ && $1 != "::1" && $1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ {print $1}'
-    return
-  fi
+  # Keep IPv4 DNS only because container runtime disables IPv6 by default.
   awk '/^nameserver[[:space:]]+/ {print $2}' "$resolv_file" \
-    | awk '$1 !~ /^127\./ && $1 != "::1" {print $1}'
+    | awk '$1 !~ /^127\./ && $1 != "::1" && $1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ {print $1}'
 }
 
 detect_dns_servers() {
@@ -287,13 +281,13 @@ detect_dns_servers() {
   fi
 
   local host_dns
-  host_dns="$(collect_nonloopback_nameservers_from_file /etc/resolv.conf ipv4 | awk '!seen[$0]++')"
+  host_dns="$(collect_nonloopback_nameservers_from_file /etc/resolv.conf | awk '!seen[$0]++')"
   if [[ -n "$host_dns" ]]; then
     printf '%s\n' "$host_dns"
     return
   fi
 
-  collect_nonloopback_nameservers_from_file /run/systemd/resolve/resolv.conf ipv4 | awk '!seen[$0]++'
+  collect_nonloopback_nameservers_from_file /run/systemd/resolve/resolv.conf | awk '!seen[$0]++'
 }
 
 docker_supports_host_gateway() {

@@ -313,7 +313,6 @@ check_shared_skills_install_policy() {
   local gemini_ok=0
   local claude_ok=0
   local proprietary_exclude_ok=0
-  local managed_sync_ok=0
   local managed_all_ok=0
   local managed_hash_sync_ok=0
   local managed_sync_value=""
@@ -350,14 +349,11 @@ check_shared_skills_install_policy() {
       if [[ "$managed_sync_name" == "*" ]]; then
         managed_all_ok=1
       fi
-      if [[ "$managed_sync_name" == "playwright-efficient-web-research" ]]; then
-        managed_sync_ok=1
-      fi
     done
   fi
 
   if grep -Fq "hash_skill_dir()" "$start_script" \
-    && grep -Fq "legacy_adopt_managed_skills" "$start_script" \
+    && grep -Fq "managed_state_file" "$start_script" \
     && grep -Fq "managed_bundle_changed" "$start_script"; then
     managed_hash_sync_ok=1
   fi
@@ -366,12 +362,11 @@ check_shared_skills_install_policy() {
     && [[ "$gemini_ok" -eq 1 ]] \
     && [[ "$claude_ok" -eq 1 ]] \
     && [[ "$proprietary_exclude_ok" -eq 1 ]] \
-    && [[ "$managed_sync_ok" -eq 1 ]] \
     && [[ "$managed_all_ok" -eq 1 ]] \
     && [[ "$managed_hash_sync_ok" -eq 1 ]]; then
     echo "  OK   shared-skills-install-policy"
   else
-    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, proprietary_exclude=${proprietary_exclude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
+    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, proprietary_exclude=${proprietary_exclude_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
     FAILED=1
   fi
 }

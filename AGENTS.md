@@ -62,7 +62,7 @@ docker build -t agent-sandbox:latest .
 
 ## Key Conventions
 
-- Non-root user `sandbox` (UID/GID 1000). `sudo` blocked at runtime — never use in `start.sh`
+- Default runtime user is `sandbox` (UID/GID 1000), but rootless Docker compatibility may run with host UID/GID via `run.sh`/compose settings. `sudo` is blocked at runtime — never use it in `start.sh`
 - API keys via environment variables, never baked into the image
 - Human-maintainer commits should be signed (`git commit -S`); GitHub Actions bot commits may remain unsigned by workflow policy
 - `run.sh` auto-builds the image if missing, attaches to running container instead of creating new
@@ -70,4 +70,4 @@ docker build -t agent-sandbox:latest .
 - `configs/zimrc` ordering: `zsh-completions` -> `completion` -> `fzf-tab` -> `zsh-you-should-use` -> `fast-syntax-highlighting` -> `zsh-history-substring-search`
 - Shell scripts and Docker files: prioritize beginner-friendly comments
 - Git signing metadata: `$HOME` global config only (`~/.gitconfig`, `~/.config/git/allowed_signers`), never in repo paths
-- No new `AGENT_SANDBOX_*` env flags. New `start.sh` features install unconditionally with idempotency guards
+- Add new `AGENT_SANDBOX_*` env flags only when strictly necessary; prefer idempotent install/sync behavior in `start.sh` as the default mechanism

@@ -514,8 +514,7 @@ CODEX_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"
 GEMINI_SHARED_SKILLS_EXCLUDES="skill-creator,$PROPRIETARY_SHARED_SKILLS"
 # Managed sync defaults:
 # - `*` enables hash-based managed sync for all shared skills.
-# - explicit names keep compatibility with existing policy checks/documentation.
-FORCE_SYNC_SHARED_SKILLS="*,playwright-efficient-web-research"
+FORCE_SYNC_SHARED_SKILLS="*"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "$CLAUDE_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "claude"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "$CODEX_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "codex"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "$GEMINI_SHARED_SKILLS_EXCLUDES" "$FORCE_SYNC_SHARED_SKILLS" "gemini"
@@ -1039,8 +1038,8 @@ ensure_playwright_chromium() {
     fi
   done
 
-  # Newer playwright-cli layouts may not expose the legacy marker/path shape.
-  # If direct launch works, accept the runtime as healthy.
+  # If direct launch works, accept the runtime as healthy even when
+  # payload layout heuristics do not match expected folder shape.
   for candidate_root in "$fallback_root" "$primary_root"; do
     if probe_playwright_launch "$candidate_root" "$selected_tmpdir" 180; then
       export PLAYWRIGHT_BROWSERS_PATH="$candidate_root"
@@ -1189,16 +1188,6 @@ if [[ -d "$TPM_DIR" ]] && command -v tmux &>/dev/null; then
 
     if [[ "$tmux_bootstrap_session_created" -eq 1 ]]; then
       tmux kill-session -t "$tmux_bootstrap_session" >/dev/null 2>&1 || true
-    fi
-  fi
-fi
-
-# Install broot shell launcher script if broot exists.
-if command -v broot &>/dev/null; then
-  if [[ ! -f "$HOME_DIR/.config/broot/launcher/bash/br" ]]; then
-    echo "[init] Initializing broot..."
-    if ! timeout --kill-after=10 30 broot --install </dev/null; then
-      echo "[init]   WARNING: broot init failed or timed out (non-blocking)" >&2
     fi
   fi
 fi

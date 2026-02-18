@@ -27,11 +27,13 @@
 ```
 
 이미지가 없으면 자동으로 빌드하고, 이미 실행 중이면 새 컨테이너를 만들지 않고 바로 attach 합니다.
+단, 실행 중 컨테이너가 예상 네트워크(`agent-sandbox-net`)에 붙어 있지 않으면 attach 대신 재생성을 안내합니다.
+이 경우 `./run.sh -s -n <container-name>` 후 같은 이름으로 다시 실행하세요.
 
 ## Quick Start
 
 ```bash
-# 이미지 빌드
+# 이미지 빌드 (빌드 단계에서 `scripts/smoke-test.sh --build`도 함께 실행됨)
 docker build -t agent-sandbox:latest .
 
 # 현재 폴더 실행
@@ -70,7 +72,7 @@ docker build -t agent-sandbox:latest .
 2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
-5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit/Ars Contexta 등 1회성 세팅
+5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit/Ars Contexta, tmux TPM/plugin 부트스트랩 등 1회성 세팅
 6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
 
@@ -98,7 +100,7 @@ docker build -t agent-sandbox:latest .
 - `find-skills`(`vercel-labs/skills`)도 공유 스킬로 포함되어 시작 시 자동 설치됩니다.
 - 외부 스킬 번들은 `scripts/vendor-external-skills.sh`로 재동기화할 수 있습니다.
 - 외부 스킬 목록의 단일 소스는 `skills/external-manifest.txt`이며, 벤더링/스모크 테스트가 모두 이 파일을 기준으로 동작합니다.
-- `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
+- managed sync 대상은 기본적으로 전체 공유 스킬(`*`)입니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
 - 외부 스킬 번들 최신화 PR은 `.github/workflows/update-external-skills.yml`(주간 + 수동 실행)로 자동화되어 있습니다.
 - Anthropic 문서 스킬(`pdf`, `docx`, `pptx`, `xlsx`)은 proprietary 라이선스 정책에 따라 저장소 벤더링 대상에서 제외합니다.
@@ -284,6 +286,7 @@ micro -plugin update
 **프록시 / TLS:**
 - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (및 소문자/`ALL_PROXY`)
 - `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`
+- 위 TLS 경로 키가 실제 host 경로를 가리키면 `run.sh`가 동일 경로를 컨테이너에 read-only bind mount합니다.
 
 **런타임 고정 정책 (환경변수 토글 없음):**
 - Node TLS 호환 옵션(`--tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first`)을 항상 적용
@@ -381,7 +384,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 
 ## Security Notes
 
-- 컨테이너는 `sandbox` 사용자(UID/GID 1000)로 동작
+- 기본값은 `sandbox` 사용자(UID/GID 1000)로 동작하며, rootless Docker 호환을 위해 필요 시 host UID/GID로 실행될 수 있습니다 (`AGENT_SANDBOX_MATCH_HOST_USER`, compose의 `HOST_UID/HOST_GID`).
 - `--security-opt no-new-privileges:true` 적용
 - `sudo`에 의존하는 엔트리포인트/런타임 스크립트는 동작하지 않도록 설계됨
 - Codex/Claude/Gemini/Copilot 권한 프롬프트 자동 승인 wrapper가 기본 내장되어 있습니다(신뢰된 로컬 개발 샌드박스 전제)
@@ -440,7 +443,7 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 - DNS 이슈가 의심되면 컨테이너 DNS를 명시하세요.
   - 예: `./run.sh --dns "10.0.0.2,1.1.1.1" .`
   - 또는: `AGENT_SANDBOX_DNS_SERVERS="10.0.0.2,1.1.1.1" ./run.sh .`
-- `run.sh`/`docker-compose.yml`은 기본으로 `host.docker.internal` 매핑을 추가하고, 컨테이너 내부 IPv6를 비활성화해 IPv6 경로 지연을 줄입니다.
+- `docker-compose.yml`은 항상 `host.docker.internal` 매핑을 추가합니다. `run.sh`는 Docker Engine 20.10+에서 동일 매핑을 추가하며, 구버전이면 매핑을 생략하고 경고를 출력합니다. 두 경로 모두 컨테이너 내부 IPv6를 비활성화해 IPv6 경로 지연을 줄입니다.
 - `run.sh`는 실행 시 `agent-sandbox-net`을 MTU 1280으로 자동 보정해 TLS 소켓 오류 가능성을 줄입니다.
 - `curl`/`node fetch`는 정상인데 Claude만 TLS/소켓 오류가 나면, 이 샌드박스는 이미 텔레메트리 차단 + TLS 호환 옵션을 기본 적용합니다. 먼저 컨테이너 재생성(`./run.sh -s` 후 `./run.sh .`)으로 런타임 옵션 재적용 여부를 확인하세요. 커스텀 컨테이너는 같은 `--name`으로 재생성해야 합니다.
 

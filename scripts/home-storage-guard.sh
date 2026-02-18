@@ -188,12 +188,10 @@ prune_safe_caches() {
     "$HOME_DIR/.npm/_cacache/tmp" \
     "$CACHE_ROOT/node-gyp" \
     "$CACHE_ROOT/agent-sandbox/tmp" \
-    "$CACHE_ROOT/pw-tmp" \
     /tmp/node-compile-cache \
     2>/dev/null || true
 
   # Remove transient Playwright probe/bootstrap leftovers.
-  find "$CACHE_ROOT" -maxdepth 1 -type d -name 'pw-probe-*' -exec rm -rf {} + 2>/dev/null || true
   find /tmp -maxdepth 1 -type d -name 'playwright-probe-*' -exec rm -rf {} + 2>/dev/null || true
   find /tmp -maxdepth 1 -type d -name 'playwright-bootstrap.*' -exec rm -rf {} + 2>/dev/null || true
   find /tmp -maxdepth 1 -type f -name 'playwright-install.*.log' -delete 2>/dev/null || true
