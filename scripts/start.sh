@@ -533,7 +533,9 @@ find_playwright_chromium_binary() {
     return 1
   fi
 
-  find "$browsers_root" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit
+  find "$browsers_root" -type f \
+    \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux-arm64/chrome' \) \
+    -print -quit
 }
 
 ensure_playwright_chromium() {
@@ -548,6 +550,8 @@ ensure_playwright_chromium() {
   local lock_fd=""
   local bootstrap_dir=""
   local install_log=""
+  local candidate_root=""
+  local playwright_installer_cli=""
 
   choose_playwright_tmpdir() {
     local candidate
@@ -579,20 +583,72 @@ ensure_playwright_chromium() {
     return 1
   }
 
+  resolve_playwright_installer_cli() {
+    local npm_root=""
+    local candidate=""
+
+    if command -v npm &>/dev/null; then
+      npm_root="$(npm root -g 2>/dev/null || true)"
+      if [[ -n "$npm_root" ]]; then
+        candidate="$npm_root/@playwright/cli/node_modules/playwright/cli.js"
+        if [[ -f "$candidate" ]]; then
+          echo "$candidate"
+          return 0
+        fi
+      fi
+    fi
+
+    for candidate in \
+      "/usr/lib/node_modules/@playwright/cli/node_modules/playwright/cli.js" \
+      "/usr/local/lib/node_modules/@playwright/cli/node_modules/playwright/cli.js"; do
+      if [[ -f "$candidate" ]]; then
+        echo "$candidate"
+        return 0
+      fi
+    done
+
+    return 1
+  }
+
+  prepare_playwright_install_root() {
+    local install_root="$1"
+    local linked_target=""
+
+    # Dedup mode can leave fallback as a symlink to /ms-playwright, which is
+    # read-only for the sandbox user. Convert back to a writable cache dir
+    # before attempting self-heal installs.
+    if [[ -L "$install_root" ]]; then
+      linked_target="$(readlink "$install_root" 2>/dev/null || true)"
+      echo "[init]   Playwright fallback cache points to ${linked_target:-unknown target}; recreating writable cache dir at $install_root"
+      if ! rm -f "$install_root" 2>/dev/null; then
+        return 1
+      fi
+    fi
+
+    if [[ -e "$install_root" ]] && [[ ! -d "$install_root" ]]; then
+      if ! rm -rf "$install_root" 2>/dev/null; then
+        return 1
+      fi
+    fi
+
+    if ! mkdir -p "$install_root" 2>/dev/null; then
+      return 1
+    fi
+    if [[ ! -w "$install_root" ]]; then
+      return 1
+    fi
+
+    return 0
+  }
+
   validate_playwright_root() {
     local browsers_root="$1"
     local candidate_bin=""
-    local candidate_marker=""
 
     if ! candidate_bin="$(find_playwright_chromium_binary "$browsers_root")"; then
       return 1
     fi
     if [[ ! -x "$candidate_bin" ]]; then
-      return 1
-    fi
-
-    candidate_marker="$(dirname "$(dirname "$candidate_bin")")/INSTALLATION_COMPLETE"
-    if [[ ! -f "$candidate_marker" ]]; then
       return 1
     fi
 
@@ -606,6 +662,7 @@ ensure_playwright_chromium() {
   probe_playwright_launch() {
     local browsers_root="$1"
     local probe_tmpdir="$2"
+    local probe_timeout_seconds="${3:-45}"
     local probe_dir=""
     local probe_session="playwright-verify-$$"
 
@@ -615,7 +672,7 @@ ensure_playwright_chromium() {
 
     if (
       cd "$probe_dir"
-      timeout --kill-after=10 45 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
+      timeout --kill-after=10 "$probe_timeout_seconds" env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
         playwright-cli -s="$probe_session" open about:blank --browser=chromium >/dev/null 2>&1
     ); then
       timeout --kill-after=10 20 env TMPDIR="$probe_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$browsers_root" \
@@ -686,7 +743,8 @@ ensure_playwright_chromium() {
       rm -f "$install_log" 2>/dev/null || true
     fi
     if [[ -n "${lock_fd:-}" ]]; then
-      eval "exec ${lock_fd}>&-" 2>/dev/null || true
+      # zsh can treat eval'ed fd close as a command and return 127.
+      exec {lock_fd}>&- 2>/dev/null || true
       lock_fd=""
     fi
   }
@@ -714,7 +772,11 @@ ensure_playwright_chromium() {
     return 0
   fi
 
-  if ! mkdir -p "$(dirname "$lock_file")" "$fallback_root"; then
+  if ! mkdir -p "$(dirname "$lock_file")"; then
+    fail_playwright_bootstrap "cannot prepare lock directory"
+    return 1
+  fi
+  if ! prepare_playwright_install_root "$fallback_root"; then
     fail_playwright_bootstrap "cannot prepare lock/cache directories"
     return 1
   fi
@@ -757,32 +819,61 @@ ensure_playwright_chromium() {
     return 1
   fi
 
+  if ! playwright_installer_cli="$(resolve_playwright_installer_cli)"; then
+    fail_playwright_bootstrap "cannot resolve playwright chromium installer"
+    return 1
+  fi
+  if ! prepare_playwright_install_root "$fallback_root"; then
+    fail_playwright_bootstrap "fallback cache root is not writable"
+    return 1
+  fi
+
   if ! (
     cd "$bootstrap_dir"
     timeout --kill-after=10 300 env TMPDIR="$selected_tmpdir" PLAYWRIGHT_BROWSERS_PATH="$fallback_root" \
-      playwright-cli install </dev/null >"$install_log" 2>&1
+      node "$playwright_installer_cli" install chromium </dev/null >"$install_log" 2>&1
   ); then
     echo "[init]   Playwright install output:" >&2
-    sed 's/^/[init]   /' "$install_log" >&2 || true
-    fail_playwright_bootstrap "playwright-cli install failed"
+    if [[ -s "$install_log" ]]; then
+      sed 's/^/[init]   /' "$install_log" >&2 || true
+    else
+      echo "[init]   (no installer output captured)" >&2
+    fi
+    fail_playwright_bootstrap "playwright chromium install failed"
     return 1
   fi
 
-  if ! validate_playwright_root "$fallback_root"; then
-    echo "[init]   Playwright install output:" >&2
-    sed 's/^/[init]   /' "$install_log" >&2 || true
-    fail_playwright_bootstrap "fallback chromium payload is invalid"
-    return 1
-  fi
-  if ! probe_playwright_launch "$fallback_root" "$selected_tmpdir"; then
-    fail_playwright_bootstrap "fallback chromium launch probe failed"
-    return 1
-  fi
+  for candidate_root in "$fallback_root" "$primary_root"; do
+    if validate_playwright_root "$candidate_root" && probe_playwright_launch "$candidate_root" "$selected_tmpdir"; then
+      export PLAYWRIGHT_BROWSERS_PATH="$candidate_root"
+      if [[ "$candidate_root" == "$primary_root" ]]; then
+        dedupe_playwright_fallback_cache "$primary_root" "$fallback_root"
+      fi
+      echo "[init] Recovered Playwright Chromium companion in $PLAYWRIGHT_BROWSERS_PATH"
+      cleanup_playwright_bootstrap
+      return 0
+    fi
+  done
 
-  export PLAYWRIGHT_BROWSERS_PATH="$fallback_root"
-  echo "[init] Recovered Playwright Chromium companion in $PLAYWRIGHT_BROWSERS_PATH"
-  cleanup_playwright_bootstrap
-  return 0
+  # Newer playwright-cli layouts may not expose the legacy marker/path shape.
+  # If direct launch works, accept the runtime as healthy.
+  for candidate_root in "$fallback_root" "$primary_root"; do
+    if probe_playwright_launch "$candidate_root" "$selected_tmpdir" 180; then
+      export PLAYWRIGHT_BROWSERS_PATH="$candidate_root"
+      if [[ "$candidate_root" == "$primary_root" ]]; then
+        dedupe_playwright_fallback_cache "$primary_root" "$fallback_root"
+      fi
+      echo "[init]   WARNING: Playwright payload layout check skipped; launch probe succeeded for $candidate_root" >&2
+      echo "[init] Recovered Playwright Chromium companion in $PLAYWRIGHT_BROWSERS_PATH"
+      cleanup_playwright_bootstrap
+      return 0
+    fi
+  done
+
+  echo "[init]   Playwright install output:" >&2
+  sed 's/^/[init]   /' "$install_log" >&2 || true
+  fail_playwright_bootstrap "fallback chromium payload is invalid"
+  return 1
 }
 
 # ============================================================
@@ -795,8 +886,11 @@ ZIM_HOME="$HOME_DIR/.zim"
 if [[ ! -f "$ZIM_HOME/zimfw.zsh" ]]; then
   echo "[init] Downloading zimfw..."
   mkdir -p "$ZIM_HOME"
-  curl -fsSL "https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh" \
-    -o "$ZIM_HOME/zimfw.zsh"
+  if ! timeout --kill-after=10 45 curl -fsSL "https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh" \
+    -o "$ZIM_HOME/zimfw.zsh" </dev/null; then
+    echo "[init]   WARNING: zimfw download failed or timed out (non-blocking)" >&2
+    rm -f "$ZIM_HOME/zimfw.zsh"
+  fi
 fi
 
 # Install modules only once.
@@ -805,8 +899,9 @@ if [[ -f "$ZIM_HOME/zimfw.zsh" ]]; then
   if [[ ! -f "$ZIM_HOME/init.zsh" ]]; then
     echo "[init] Installing zim modules..."
     # Keep startup resilient: do not fail entire container start on transient network errors.
-    zim_home_path="$ZIM_HOME"
-    ZIM_HOME="$zim_home_path" zsh "$zim_home_path/zimfw.zsh" install -q || true
+    if ! timeout --kill-after=10 90 env ZIM_HOME="$ZIM_HOME" zsh "$ZIM_HOME/zimfw.zsh" install -q </dev/null; then
+      echo "[init]   WARNING: zim module install failed or timed out (non-blocking)" >&2
+    fi
   fi
 fi
 
@@ -918,7 +1013,9 @@ fi
 if command -v broot &>/dev/null; then
   if [[ ! -f "$HOME_DIR/.config/broot/launcher/bash/br" ]]; then
     echo "[init] Initializing broot..."
-    broot --install || true
+    if ! timeout --kill-after=10 30 broot --install </dev/null; then
+      echo "[init]   WARNING: broot init failed or timed out (non-blocking)" >&2
+    fi
   fi
 fi
 
@@ -1100,7 +1197,7 @@ touch "$HOME_DIR/.zsh_history"
 # Warn early if Docker socket is mounted but not accessible.
 # This catches the common misconfiguration where --group-add is missing.
 if [[ -S /var/run/docker.sock ]]; then
-  if docker version >/dev/null 2>&1; then
+  if timeout --kill-after=3 8 docker version >/dev/null 2>&1; then
     echo "[init] Docker socket: accessible"
   else
     local_sock_gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo '?')"

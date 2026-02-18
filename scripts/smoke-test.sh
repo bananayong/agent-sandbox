@@ -936,13 +936,14 @@ find_playwright_chromium_binary() {
     return 1
   fi
 
-  find "$browsers_root" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit
+  find "$browsers_root" -type f \
+    \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux-arm64/chrome' \) \
+    -print -quit
 }
 
 check_playwright_chromium_companion() {
   local browsers_root="${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}"
   local chromium_bin=""
-  local install_marker=""
   local probe_session="smoke-playwright-$$"
   local probe_tmpdir="${TMPDIR:-/tmp}"
   local probe_dir=""
@@ -955,13 +956,6 @@ check_playwright_chromium_companion() {
 
   if [[ ! -x "$chromium_bin" ]]; then
     echo "  FAIL playwright-chromium-companion (binary not executable: ${chromium_bin})"
-    FAILED=1
-    return
-  fi
-
-  install_marker="$(dirname "$(dirname "$chromium_bin")")/INSTALLATION_COMPLETE"
-  if [[ ! -f "$install_marker" ]]; then
-    echo "  FAIL playwright-chromium-companion (missing marker: ${install_marker})"
     FAILED=1
     return
   fi
@@ -1041,6 +1035,7 @@ check_playwright_runtime_bootstrap_policy() {
   local has_locking=0
   local has_isolated_bootstrap=0
   local has_fail_closed=0
+  local has_writable_fallback=0
   local runtime_behavior_ok=0
 
   if grep -Eq '^ensure_playwright_chromium\(\)' "$start_script"; then
@@ -1056,6 +1051,9 @@ check_playwright_runtime_bootstrap_policy() {
     has_fallback_path=1
   fi
 
+  if grep -Fq 'playwright/cli.js' "$start_script" && grep -Fq 'install chromium' "$start_script"; then
+    has_install_call=1
+  fi
   if grep -Fq 'playwright-cli install' "$start_script"; then
     has_install_call=1
   fi
@@ -1071,9 +1069,15 @@ check_playwright_runtime_bootstrap_policy() {
   if grep -Fq 'Playwright Chromium companion bootstrap failed' "$start_script"; then
     has_fail_closed=1
   fi
+  if grep -Fq 'prepare_playwright_install_root' "$start_script" \
+    && grep -Fq 'fallback cache root is not writable' "$start_script"; then
+    has_writable_fallback=1
+  fi
 
+  local find_playwright_definition
   local playwright_definition
-  if playwright_definition="$(extract_shell_function_definition "$start_script" "ensure_playwright_chromium" 2>/dev/null)"; then
+  if find_playwright_definition="$(extract_shell_function_definition "$start_script" "find_playwright_chromium_binary" 2>/dev/null)" \
+    && playwright_definition="$(extract_shell_function_definition "$start_script" "ensure_playwright_chromium" 2>/dev/null)"; then
     local tmp_root
     tmp_root="$(mktemp -d)"
     local stub_bin="$tmp_root/bin"
@@ -1084,20 +1088,6 @@ check_playwright_runtime_bootstrap_policy() {
 set -euo pipefail
 cmd="${1:-}"
 case "$cmd" in
-  install)
-    if [[ "${PLAYWRIGHT_TEST_FORCE_INSTALL_FAIL:-0}" == "1" ]]; then
-      echo "forced install failure" >&2
-      exit 1
-    fi
-    target_root="${PLAYWRIGHT_BROWSERS_PATH:?}"
-    mkdir -p "$target_root/chromium-9999/chrome-linux"
-    cat > "$target_root/chromium-9999/chrome-linux/chrome" <<'INNER'
-#!/bin/bash
-echo "Chromium 9999.0"
-INNER
-    chmod +x "$target_root/chromium-9999/chrome-linux/chrome"
-    touch "$target_root/chromium-9999/INSTALLATION_COMPLETE"
-    ;;
   open|close|delete-data|--version)
     ;;
   *)
@@ -1107,30 +1097,136 @@ exit 0
 EOF
     chmod +x "$stub_bin/playwright-cli"
 
+    cat > "$stub_bin/npm" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [[ "${1:-}" == "root" && "${2:-}" == "-g" ]]; then
+  echo "${PLAYWRIGHT_TEST_NPM_ROOT:?}"
+  exit 0
+fi
+exit 0
+EOF
+    chmod +x "$stub_bin/npm"
+
+    cat > "$stub_bin/node" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [[ "${1:-}" == *"/@playwright/cli/node_modules/playwright/cli.js" ]] \
+  && [[ "${2:-}" == "install" ]] \
+  && [[ "${3:-}" == "chromium" ]]; then
+  if [[ "${PLAYWRIGHT_TEST_FORCE_INSTALL_FAIL:-0}" == "1" ]]; then
+    echo "forced install failure" >&2
+    exit 1
+  fi
+  target_root="${PLAYWRIGHT_BROWSERS_PATH:?}"
+  mkdir -p "$target_root/chromium-9999/chrome-linux"
+  cat > "$target_root/chromium-9999/chrome-linux/chrome" <<'INNER'
+#!/bin/bash
+echo "Chromium 9999.0"
+INNER
+  chmod +x "$target_root/chromium-9999/chrome-linux/chrome"
+  touch "$target_root/chromium-9999/INSTALLATION_COMPLETE"
+  exit 0
+fi
+exit 0
+EOF
+    chmod +x "$stub_bin/node"
+
+    mkdir -p "$tmp_root/npm-root/@playwright/cli/node_modules/playwright"
+    touch "$tmp_root/npm-root/@playwright/cli/node_modules/playwright/cli.js"
+
+    local runtime_basic_ok=0
+    local runtime_fail_closed_ok=0
+    local runtime_symlink_repair_ok=0
+    local runtime_zsh_ok=0
+
     if (
       set -euo pipefail
       export PATH="$stub_bin:$PATH"
       export HOME_DIR="$tmp_root/home"
       export XDG_CACHE_HOME="$tmp_root/xdg-cache"
       export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary"
+      export PLAYWRIGHT_TEST_NPM_ROOT="$tmp_root/npm-root"
+      eval "$find_playwright_definition"
       eval "$playwright_definition"
       ensure_playwright_chromium >/dev/null 2>&1
       [[ "$PLAYWRIGHT_BROWSERS_PATH" == "$tmp_root/xdg-cache/ms-playwright" ]]
     ); then
+      runtime_basic_ok=1
       if (
         set -euo pipefail
         export PATH="$stub_bin:$PATH"
         export HOME_DIR="$tmp_root/home-fail"
         export XDG_CACHE_HOME="$tmp_root/xdg-cache-fail"
         export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary-fail"
+        export PLAYWRIGHT_TEST_NPM_ROOT="$tmp_root/npm-root"
         export PLAYWRIGHT_TEST_FORCE_INSTALL_FAIL=1
+        eval "$find_playwright_definition"
         eval "$playwright_definition"
         ensure_playwright_chromium >/dev/null 2>&1
       ); then
-        runtime_behavior_ok=0
+        runtime_fail_closed_ok=0
       else
-        runtime_behavior_ok=1
+        runtime_fail_closed_ok=1
       fi
+    fi
+
+    if (
+      set -euo pipefail
+      export PATH="$stub_bin:$PATH"
+      export HOME_DIR="$tmp_root/home-link"
+      export XDG_CACHE_HOME="$tmp_root/xdg-cache-link"
+      export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary-link"
+      export PLAYWRIGHT_TEST_NPM_ROOT="$tmp_root/npm-root"
+      mkdir -p "$tmp_root/readonly-target" "$tmp_root/xdg-cache-link"
+      chmod 0555 "$tmp_root/readonly-target"
+      ln -s "$tmp_root/readonly-target" "$tmp_root/xdg-cache-link/ms-playwright"
+      eval "$find_playwright_definition"
+      eval "$playwright_definition"
+      ensure_playwright_chromium >/dev/null 2>&1
+      [[ ! -L "$tmp_root/xdg-cache-link/ms-playwright" ]]
+      candidate_bin="$(find_playwright_chromium_binary "$tmp_root/xdg-cache-link/ms-playwright")"
+      [[ -n "$candidate_bin" ]]
+      [[ -x "$candidate_bin" ]]
+    ); then
+      runtime_symlink_repair_ok=1
+    fi
+
+    if command -v zsh &>/dev/null; then
+      if (
+        set -euo pipefail
+        local zsh_runtime_script="$tmp_root/playwright-runtime-zsh-check.zsh"
+        export PATH="$stub_bin:$PATH"
+        export HOME_DIR="$tmp_root/home-zsh"
+        export XDG_CACHE_HOME="$tmp_root/xdg-cache-zsh"
+        export PLAYWRIGHT_BROWSERS_PATH="$tmp_root/primary-zsh"
+        export PLAYWRIGHT_TEST_NPM_ROOT="$tmp_root/npm-root"
+        mkdir -p "$tmp_root/readonly-target-zsh" "$tmp_root/xdg-cache-zsh"
+        chmod 0555 "$tmp_root/readonly-target-zsh"
+        ln -s "$tmp_root/readonly-target-zsh" "$tmp_root/xdg-cache-zsh/ms-playwright"
+        {
+          printf '%s\n' 'set -euo pipefail'
+          printf '%s\n' "$find_playwright_definition"
+          printf '%s\n' "$playwright_definition"
+          printf '%s\n' 'ensure_playwright_chromium >/dev/null 2>&1'
+          printf '%s\n' '[[ ! -L "$XDG_CACHE_HOME/ms-playwright" ]]'
+          printf '%s\n' 'candidate_bin="$(find_playwright_chromium_binary "$XDG_CACHE_HOME/ms-playwright")"'
+          printf '%s\n' '[[ -n "$candidate_bin" ]]'
+          printf '%s\n' '[[ -x "$candidate_bin" ]]'
+        } > "$zsh_runtime_script"
+        zsh "$zsh_runtime_script" >/dev/null 2>&1
+      ); then
+        runtime_zsh_ok=1
+      fi
+    else
+      runtime_zsh_ok=1
+    fi
+
+    if [[ "$runtime_basic_ok" -eq 1 ]] \
+      && [[ "$runtime_fail_closed_ok" -eq 1 ]] \
+      && [[ "$runtime_symlink_repair_ok" -eq 1 ]] \
+      && [[ "$runtime_zsh_ok" -eq 1 ]]; then
+      runtime_behavior_ok=1
     fi
 
     rm -rf "$tmp_root"
@@ -1143,10 +1239,11 @@ EOF
     && [[ "$has_locking" -eq 1 ]] \
     && [[ "$has_isolated_bootstrap" -eq 1 ]] \
     && [[ "$has_fail_closed" -eq 1 ]] \
+    && [[ "$has_writable_fallback" -eq 1 ]] \
     && [[ "$runtime_behavior_ok" -eq 1 ]]; then
     echo "  OK   playwright-runtime-bootstrap"
   else
-    echo "  FAIL playwright-runtime-bootstrap (helper=${has_helper}, invocation=${has_invocation}, fallback=${has_fallback_path}, install=${has_install_call}, lock=${has_locking}, isolated=${has_isolated_bootstrap}, fail_closed=${has_fail_closed}, runtime=${runtime_behavior_ok})"
+    echo "  FAIL playwright-runtime-bootstrap (helper=${has_helper}, invocation=${has_invocation}, fallback=${has_fallback_path}, install=${has_install_call}, lock=${has_locking}, isolated=${has_isolated_bootstrap}, fail_closed=${has_fail_closed}, writable_fallback=${has_writable_fallback}, runtime=${runtime_behavior_ok})"
     FAILED=1
   fi
 }

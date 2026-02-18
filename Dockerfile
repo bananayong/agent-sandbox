@@ -420,12 +420,12 @@ RUN npm install -g "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && mkdir -p /tmp/playwright-bootstrap/.playwright \
     && printf '{\n  "browser": {\n    "browserName": "chromium"\n  }\n}\n' > /tmp/playwright-bootstrap/.playwright/cli.config.json \
     && cd /tmp/playwright-bootstrap \
-    && playwright-cli install \
-    && chromium_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' \) -print -quit)" \
+    && PLAYWRIGHT_INSTALLER_CLI="$(npm root -g)/@playwright/cli/node_modules/playwright/cli.js" \
+    && test -f "$PLAYWRIGHT_INSTALLER_CLI" \
+    && node "$PLAYWRIGHT_INSTALLER_CLI" install chromium \
+    && chromium_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f \( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux-arm64/chrome' \) -print -quit)" \
     && test -n "$chromium_bin" \
     && test -x "$chromium_bin" \
-    && install_marker="$(dirname "$(dirname "$chromium_bin")")/INSTALLATION_COMPLETE" \
-    && test -f "$install_marker" \
     && "$chromium_bin" --version \
     && cd / \
     && rm -rf /tmp/playwright-bootstrap \
@@ -583,6 +583,13 @@ COPY --chmod=755 scripts/start.sh /usr/local/bin/start.sh
 
 # Run smoke test during build (--build skips docker socket checks).
 RUN /usr/local/bin/smoke-test.sh --build
+
+# Smoke test runs as root during image build and can leave /tmp/playwright-cli
+# root-owned. Make it world-writable/sticky so non-root runtime users can open
+# Playwright sessions without EACCES on the socket directory.
+RUN rm -rf /tmp/playwright-cli \
+    && mkdir -p /tmp/playwright-cli \
+    && chmod 1777 /tmp/playwright-cli
 
 ENV STARSHIP_CONFIG=/home/sandbox/.config/starship.toml \
     EDITOR=nvim \
