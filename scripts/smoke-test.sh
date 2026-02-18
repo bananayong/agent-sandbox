@@ -26,6 +26,16 @@ check() {
   fi
 }
 
+check_man_entry() {
+  local topic="$1"
+  if MANPAGER=cat man "$topic" >/dev/null 2>&1; then
+    echo "  OK   man:$topic"
+  else
+    echo "  FAIL man:$topic"
+    FAILED=1
+  fi
+}
+
 extract_shell_function_definition() {
   local script_path="$1"
   local function_name="$2"
@@ -867,6 +877,7 @@ check "gh"        gh --version
 check "node"      node --version
 check "bun"       bun --version
 check "python3"   python3 --version
+check "uv"        uv --version
 check "playwright-cli" playwright-cli --version
 check "vim"       vim --version
 check "nvim"      nvim --version
@@ -905,6 +916,21 @@ check "shellcheck"  shellcheck --version
 check "actionlint"  actionlint --version
 check "trivy"       trivy --version
 check "yamllint"    yamllint --version
+
+echo ""
+echo "--- Manual Pages ---"
+check_man_entry "curl"
+check_man_entry "zsh"
+check_man_entry "htop"
+check_man_entry "nnn"
+check_man_entry "ncdu"
+check_man_entry "jq"
+check_man_entry "rg"
+check_man_entry "bat"
+check_man_entry "zoxide"
+check_man_entry "shellcheck"
+check_man_entry "uv"
+check_man_entry "uvx"
 
 echo ""
 if [ "$FAILED" -eq 0 ]; then

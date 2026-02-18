@@ -208,6 +208,12 @@ set_codex_version_all_workflows() {
 DOCKER_VERSION_SOURCES=(
   "FZF_VERSION|junegunn/fzf"
   "EZA_VERSION|eza-community/eza"
+  "RIPGREP_VERSION|BurntSushi/ripgrep"
+  "BAT_VERSION|sharkdp/bat"
+  "ZOXIDE_VERSION|ajeetdsouza/zoxide"
+  "JQ_VERSION|jqlang/jq"
+  "SHELLCHECK_VERSION|koalaman/shellcheck"
+  "UV_VERSION|astral-sh/uv"
   "STARSHIP_VERSION|starship/starship"
   "TEALDEER_VERSION|dbrgn/tealdeer"
   "MICRO_VERSION|zyedidia/micro"

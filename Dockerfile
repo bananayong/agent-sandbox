@@ -15,12 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv \
     zsh tmux locales \
     vim \
-    nnn ncdu jq ripgrep \
-    bat zoxide \
+    nnn ncdu \
     dnsutils iputils-ping net-tools openssh-client \
-    less file man-db htop \
+    less file man-db help2man htop \
     procps \
-    shellcheck \
     # Playwright Chromium runtime dependencies.
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \
     libcairo2 libcups2 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 \
@@ -31,6 +29,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
     fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
+
+# Debian slim은 /usr/share/man/*를 기본 제외하므로,
+# 필요한 apt CLI의 man 페이지만 선택적으로 추출해 /usr/local/share/man에 둔다.
+RUN set -eux; \
+    apt-get update; \
+    mkdir -p /tmp/apt-man/extract /usr/local/share/man; \
+    cd /tmp/apt-man; \
+    # zsh man pages are shipped by zsh-common, not zsh binary package.
+    for pkg in curl zsh zsh-common htop nnn ncdu; do \
+      apt-get download "$pkg"; \
+    done; \
+    for deb in ./*.deb; do \
+      dpkg-deb --fsys-tarfile "$deb" \
+      | tar -x -C /tmp/apt-man/extract --wildcards './usr/share/man/*'; \
+    done; \
+    cp -a /tmp/apt-man/extract/usr/share/man/. /usr/local/share/man/; \
+    rm -rf /tmp/apt-man /var/lib/apt/lists/*
 
 # Enable UTF-8 locale so shells/tools behave consistently.
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -93,6 +108,24 @@ ARG PRE_COMMIT_VERSION=4.5.1
 ARG PLAYWRIGHT_CLI_VERSION=0.1.1
 ARG ACTIONLINT_VERSION=1.7.11
 ARG TRIVY_VERSION=0.69.1
+ARG RIPGREP_VERSION=15.1.0
+ARG RIPGREP_SHA256_AMD64=1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599
+ARG RIPGREP_SHA256_ARM64=2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e
+ARG BAT_VERSION=0.26.1
+ARG BAT_SHA256_AMD64=726f04c8f576a7fd18b7634f1bbf2f915c43494c1c0f013baa3287edb0d5a2a3
+ARG BAT_SHA256_ARM64=422eb73e11c854fddd99f5ca8461c2f1d6e6dce0a2a8c3d5daade5ffcb6564aa
+ARG ZOXIDE_VERSION=0.9.9
+ARG ZOXIDE_SHA256_AMD64=4ff057d3c4d957946937274c2b8be7af2a9bbae7f90a1b5e9baaa7cb65a20caa
+ARG ZOXIDE_SHA256_ARM64=96e6ea2e47a71db42cb7ad5a36e9209c8cb3708f8ae00f6945573d0d93315cb0
+ARG JQ_VERSION=1.8.1
+ARG JQ_SHA256_AMD64=020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d
+ARG JQ_SHA256_ARM64=6bc62f25981328edd3cfcfe6fe51b073f2d7e7710d7ef7fcdac28d4e384fc3d4
+ARG SHELLCHECK_VERSION=0.11.0
+ARG SHELLCHECK_SHA256_AMD64=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+ARG SHELLCHECK_SHA256_ARM64=12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588
+ARG UV_VERSION=0.10.4
+ARG UV_SHA256_AMD64=6b52a47358deea1c5e173278bf46b2b489747a59ae31f2a4362ed5c6c1c269f7
+ARG UV_SHA256_ARM64=c84a6e6405715caa6e2f5ef8e5f29a5d0bc558a954e9f1b5c082b9d4708c222e
 
 # Install Neovim from upstream release (newer than Debian stable package).
 RUN ARCH=$(dpkg --print-architecture) \
@@ -176,6 +209,72 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-${FD_ARCH}-unknown-linux-gnu.tar.gz" \
     | tar -xz --strip-components=1 -C /usr/local/bin/ "fd-v${FD_VERSION}-${FD_ARCH}-unknown-linux-gnu/fd"
 
+# Install ripgrep and ship upstream man page.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then RG_ARCH="aarch64-unknown-linux-gnu"; RG_SHA256="${RIPGREP_SHA256_ARM64}"; else RG_ARCH="x86_64-unknown-linux-musl"; RG_SHA256="${RIPGREP_SHA256_AMD64}"; fi \
+    && mkdir -p /tmp/rg /usr/local/share/man/man1 \
+    && curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-${RG_ARCH}.tar.gz" -o /tmp/rg.tar.gz \
+    && echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/rg.tar.gz -C /tmp/rg --strip-components=1 \
+    && install -m 0755 /tmp/rg/rg /usr/local/bin/rg \
+    && install -m 0644 /tmp/rg/doc/rg.1 /usr/local/share/man/man1/rg.1 \
+    && rm -rf /tmp/rg /tmp/rg.tar.gz
+
+# Install bat and upstream man page.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then BAT_ARCH="aarch64-unknown-linux-gnu"; BAT_SHA256="${BAT_SHA256_ARM64}"; else BAT_ARCH="x86_64-unknown-linux-gnu"; BAT_SHA256="${BAT_SHA256_AMD64}"; fi \
+    && mkdir -p /tmp/bat /usr/local/share/man/man1 \
+    && curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${BAT_VERSION}/bat-v${BAT_VERSION}-${BAT_ARCH}.tar.gz" -o /tmp/bat.tar.gz \
+    && echo "${BAT_SHA256}  /tmp/bat.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/bat.tar.gz -C /tmp/bat --strip-components=1 \
+    && install -m 0755 /tmp/bat/bat /usr/local/bin/bat \
+    && install -m 0644 /tmp/bat/bat.1 /usr/local/share/man/man1/bat.1 \
+    && rm -rf /tmp/bat /tmp/bat.tar.gz
+
+# Install zoxide and all upstream man pages.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then ZOXIDE_ARCH="aarch64"; ZOXIDE_SHA256="${ZOXIDE_SHA256_ARM64}"; else ZOXIDE_ARCH="x86_64"; ZOXIDE_SHA256="${ZOXIDE_SHA256_AMD64}"; fi \
+    && mkdir -p /tmp/zoxide /usr/local/share/man/man1 \
+    && curl -fsSL "https://github.com/ajeetdsouza/zoxide/releases/download/v${ZOXIDE_VERSION}/zoxide-${ZOXIDE_VERSION}-${ZOXIDE_ARCH}-unknown-linux-musl.tar.gz" -o /tmp/zoxide.tar.gz \
+    && echo "${ZOXIDE_SHA256}  /tmp/zoxide.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/zoxide.tar.gz -C /tmp/zoxide \
+    && install -m 0755 /tmp/zoxide/zoxide /usr/local/bin/zoxide \
+    && install -m 0644 /tmp/zoxide/man/man1/*.1 /usr/local/share/man/man1/ \
+    && rm -rf /tmp/zoxide /tmp/zoxide.tar.gz
+
+# Install jq binary and prebuilt man page.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then JQ_ARCH="arm64"; JQ_SHA256="${JQ_SHA256_ARM64}"; else JQ_ARCH="amd64"; JQ_SHA256="${JQ_SHA256_AMD64}"; fi \
+    && mkdir -p /usr/local/share/man/man1 /tmp/jq-src \
+    && curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${JQ_ARCH}" -o /usr/local/bin/jq \
+    && echo "${JQ_SHA256}  /usr/local/bin/jq" | sha256sum -c - \
+    && chmod +x /usr/local/bin/jq \
+    && curl -fsSL "https://github.com/jqlang/jq/archive/refs/tags/jq-${JQ_VERSION}.tar.gz" \
+    | tar -xz -C /tmp/jq-src --strip-components=1 "jq-jq-${JQ_VERSION}/jq.1.prebuilt" \
+    && install -m 0644 /tmp/jq-src/jq.1.prebuilt /usr/local/share/man/man1/jq.1 \
+    && rm -rf /tmp/jq-src
+
+# Install shellcheck from upstream release artifact.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then SC_ARCH="aarch64"; SC_SHA256="${SHELLCHECK_SHA256_ARM64}"; else SC_ARCH="x86_64"; SC_SHA256="${SHELLCHECK_SHA256_AMD64}"; fi \
+    && mkdir -p /tmp/shellcheck \
+    && curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${SC_ARCH}.tar.xz" -o /tmp/shellcheck.tar.xz \
+    && echo "${SC_SHA256}  /tmp/shellcheck.tar.xz" | sha256sum -c - \
+    && tar -xJf /tmp/shellcheck.tar.xz -C /tmp/shellcheck --strip-components=1 \
+    && install -m 0755 /tmp/shellcheck/shellcheck /usr/local/bin/shellcheck \
+    && rm -rf /tmp/shellcheck /tmp/shellcheck.tar.xz
+
+# Install uv (Python package manager) from upstream release artifact.
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ]; then UV_ARCH="aarch64"; UV_SHA256="${UV_SHA256_ARM64}"; else UV_ARCH="x86_64"; UV_SHA256="${UV_SHA256_AMD64}"; fi \
+    && mkdir -p /tmp/uv \
+    && curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
+    && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/uv.tar.gz -C /tmp/uv --strip-components=1 \
+    && install -m 0755 /tmp/uv/uv /usr/local/bin/uv \
+    && install -m 0755 /tmp/uv/uvx /usr/local/bin/uvx \
+    && rm -rf /tmp/uv /tmp/uv.tar.gz
+
 # Install lazygit.
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "arm64" ]; then LG_ARCH="arm64"; else LG_ARCH="x86_64"; fi \
@@ -208,9 +307,6 @@ RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "arm64" ]; then DELTA_ARCH="aarch64"; else DELTA_ARCH="x86_64"; fi \
     && curl -fsSL "https://github.com/dandavison/delta/releases/download/${DELTA_VERSION}/delta-${DELTA_VERSION}-${DELTA_ARCH}-unknown-linux-gnu.tar.gz" \
     | tar -xz --strip-components=1 -C /usr/local/bin/ "delta-${DELTA_VERSION}-${DELTA_ARCH}-unknown-linux-gnu/delta"
-
-# Debian package may expose bat as batcat. Create bat symlink for consistency.
-RUN if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then ln -s /usr/bin/batcat /usr/local/bin/bat; fi
 
 # Install dust (better du replacement).
 RUN ARCH=$(dpkg --print-architecture) \
@@ -257,6 +353,17 @@ RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "arm64" ]; then TRIVY_ARCH="ARM64"; else TRIVY_ARCH="64bit"; fi \
     && curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz" \
     | tar -xz -C /usr/local/bin/ trivy
+
+# Generate fallback man pages for tools that do not ship upstream man files.
+RUN mkdir -p /usr/local/share/man/man1 \
+    && export SOURCE_DATE_EPOCH=1704067200 TZ=UTC LC_ALL=C \
+    && for cmd in uv uvx shellcheck; do \
+      if ! man -w "$cmd" >/dev/null 2>&1; then \
+        help2man --no-info --no-discard-stderr "$cmd" > "/usr/local/share/man/man1/${cmd}.1"; \
+      fi; \
+    done \
+    && find /usr/local/share/man -type f -name '*.1' -exec gzip -nf {} + \
+    && mandb -q
 
 # Install pre-commit (code quality hook framework).
 # --break-system-packages is safe in container context (no venv needed).
@@ -367,6 +474,7 @@ RUN command -v claude || { echo "ERROR: claude not found"; exit 1; } \
     && command -v gitleaks || { echo "ERROR: gitleaks not found"; exit 1; } \
     && command -v hadolint || { echo "ERROR: hadolint not found"; exit 1; } \
     && command -v shellcheck || { echo "ERROR: shellcheck not found"; exit 1; } \
+    && command -v uv || { echo "ERROR: uv not found"; exit 1; } \
     && command -v direnv || { echo "ERROR: direnv not found"; exit 1; } \
     && command -v actionlint || { echo "ERROR: actionlint not found"; exit 1; } \
     && command -v trivy || { echo "ERROR: trivy not found"; exit 1; } \

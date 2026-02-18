@@ -310,11 +310,12 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 ## Included Tools (요약)
 
 - Base: Debian bookworm-slim, zsh, tmux, git, python3, node 22, bun
-- Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq
+- Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq, uv
 - UX: starship, eza, bat, zoxide, vim, neovim, micro, delta, lazygit, gitui, tokei
 - Agents: claude, codex, gemini, opencode
 
 참고: `broot`는 현재 빌드 안정성 이슈로 비활성화되어 있습니다.
+추가로 slim 이미지의 man 제외 정책은 유지하되, 핵심 CLI(`curl`,`zsh`,`htop`,`nnn`,`ncdu` 및 바이너리 설치 툴) man 페이지를 선택 설치해 `man` 조회를 보장합니다.
 
 ## Security Notes
 
