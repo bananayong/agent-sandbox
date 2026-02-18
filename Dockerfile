@@ -394,11 +394,9 @@ COPY configs/claude/agents/ /etc/skel/.claude/agents/
 COPY configs/claude/settings.json /etc/skel/.claude/settings.json
 COPY configs/claude/mcp.json /etc/skel/.claude/.mcp.json
 
-# Deploy LSP config to Codex and Gemini CLI as well.
-# start.sh will copy these to user home on first run.
-RUN mkdir -p /etc/skel/.codex /etc/skel/.gemini \
-    && cp /etc/skel/.claude/settings.json /etc/skel/.codex/settings.json \
-    && cp /etc/skel/.claude/settings.json /etc/skel/.gemini/settings.json
+# Agent-specific settings templates for first-run defaults.
+COPY configs/codex/settings.json /etc/skel/.codex/settings.json
+COPY configs/gemini/settings.json /etc/skel/.gemini/settings.json
 COPY configs/codex/config.toml /etc/skel/.codex/config.toml
 
 # Shared skills bundle (Anthropic skills repo vendored under ./skills).

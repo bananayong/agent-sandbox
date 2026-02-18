@@ -22,14 +22,14 @@ Optionally tag with priority and category:
 
 ## Pending
 
-- [ ] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하여 첫 실행 시 자동 복사
-- [ ] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
-- [ ] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
-- [ ] [P2] (build) 도구 업데이트 자동 PR — pinned version ARG 업데이트를 주기적으로 제안하는 워크플로우
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
+- [x] [P2] (setup) 에이전트별 기본 설정 템플릿 — `.claude/`, `.codex/`, `.gemini/` 등 에이전트별 권장 설정 파일을 `/etc/skel/`에 포함하고 entrypoint managed sync로 사용자 홈에 동기화
+- [x] [P3] (build) CI 파이프라인 정의 — GitHub Actions로 PR마다 빌드·lint·smoke test 자동 실행
+- [x] [P3] (build) Re-enable `tldr --update` in `scripts/start.sh` after root-cause fix for `InvalidArchive` panic
+- [x] [P2] (build) 도구 업데이트 자동 PR — pinned version ARG 업데이트를 주기적으로 제안하는 워크플로우
 - [x] [P2] (usability) 컨테이너 기본 EDITOR를 nvim으로 설정 — `EDITOR`/`VISUAL`/`GIT_EDITOR` 기본값을 `nvim`으로 통일하고 Debian `editor` 대안도 `nvim`으로 지정, 기존 `micro` 기본값은 fallback으로만 유지
 - [x] [P2] (usability) Vim/Neovim 기본 개발 환경 구성 — `vim-plug`(vim), `lazy.nvim`(neovim) 기반 플러그인/테마 세트와 베스트 프랙티스 설정을 `configs/`에 추가하고, `start.sh` first-run 자동 배포 및 smoke-test 검증 로직 반영
 - [x] [P2] (setup) 컨테이너 기본 에디터 확장 — `vim`/`neovim` 기본 탑재 및 README 도구 요약 반영
@@ -61,5 +61,5 @@ Optionally tag with priority and category:
 - [x] [P1] (setup) 에이전트에게 사용 가능한 도구 목록 알려주기 — TOOLS.md 컨테이너 내부 배치 (`~/.config/agent-sandbox/TOOLS.md`)
 - [x] [P2] (build) 버전 점검/업데이트 스크립트 추가 — `scripts/update-versions.sh`로 Dockerfile ARG, workflow action SHA, Codex 버전의 scan/check/update 지원
 - [x] [P2] (setup) 에이전트 보조 도구 설치 — superpowers, beads, bkit 등 코딩 에이전트의 생산성을 높여주는 도구들을 이미지에 설치 (beads: Dockerfile bun global, bkit: start.sh marketplace, speckit: arm64 미지원으로 제외)
-- [x] [P1] (automation) 에이전트 권한 프롬프트 최소화 — `AGENT_SANDBOX_AUTO_APPROVE=1` 기본값 + Codex/Claude/Gemini/Copilot auto-approve wrapper로 사용자 확인 없이 실행
+- [x] [P1] (automation) 에이전트 권한 프롬프트 최소화 — Codex/Claude/Gemini/Copilot auto-approve wrapper를 기본 활성화하여 사용자 확인 프롬프트 최소화
 - [x] [P3] (setup) docker-compose 경로의 Claude MEMORY/AGENT TEAMS env 전달 보강 — `docker-compose.yml`에 Claude 실험/튜닝 env 전달(`CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `ENABLE_TOOL_SEARCH`, `CLAUDE_CODE_ENABLE_TASKS`, `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) 추가 및 README 반영

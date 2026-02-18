@@ -26,6 +26,29 @@ check() {
   fi
 }
 
+extract_shell_function_definition() {
+  local script_path="$1"
+  local function_name="$2"
+
+  awk -v fn="$function_name" '
+    $0 ~ "^" fn "\\(\\)[[:space:]]*\\{" {
+      in_fn = 1
+    }
+    in_fn {
+      print
+      if ($0 ~ "^}[[:space:]]*$") {
+        found = 1
+        exit 0
+      }
+    }
+    END {
+      if (found != 1) {
+        exit 1
+      }
+    }
+  ' "$script_path"
+}
+
 resolve_shared_skills_root() {
   local skills_root="/opt/agent-sandbox/skills"
   if [[ ! -d "$skills_root" ]] && [[ -d "skills" ]]; then
@@ -231,6 +254,130 @@ check_templates_install_policy() {
   fi
 }
 
+check_agent_settings_install_policy() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local claude_template="/etc/skel/.claude/settings.json"
+  local codex_template="/etc/skel/.codex/settings.json"
+  local gemini_template="/etc/skel/.gemini/settings.json"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      claude_template="configs/claude/settings.json"
+      codex_template="configs/codex/settings.json"
+      gemini_template="configs/gemini/settings.json"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        start_script="scripts/start.sh"
+      fi
+      if [[ ! -f "$claude_template" ]] && [[ -f "configs/claude/settings.json" ]]; then
+        claude_template="configs/claude/settings.json"
+      fi
+      if [[ ! -f "$codex_template" ]] && [[ -f "configs/codex/settings.json" ]]; then
+        codex_template="configs/codex/settings.json"
+      fi
+      if [[ ! -f "$gemini_template" ]] && [[ -f "configs/gemini/settings.json" ]]; then
+        gemini_template="configs/gemini/settings.json"
+      fi
+      ;;
+    *)
+      echo "  FAIL agent-settings-install-policy (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL agent-settings-install-policy ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  if [[ ! -f "$claude_template" ]] || [[ ! -f "$codex_template" ]] || [[ ! -f "$gemini_template" ]]; then
+    echo "  FAIL agent-settings-install-policy (missing settings template files)"
+    FAILED=1
+    return
+  fi
+
+  local claude_managed=0
+  local codex_managed=0
+  local gemini_managed=0
+  local runtime_behavior_ok=0
+
+  # shellcheck disable=SC2016
+  if grep -Eq 'update_managed[[:space:]]+/etc/skel/.claude/settings.json[[:space:]]+"[$]HOME_DIR/.claude/settings.json"' "$start_script"; then
+    claude_managed=1
+  fi
+  # shellcheck disable=SC2016
+  if grep -Eq 'update_managed[[:space:]]+/etc/skel/.codex/settings.json[[:space:]]+"[$]HOME_DIR/.codex/settings.json"' "$start_script"; then
+    codex_managed=1
+  fi
+  # shellcheck disable=SC2016
+  if grep -Eq 'update_managed[[:space:]]+/etc/skel/.gemini/settings.json[[:space:]]+"[$]HOME_DIR/.gemini/settings.json"' "$start_script"; then
+    gemini_managed=1
+  fi
+
+  # Execute update_managed directly against real templates to verify behavior.
+  local update_managed_definition
+  if update_managed_definition="$(extract_shell_function_definition "$start_script" "update_managed" 2>/dev/null)"; then
+    local tmp_root
+    tmp_root="$(mktemp -d)"
+    runtime_behavior_ok=1
+
+    if ! eval "$update_managed_definition"; then
+      runtime_behavior_ok=0
+    fi
+
+    if [[ "$runtime_behavior_ok" -eq 1 ]]; then
+      local agent template_file missing_dest existing_dest
+      for agent in claude codex gemini; do
+        case "$agent" in
+          claude) template_file="$claude_template" ;;
+          codex) template_file="$codex_template" ;;
+          gemini) template_file="$gemini_template" ;;
+        esac
+
+        missing_dest="$tmp_root/home/.${agent}/missing-settings.json"
+        existing_dest="$tmp_root/home/.${agent}/settings.json"
+
+        if ! update_managed "$template_file" "$missing_dest" >/dev/null 2>&1; then
+          runtime_behavior_ok=0
+          break
+        fi
+        if ! cmp -s "$template_file" "$missing_dest"; then
+          runtime_behavior_ok=0
+          break
+        fi
+
+        mkdir -p "$(dirname "$existing_dest")"
+        printf '{ "user": true }\n' > "$existing_dest"
+        if ! update_managed "$template_file" "$existing_dest" >/dev/null 2>&1; then
+          runtime_behavior_ok=0
+          break
+        fi
+        if ! cmp -s "$template_file" "$existing_dest"; then
+          runtime_behavior_ok=0
+          break
+        fi
+      done
+    fi
+
+    rm -rf "$tmp_root"
+    unset -f update_managed || true
+  fi
+
+  if [[ "$claude_managed" -eq 1 ]] && [[ "$codex_managed" -eq 1 ]] && [[ "$gemini_managed" -eq 1 ]] && [[ "$runtime_behavior_ok" -eq 1 ]]; then
+    echo "  OK   agent-settings-install-policy"
+  else
+    echo "  FAIL agent-settings-install-policy (claude_managed=${claude_managed}, codex_managed=${codex_managed}, gemini_managed=${gemini_managed}, runtime=${runtime_behavior_ok})"
+    FAILED=1
+  fi
+}
+
 resolve_codex_default_check_paths() {
   local source_mode="${SMOKE_TEST_SOURCE:-auto}"
   local start_script="/usr/local/bin/start.sh"
@@ -426,6 +573,112 @@ check_tmux_plugin_bootstrap() {
   fi
 }
 
+check_tealdeer_update_bootstrap() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        start_script="scripts/start.sh"
+      fi
+      ;;
+    *)
+      echo "  FAIL tealdeer-update-bootstrap (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]]; then
+    echo "  FAIL tealdeer-update-bootstrap ($start_script missing)"
+    FAILED=1
+    return
+  fi
+
+  local has_helper=0
+  local has_invocation=0
+  local runtime_behavior_ok=0
+
+  if grep -Fq "update_tealdeer_cache()" "$start_script"; then
+    has_helper=1
+  fi
+
+  # Require async invocation so startup does not block on network/update retries.
+  if grep -Eq '^[[:space:]]*update_tealdeer_cache[[:space:]]*&[[:space:]]*$' "$start_script"; then
+    has_invocation=1
+  fi
+
+  # Execute the helper with a stub tldr binary to verify retry + cache cleanup.
+  local tealdeer_definition
+  if tealdeer_definition="$(extract_shell_function_definition "$start_script" "update_tealdeer_cache" 2>/dev/null)"; then
+    local tmp_root
+    tmp_root="$(mktemp -d)"
+    local stub_bin="$tmp_root/bin"
+    local attempt_file="$tmp_root/attempts"
+    local custom_cache="$tmp_root/custom-cache"
+    local xdg_cache_home="$tmp_root/xdg-cache"
+    local xdg_data_home="$tmp_root/xdg-data"
+
+    mkdir -p "$stub_bin" "$custom_cache" "$xdg_cache_home/tealdeer" "$xdg_data_home/tealdeer"
+    printf 'cache\n' > "$custom_cache/cache.txt"
+    printf 'cache\n' > "$xdg_cache_home/tealdeer/cache.txt"
+    printf 'cache\n' > "$xdg_data_home/tealdeer/cache.txt"
+
+    cat > "$stub_bin/tldr" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+attempt_file="${TLDR_TEST_ATTEMPT_FILE:?}"
+attempt=0
+if [[ -f "$attempt_file" ]]; then
+  attempt="$(cat "$attempt_file")"
+fi
+attempt=$((attempt + 1))
+printf '%s\n' "$attempt" > "$attempt_file"
+if [[ "$attempt" -eq 1 ]]; then
+  echo "InvalidArchive: simulated failure" >&2
+  exit 1
+fi
+echo "updated"
+exit 0
+EOF
+    chmod +x "$stub_bin/tldr"
+
+    if (
+      set -euo pipefail
+      export PATH="$stub_bin:$PATH"
+      export TLDR_TEST_ATTEMPT_FILE="$attempt_file"
+      export TLDR_CACHE_DIR="$custom_cache"
+      export XDG_CACHE_HOME="$xdg_cache_home"
+      export XDG_DATA_HOME="$xdg_data_home"
+      export HOME_DIR="$tmp_root/home"
+      eval "$tealdeer_definition"
+      update_tealdeer_cache >/dev/null 2>&1
+    ); then
+      if [[ -f "$attempt_file" ]] && [[ "$(cat "$attempt_file")" == "2" ]] \
+        && [[ ! -d "$custom_cache" ]] \
+        && [[ ! -d "$xdg_cache_home/tealdeer" ]] \
+        && [[ ! -d "$xdg_data_home/tealdeer" ]]; then
+        runtime_behavior_ok=1
+      fi
+    fi
+
+    rm -rf "$tmp_root"
+  fi
+
+  if [[ "$has_helper" -eq 1 ]] && [[ "$has_invocation" -eq 1 ]] && [[ "$runtime_behavior_ok" -eq 1 ]]; then
+    echo "  OK   tealdeer-update-bootstrap"
+  else
+    echo "  FAIL tealdeer-update-bootstrap (helper=${has_helper}, invocation=${has_invocation}, runtime=${runtime_behavior_ok})"
+    FAILED=1
+  fi
+}
+
 check_editor_defaults() {
   local source_mode="${SMOKE_TEST_SOURCE:-auto}"
   local start_script="/usr/local/bin/start.sh"
@@ -518,8 +771,10 @@ check_templates_install_policy
 
 echo ""
 echo "--- Agent Defaults ---"
+check_agent_settings_install_policy
 check_codex_default_config
 check_tmux_plugin_bootstrap
+check_tealdeer_update_bootstrap
 check_editor_defaults
 
 echo ""

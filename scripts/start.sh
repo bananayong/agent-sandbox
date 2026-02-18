@@ -321,19 +321,15 @@ install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "" "$FORC
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
 install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
 
-# Claude Code settings are managed: always kept in sync with image defaults.
-# This ensures managed runtime defaults reach existing users on image update.
-# WARNING: this overwrites user edits to settings.json (e.g. model choice).
-# The diff printed above lets users recover previous values if needed.
+# Agent settings are managed: always synced with image defaults.
+# This ensures runtime defaults reach existing users after image updates.
+# WARNING: this overwrites user edits to settings.json (diff is printed first).
 update_managed /etc/skel/.claude/settings.json "$HOME_DIR/.claude/settings.json"
+update_managed /etc/skel/.codex/settings.json "$HOME_DIR/.codex/settings.json"
+update_managed /etc/skel/.gemini/settings.json "$HOME_DIR/.gemini/settings.json"
 
 # Copy MCP server config template if not already present.
 copy_default /etc/skel/.claude/.mcp.json "$HOME_DIR/.claude/.mcp.json"
-
-# Copy LSP settings for coding agents (Claude Code, Codex, Gemini CLI).
-copy_default /etc/skel/.claude/settings.json  "$HOME_DIR/.claude/settings.json"
-copy_default /etc/skel/.codex/settings.json   "$HOME_DIR/.codex/settings.json"
-copy_default /etc/skel/.gemini/settings.json   "$HOME_DIR/.gemini/settings.json"
 
 # Codex CLI uses config.toml for TUI/runtime preferences.
 # Keep existing user config, but ensure the default status line exists.
@@ -377,6 +373,63 @@ print_dns_diagnostics() {
 }
 
 print_dns_diagnostics
+
+# Refresh tealdeer cache in a resilient, non-blocking way.
+# Why this exists:
+# - `tldr --update` occasionally fails with "InvalidArchive" in some environments.
+# - Startup should continue even when updates fail.
+#
+# Strategy:
+# - bounded retries with a timeout per attempt
+# - if output mentions InvalidArchive, clear cache dirs and retry
+update_tealdeer_cache() {
+  if ! command -v tldr &>/dev/null; then
+    return 0
+  fi
+
+  local max_attempts=3
+  local update_timeout_seconds=30
+  local attempt=1
+
+  while [[ "$attempt" -le "$max_attempts" ]]; do
+    local update_log
+    local update_exit=0
+    update_log="$(mktemp)"
+
+    if timeout --kill-after=10 "$update_timeout_seconds" tldr --update </dev/null >"$update_log" 2>&1; then
+      rm -f "$update_log"
+      return 0
+    fi
+    update_exit=$?
+
+    if grep -Eqi 'InvalidArchive|invalid[[:space:]_-]*archive' "$update_log"; then
+      local cache_paths=(
+        "${XDG_CACHE_HOME:-$HOME_DIR/.cache}/tealdeer"
+        "${XDG_DATA_HOME:-$HOME_DIR/.local/share}/tealdeer"
+      )
+      if [[ -n "${TLDR_CACHE_DIR:-}" ]]; then
+        cache_paths+=("$TLDR_CACHE_DIR")
+      fi
+
+      echo "[init]   WARNING: tldr --update hit InvalidArchive (attempt $attempt/$max_attempts)." >&2
+      echo "[init]   Clearing tealdeer cache before retry..." >&2
+
+      local cache_path
+      for cache_path in "${cache_paths[@]}"; do
+        rm -rf "$cache_path" 2>/dev/null || true
+      done
+    else
+      echo "[init]   WARNING: tldr --update failed or timed out (attempt $attempt/$max_attempts, exit=$update_exit)." >&2
+    fi
+
+    sed 's/^/[init]   /' "$update_log" >&2 || true
+    rm -f "$update_log"
+    attempt=$((attempt + 1))
+  done
+
+  echo "[init]   WARNING: Continuing startup without refreshed tealdeer cache." >&2
+  return 0
+}
 
 # ============================================================
 # Zimfw bootstrap
@@ -441,8 +494,9 @@ if command -v gh &>/dev/null; then
   fi
 fi
 
-# TODO: Re-enable tealdeer cache bootstrap after fixing intermittent
-# "InvalidArchive" failures during `tldr --update` in this environment.
+# Refresh local tldr pages cache in the background.
+# This keeps startup fast even when network is slow.
+update_tealdeer_cache &
 
 # Install TPM (Tmux Plugin Manager) and ensure default tmux plugins are present.
 # Retry on later startups when plugin install fails transiently.

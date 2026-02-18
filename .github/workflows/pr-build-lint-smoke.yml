@@ -1,0 +1,109 @@
+name: PR Build Lint Smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-lint-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install lint tools
+        env:
+          HADOLINT_VERSION: 2.14.0
+          ACTIONLINT_VERSION: 1.7.11
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+
+          arch="$(uname -m)"
+          case "${arch}" in
+            x86_64)
+              hadolint_arch="x86_64"
+              actionlint_arch="amd64"
+              ;;
+            aarch64|arm64)
+              hadolint_arch="arm64"
+              actionlint_arch="arm64"
+              ;;
+            *)
+              echo "Unsupported architecture: ${arch}" >&2
+              exit 1
+              ;;
+          esac
+
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-${hadolint_arch}" -o hadolint
+          hadolint_expected_sha="$(
+            curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-${hadolint_arch}.sha256" \
+              | awk '{print $1}'
+          )"
+          hadolint_actual_sha="$(sha256sum hadolint | awk '{print $1}')"
+          if [[ -z "${hadolint_expected_sha}" ]] || [[ "${hadolint_actual_sha}" != "${hadolint_expected_sha}" ]]; then
+            echo "hadolint checksum verification failed" >&2
+            exit 1
+          fi
+
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" -o actionlint.tar.gz
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o actionlint_checksums.txt
+          actionlint_expected_sha="$(awk "/linux_${actionlint_arch}\\.tar\\.gz$/ {print \$1}" actionlint_checksums.txt)"
+          actionlint_actual_sha="$(sha256sum actionlint.tar.gz | awk '{print $1}')"
+          if [[ -z "${actionlint_expected_sha}" ]] || [[ "${actionlint_actual_sha}" != "${actionlint_expected_sha}" ]]; then
+            echo "actionlint checksum verification failed" >&2
+            exit 1
+          fi
+
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x hadolint actionlint
+
+          sudo install -m 0755 hadolint /usr/local/bin/hadolint
+          sudo install -m 0755 actionlint /usr/local/bin/actionlint
+
+          rm -f hadolint actionlint actionlint.tar.gz actionlint_checksums.txt
+
+      - name: Run shellcheck
+        run: shellcheck scripts/*.sh run.sh
+
+      - name: Run hadolint
+        run: hadolint --failure-threshold error Dockerfile
+
+      - name: Run actionlint
+        run: actionlint .github/workflows/*.yml
+
+  build-smoke:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build Docker image
+        run: docker build -t agent-sandbox:pr-ci .
+
+      - name: Run smoke test in repo mode
+        run: |
+          docker run --rm --entrypoint bash \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            -e SMOKE_TEST_SOURCE=repo \
+            agent-sandbox:pr-ci \
+            -lc 'bash scripts/smoke-test.sh --build'

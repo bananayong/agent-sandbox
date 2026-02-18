@@ -54,13 +54,15 @@ docker build -t agent-sandbox:latest .
 
 컨테이너 시작 시 `scripts/start.sh`가 자동 실행됩니다.
 
-1. 기본 dotfiles를 `$HOME`으로 복사(첫 실행), managed config(`settings.json`)는 diff 출력 후 동기화
+1. 기본 dotfiles를 `$HOME`으로 복사(첫 실행), agent managed config(`~/.claude/settings.json`, `~/.codex/settings.json`, `~/.gemini/settings.json`)는 diff 출력 후 동기화
 2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
 5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit 등 1회성 세팅
 6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
+
+참고: 시작 시 `tldr --update`를 백그라운드에서 timeout/retry(최대 3회)로 시도하며, `InvalidArchive`가 감지되면 tealdeer 캐시를 정리 후 재시도합니다. 실패해도 시작은 계속 진행됩니다.
 
 ## Shared Skills (Anthropic)
 
@@ -118,6 +120,16 @@ playwright-cli -s=research close
 - 이미지 기본 경로: `/etc/skel/.agent-sandbox/templates`
 - 사용자 경로: `~/.agent-sandbox/templates`
 - 설치 정책: 없는 파일만 추가(기존 사용자 파일은 덮어쓰지 않음)
+
+## Agent Settings Templates
+
+에이전트별 `settings.json` 기본값은 `/etc/skel`에 분리 템플릿으로 포함됩니다.
+
+- Claude: `configs/claude/settings.json` -> `/etc/skel/.claude/settings.json` (managed sync)
+- Codex: `configs/codex/settings.json` -> `/etc/skel/.codex/settings.json` (managed sync)
+- Gemini: `configs/gemini/settings.json` -> `/etc/skel/.gemini/settings.json` (managed sync)
+
+주의: 세 파일 모두 entrypoint에서 managed sync로 유지되므로 기존 사용자 설정이 이미지 기본값으로 덮어써질 수 있습니다(동기화 전 diff 출력).
 
 기본 포함 파일:
 - `prompt-template.md`
@@ -197,6 +209,9 @@ nvim --headless "+Lazy! sync" +qa
 **Claude 전용 자동화 (`@claude` 멘션, Claude 코드리뷰):**
 - `.github/workflows/claude.yml`
 - `.github/workflows/claude-code-review.yml`
+
+**PR 품질 게이트 (build/lint/smoke):**
+- `.github/workflows/pr-build-lint-smoke.yml` (PR 이벤트에서 `shellcheck`, `hadolint`, `actionlint`, Docker build + repo-mode smoke test 실행)
 
 ### Required Secrets
 
@@ -347,6 +362,10 @@ scripts/update-versions.sh update --dry-run
 # 실제 파일 갱신
 scripts/update-versions.sh update
 ```
+
+자동화가 필요하면 GitHub Actions 워크플로우 `.github/workflows/update-pinned-versions.yml`를 사용하세요.
+- 매주 월요일 05:17 UTC에 실행되며, Actions 탭에서 `workflow_dispatch`로 수동 실행할 수도 있습니다.
+- 내부에서 `bash scripts/update-versions.sh update`를 실행하고 실제 diff가 있을 때만 PR을 생성/업데이트합니다.
 
 ## Documentation Convention (주석 원칙)
 
