@@ -24,6 +24,7 @@ Optionally tag with priority and category:
 
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 - [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
+- [ ] [P1] (setup) Playwright Chromium 동반 설치 보장 — `@playwright/cli`만 설치된 상태에서도 즉시 사용 가능하도록 컨테이너 빌드/런타임에서 Chromium 브라우저 바이너리를 함께 설치
 ## Done
 
 - [x] [P2] (setup) tmux 플러그인 설치 안정화 — `scripts/start.sh`에서 TPM 설치 시 임시 detached tmux 세션으로 서버 생존을 보장하고 `TMUX_PLUGIN_MANAGER_PATH`를 확실히 주입해 `unknown variable`/`Tmux Plugin Manager not configured` 오류를 방지
