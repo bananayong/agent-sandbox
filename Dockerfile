@@ -461,6 +461,8 @@ RUN bun install -g \
     && rm -rf \
       "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
       "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
+      "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
     # Bun global installs duplicate package tarballs in /usr/local/install/cache.
     # Clearing in the same RUN layer reclaims substantial space in final image.
     && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
@@ -477,6 +479,8 @@ RUN printf 'y\n' | bun pm -g trust @beads/bd \
     && rm -rf \
       "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
       "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
+      "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
       /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # Install LSP servers for code intelligence.
@@ -488,7 +492,15 @@ RUN bun install -g \
     vscode-langservers-extracted \
     yaml-language-server \
     pyright \
-    && rm -rf /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
+    && ARCH="$(dpkg --print-architecture)" \
+    && if [ "$ARCH" = "arm64" ]; then BIN_ARCH="arm64"; else BIN_ARCH="x64"; fi \
+    # Keep only glibc builds for opencode companions in Debian runtime.
+    && rm -rf \
+      "/usr/local/install/global/node_modules/opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/oh-my-opencode-linux-${BIN_ARCH}-musl" \
+      "/usr/local/install/global/node_modules/@img/sharp-libvips-linuxmusl-${BIN_ARCH}" \
+      "/usr/local/install/global/node_modules/@ast-grep/napi-linux-${BIN_ARCH}-musl" \
+      /usr/local/install/cache /root/.cache /tmp/node-compile-cache /tmp/bunx-*
 
 # Build-time sanity check: fail early if key CLIs are missing.
 # Each check is separate so the error message identifies the missing binary.

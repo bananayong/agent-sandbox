@@ -8,7 +8,7 @@ This is intentionally compact: only currently relevant guidance is kept.
 - Prefer short entries over narrative history.
 - When direction changes, replace outdated guidance with the new baseline.
 
-## Current Baseline (2026-02-17)
+## Current Baseline (2026-02-18)
 - Runtime behavior is fixed by default, not host-side feature flags:
   - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
   - `DISABLE_ERROR_REPORTING=1`
@@ -34,6 +34,7 @@ This is intentionally compact: only currently relevant guidance is kept.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.
 - Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).
 - Playwright Chromium companion is fail-closed by default: build-time payload/executable assert + startup self-heal to `~/.cache/ms-playwright` with lock/TMPDIR isolation.
+- When `/ms-playwright` payload is healthy, startup dedupes `~/.cache/ms-playwright` to a symlink target so persisted home does not keep a duplicate Chromium payload.
 - Codex defaults enable `undo`, `multi_agent`, `apps` with `[agents].max_threads=12`; missing keys are auto-merged into existing `~/.codex/config.toml`.
 
 ## Automation Security Baseline
@@ -46,3 +47,4 @@ This is intentionally compact: only currently relevant guidance is kept.
 ## Known Constraints
 - `broot` remains disabled in current image path due install stability concerns.
 - Host-side Docker storage pressure can break builds even when `/workspace` has free space; use reclaimable-threshold cleanup (`scripts/docker-storage-guard.sh`) as operational baseline.
+- Persisted home cache pressure should be managed with `scripts/home-storage-guard.sh` (`check`/`prune`, with optional `--aggressive` for re-creatable tool caches) as operational baseline.

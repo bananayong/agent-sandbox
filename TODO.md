@@ -23,9 +23,9 @@ Optionally tag with priority and category:
 ## Pending
 
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
-- [ ] [P3] (build) 이미지 사이즈 최적화 — 불필요한 레이어/캐시 정리, dive 등으로 레이어별 분석 및 경량화
 ## Done
 
+- [x] [P2] (ops) 컨테이너/이미지 디스크 최적화 — `docker system df`/`du` 실측 기반 병목 분석, Dockerfile bun 글로벌 설치 후 musl 중복 바이너리 정리 보강, `start.sh` Playwright fallback dedupe(심볼릭 링크) 추가, `scripts/home-storage-guard.sh`(`--aggressive` 포함) 및 README home 캐시 정리 가이드 반영
 - [x] [P2] (ops) Docker 저장공간 재발 방지 가이드 — `scripts/docker-storage-guard.sh` 임계치 기반(`docker system df`) 점검/정리 스크립트 추가 및 `README` Troubleshooting에 `no space left on device` 진단/해결 절차 반영
 - [x] [P1] (setup) Playwright Chromium 동반 설치 보장 — Dockerfile에서 Chromium payload 설치/실행 가능성 assert를 추가하고, `start.sh` fail-closed self-heal(`~/.cache/ms-playwright` fallback + lock + isolated bootstrap) 및 `smoke-test` companion/bootstrap 검증으로 빌드·런타임 보장 강화
 - [x] [P2] (usability) Micro 에디터 Vim/Neovim 스타일 기본 구성 — `configs/micro/settings.json`/`bindings.json` 추가, `start.sh` 누락 플러그인 자동 설치(`detectindent`, `fzf`, `lsp`, `quickfix`, `bookmark`, `manipulator` + 테마), `Dockerfile`/`README`/`smoke-test` 동기화

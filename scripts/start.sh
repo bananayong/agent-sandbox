@@ -634,6 +634,50 @@ ensure_playwright_chromium() {
     return 1
   }
 
+  dedupe_playwright_fallback_cache() {
+    local canonical_root="$1"
+    local duplicate_root="$2"
+    local canonical_bin=""
+    local duplicate_bin=""
+    local canonical_revision=""
+    local duplicate_revision=""
+    local linked_target=""
+
+    if [[ "$canonical_root" == "$duplicate_root" ]]; then
+      return 0
+    fi
+    if [[ ! -d "$canonical_root" ]] || [[ ! -e "$duplicate_root" ]]; then
+      return 0
+    fi
+
+    if [[ -L "$duplicate_root" ]]; then
+      linked_target="$(readlink "$duplicate_root" 2>/dev/null || true)"
+      if [[ "$linked_target" == "$canonical_root" ]]; then
+        return 0
+      fi
+    fi
+
+    if ! canonical_bin="$(find_playwright_chromium_binary "$canonical_root" 2>/dev/null)"; then
+      return 0
+    fi
+
+    duplicate_bin="$(find_playwright_chromium_binary "$duplicate_root" 2>/dev/null || true)"
+    if [[ -n "$duplicate_bin" ]]; then
+      canonical_revision="$(basename "$(dirname "$(dirname "$canonical_bin")")")"
+      duplicate_revision="$(basename "$(dirname "$(dirname "$duplicate_bin")")")"
+      # Keep fallback cache untouched when it contains a different Chromium revision.
+      if [[ "$canonical_revision" != "$duplicate_revision" ]]; then
+        return 0
+      fi
+    fi
+
+    mkdir -p "$(dirname "$duplicate_root")" 2>/dev/null || true
+    rm -rf "$duplicate_root" 2>/dev/null || true
+    if ln -s "$canonical_root" "$duplicate_root" 2>/dev/null; then
+      echo "[init] Deduplicated Playwright fallback cache: $duplicate_root -> $canonical_root"
+    fi
+  }
+
   cleanup_playwright_bootstrap() {
     if [[ -n "$bootstrap_dir" ]]; then
       rm -rf "$bootstrap_dir" 2>/dev/null || true
@@ -661,6 +705,7 @@ ensure_playwright_chromium() {
 
   if validate_playwright_root "$primary_root" && probe_playwright_launch "$primary_root" "$selected_tmpdir"; then
     export PLAYWRIGHT_BROWSERS_PATH="$primary_root"
+    dedupe_playwright_fallback_cache "$primary_root" "$fallback_root"
     return 0
   fi
 
@@ -687,6 +732,7 @@ ensure_playwright_chromium() {
   # Another shell may have repaired the payload while we were waiting for the lock.
   if validate_playwright_root "$primary_root" && probe_playwright_launch "$primary_root" "$selected_tmpdir"; then
     export PLAYWRIGHT_BROWSERS_PATH="$primary_root"
+    dedupe_playwright_fallback_cache "$primary_root" "$fallback_root"
     cleanup_playwright_bootstrap
     return 0
   fi
