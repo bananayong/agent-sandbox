@@ -31,6 +31,12 @@ This is intentionally compact: only currently relevant guidance is kept.
 ## Skills/Agent Behavior
 - Vendored shared skills are auto-installed for Claude/Codex/Gemini.
 - `find-skills` (`vercel-labs/skills`) is included in the vendored bundle and auto-installed at startup.
+- Requested external skill bundles (Vercel ecosystem, Expo, Supabase, marketing, React Doctor, UI/UX Pro Max) are vendored under `skills/` and auto-installed at startup.
+- External bundle scope also includes Antfu/Callstack/Better Auth/Stitch/Interface Design/Baoyu/Wshobson/Cloudflare/Web Quality/Planning with Files/Remotion Dev skills.
+- External bundle refresh is script-driven via `scripts/vendor-external-skills.sh`; source-of-truth mapping/ref pinning is `skills/external-manifest.txt`.
+- `scripts/vendor-external-skills.sh` prunes stale external targets that were removed from the manifest to avoid unintended startup installs.
+- `scripts/smoke-test.sh` validates external skills against `skills/external-manifest.txt` (not generated metadata) for independent completeness checks.
+- Some subagent runtimes can return `Permission denied` with built-in `explorer` role on directory reads; operational fallback is `worker` role for review/research tasks.
 - `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.
 - Web exploration baseline is `playwright-cli` session workflow (Chromium-pinned runtime).

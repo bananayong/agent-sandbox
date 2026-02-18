@@ -123,6 +123,30 @@ resolve_shared_skills_root() {
   echo "$skills_root"
 }
 
+resolve_start_script() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        # Fallback for local repository runs (outside built container image).
+        start_script="scripts/start.sh"
+      fi
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  echo "$start_script"
+}
+
 check_shared_skills_bundle() {
   local skills_root
   if ! skills_root="$(resolve_shared_skills_root)"; then
@@ -163,6 +187,43 @@ check_shared_skills_bundle() {
     echo "  FAIL shared-skill-required (${required_skill} missing)"
     FAILED=1
   fi
+
+  local manifest_file="$skills_root/external-manifest.txt"
+  local external_targets=()
+  if [[ -f "$manifest_file" ]]; then
+    mapfile -t external_targets < <(
+      awk -F'|' '
+        /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+        NF == 4 { print $4 }
+      ' "$manifest_file"
+    )
+  fi
+
+  if [[ "${#external_targets[@]}" -eq 0 ]]; then
+    echo "  FAIL shared-skill-external-targets (no external targets discovered from manifest)"
+    FAILED=1
+  else
+    local missing_external_count=0
+    local broken_symlink_count=0
+    local external_target=""
+    for external_target in "${external_targets[@]}"; do
+      if [[ ! -f "$skills_root/$external_target/SKILL.md" ]]; then
+        echo "  FAIL shared-skill-external-target (${external_target} missing)"
+        FAILED=1
+        missing_external_count=$((missing_external_count + 1))
+        continue
+      fi
+
+      if find "$skills_root/$external_target" -xtype l -print -quit | grep -q .; then
+        echo "  FAIL shared-skill-external-target (${external_target} has broken symlink)"
+        FAILED=1
+        broken_symlink_count=$((broken_symlink_count + 1))
+      fi
+    done
+    if [[ "$missing_external_count" -eq 0 ]] && [[ "$broken_symlink_count" -eq 0 ]]; then
+      echo "  OK   shared-skill-external-targets (${#external_targets[@]} targets)"
+    fi
+  fi
 }
 
 check_shared_skills_metadata() {
@@ -186,13 +247,49 @@ check_shared_skills_metadata() {
     echo "  FAIL shared-skills-upstream-metadata (missing valid commit hash)"
     FAILED=1
   fi
+
+  local manifest_file="$skills_root/external-manifest.txt"
+  if [[ ! -f "$manifest_file" ]]; then
+    echo "  FAIL shared-skills-external-manifest ($manifest_file missing)"
+    FAILED=1
+    return
+  fi
+
+  if awk -F'|' '
+      /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+      NF != 4 { bad = 1; next }
+      $1 !~ /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/ { bad = 1; next }
+      (length($2) != 40) || ($2 !~ /^[0-9a-f]+$/) { bad = 1; next }
+      $3 == "" { bad = 1; next }
+      $3 ~ /^\// { bad = 1; next }
+      $3 ~ /(^|\/)\.\.($|\/)/ { bad = 1; next }
+      $3 ~ /\/\// { bad = 1; next }
+      $4 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/ { bad = 1; next }
+      seen[$4]++ > 0 { bad = 1; next }
+      { count++ }
+      END {
+        if (count == 0 || bad == 1) {
+          exit 1
+        }
+      }
+    ' "$manifest_file"; then
+    echo "  OK   shared-skills-external-manifest"
+  else
+    echo "  FAIL shared-skills-external-manifest (invalid rows or missing pinned refs)"
+    FAILED=1
+  fi
 }
 
 check_shared_skills_install_policy() {
-  local start_script="/usr/local/bin/start.sh"
+  local start_script
+  if ! start_script="$(resolve_start_script)"; then
+    echo "  FAIL shared-skills-install-policy (invalid SMOKE_TEST_SOURCE=${SMOKE_TEST_SOURCE:-auto})"
+    FAILED=1
+    return
+  fi
 
   if [[ ! -f "$start_script" ]]; then
-    echo "  FAIL shared-skills-install-policy (start.sh not found)"
+    echo "  FAIL shared-skills-install-policy (start.sh not found at $start_script)"
     FAILED=1
     return
   fi
@@ -220,7 +317,7 @@ check_shared_skills_install_policy() {
     grep -E '^[[:space:]]*FORCE_SYNC_SHARED_SKILLS=' "$start_script" \
       | head -n 1 \
       | sed -E 's/^[[:space:]]*FORCE_SYNC_SHARED_SKILLS="?([^"]*)"?/\1/'
-  )"
+    )"
 
   if [[ -n "$managed_sync_value" ]]; then
     local managed_sync_name

@@ -14,3 +14,1372 @@ synced_at_utc: 2026-02-15T12:19:49Z
 #   path: skills/find-skills
 #   commit: 66a7b901aad3b30f541f646199ff0df3050b764b
 #   synced_at_utc: 2026-02-18T12:04:04Z
+
+# BEGIN external-skill-sources (managed by scripts/vendor-external-skills.sh)
+# generated_at_utc: 2026-02-18T13:30:58Z
+# - repository: https://github.com/vercel-labs/agent-skills
+#   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+#   path: skills/claude.ai/vercel-deploy-claimable
+#   target: vercel-deploy-claimable
+#   commit: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+# - repository: https://github.com/vercel-labs/agent-skills
+#   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+#   path: skills/composition-patterns
+#   target: composition-patterns
+#   commit: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+# - repository: https://github.com/vercel-labs/agent-skills
+#   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+#   path: skills/react-best-practices
+#   target: react-best-practices
+#   commit: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+# - repository: https://github.com/vercel-labs/agent-skills
+#   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+#   path: skills/react-native-skills
+#   target: react-native-skills
+#   commit: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+# - repository: https://github.com/vercel-labs/agent-skills
+#   ref: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+#   path: skills/web-design-guidelines
+#   target: web-design-guidelines
+#   commit: e23951b8cad2f4b1e7e176c5731127c1263fe86f
+# - repository: https://github.com/vercel-labs/next-skills
+#   ref: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+#   path: skills/next-best-practices
+#   target: next-best-practices
+#   commit: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+# - repository: https://github.com/vercel-labs/next-skills
+#   ref: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+#   path: skills/next-cache-components
+#   target: next-cache-components
+#   commit: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+# - repository: https://github.com/vercel-labs/next-skills
+#   ref: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+#   path: skills/next-upgrade
+#   target: next-upgrade
+#   commit: 038954e07bfc313e97fa5f6ff7caf87226e4a782
+# - repository: https://github.com/vercel/turborepo
+#   ref: 51c48d66789e74d1af311db250a6cf67b3b29591
+#   path: skills/turborepo
+#   target: turborepo
+#   commit: 51c48d66789e74d1af311db250a6cf67b3b29591
+# - repository: https://github.com/vercel/ai
+#   ref: c94ce6fd20a4ec9f898bdd7a23700e0c1214d249
+#   path: skills/use-ai-sdk
+#   target: ai-sdk
+#   commit: c94ce6fd20a4ec9f898bdd7a23700e0c1214d249
+# - repository: https://github.com/vercel/ai-elements
+#   ref: 10a5e65257b7f838ee3fe367713941f57b0e212c
+#   path: skills/ai-elements
+#   target: ai-elements
+#   commit: 10a5e65257b7f838ee3fe367713941f57b0e212c
+# - repository: https://github.com/vercel/streamdown
+#   ref: ce9b4c23368f63ef9d2384472ed8062d0be80997
+#   path: skills/streamdown
+#   target: streamdown
+#   commit: ce9b4c23368f63ef9d2384472ed8062d0be80997
+# - repository: https://github.com/vercel/components.build
+#   ref: f97206c2f09f017a48958589506dcba1bb151c47
+#   path: skills/building-components
+#   target: building-components
+#   commit: f97206c2f09f017a48958589506dcba1bb151c47
+# - repository: https://github.com/vercel-labs/agent-browser
+#   ref: 06a32f41912b2f745ef921219b8a3fda5cfa805f
+#   path: skills/agent-browser
+#   target: agent-browser
+#   commit: 06a32f41912b2f745ef921219b8a3fda5cfa805f
+# - repository: https://github.com/vercel-labs/autoship
+#   ref: 6a2735fece141855e979cb29503303f54bae28c5
+#   path: skills/autoship
+#   target: autoship
+#   commit: 6a2735fece141855e979cb29503303f54bae28c5
+# - repository: https://github.com/vercel-labs/agentic-commerce-skills
+#   ref: 735241a60ffb77cea3c2c18a1ada0667e6565128
+#   path: ucp
+#   target: ucp
+#   commit: 735241a60ffb77cea3c2c18a1ada0667e6565128
+# - repository: https://github.com/vercel/workflow
+#   ref: ea3254e7ce28cef6b9b829ac7ad379921dd41ed9
+#   path: skills/workflow
+#   target: workflow
+#   commit: ea3254e7ce28cef6b9b829ac7ad379921dd41ed9
+# - repository: https://github.com/vercel-labs/json-render
+#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+#   path: skills/json-render-core
+#   target: json-render-core
+#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+# - repository: https://github.com/vercel-labs/json-render
+#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+#   path: skills/json-render-react
+#   target: json-render-react
+#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+# - repository: https://github.com/vercel-labs/json-render
+#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+#   path: skills/json-render-react-native
+#   target: json-render-react-native
+#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+# - repository: https://github.com/vercel-labs/json-render
+#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+#   path: skills/json-render-remotion
+#   target: json-render-remotion
+#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+# - repository: https://github.com/vercel-labs/json-render
+#   ref: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+#   path: skills/remotion-best-practices
+#   target: remotion-best-practices
+#   commit: b7d5a75bfa27ac796907c5940fe0da94fb9c1625
+# - repository: https://github.com/vercel-labs/before-and-after
+#   ref: 178594233450657b198b965635b3bba443bf9129
+#   path: skill
+#   target: before-and-after
+#   commit: 178594233450657b198b965635b3bba443bf9129
+# - repository: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+#   ref: 6623f12b4058d09618c89cffb2de59a47c45f999
+#   path: .claude/skills/ui-ux-pro-max
+#   target: ui-ux-pro-max
+#   commit: 6623f12b4058d09618c89cffb2de59a47c45f999
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/ab-test-setup
+#   target: ab-test-setup
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/analytics-tracking
+#   target: analytics-tracking
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/cold-email
+#   target: cold-email
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/competitor-alternatives
+#   target: competitor-alternatives
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/content-strategy
+#   target: content-strategy
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/copy-editing
+#   target: copy-editing
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/copywriting
+#   target: copywriting
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/email-sequence
+#   target: email-sequence
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/form-cro
+#   target: form-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/free-tool-strategy
+#   target: free-tool-strategy
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/launch-strategy
+#   target: launch-strategy
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/marketing-ideas
+#   target: marketing-ideas
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/marketing-psychology
+#   target: marketing-psychology
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/onboarding-cro
+#   target: onboarding-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/page-cro
+#   target: page-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/paid-ads
+#   target: paid-ads
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/paywall-upgrade-cro
+#   target: paywall-upgrade-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/popup-cro
+#   target: popup-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/pricing-strategy
+#   target: pricing-strategy
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/product-marketing-context
+#   target: product-marketing-context
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/programmatic-seo
+#   target: programmatic-seo
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/referral-program
+#   target: referral-program
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/schema-markup
+#   target: schema-markup
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/seo-audit
+#   target: seo-audit
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/signup-flow-cro
+#   target: signup-flow-cro
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/coreyhaines31/marketingskills
+#   ref: a857eb683aab1134f6c367b6d325e80d3a944de2
+#   path: skills/social-content
+#   target: social-content
+#   commit: a857eb683aab1134f6c367b6d325e80d3a944de2
+# - repository: https://github.com/supabase/agent-skills
+#   ref: 760460c221d30d0db904ff28e8fa52af85672255
+#   path: skills/supabase-postgres-best-practices
+#   target: supabase-postgres-best-practices
+#   commit: 760460c221d30d0db904ff28e8fa52af85672255
+# - repository: https://github.com/millionco/react-doctor
+#   ref: 8eae2ecdb38cfa0907d92b64a7f0b4f99227c8bc
+#   path: skills/react-doctor
+#   target: react-doctor
+#   commit: 8eae2ecdb38cfa0907d92b64a7f0b4f99227c8bc
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/building-native-ui
+#   target: building-native-ui
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/expo-api-routes
+#   target: expo-api-routes
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/expo-dev-client
+#   target: expo-dev-client
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/expo-tailwind-setup
+#   target: expo-tailwind-setup
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/native-data-fetching
+#   target: native-data-fetching
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-app-design/skills/use-dom
+#   target: use-dom
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-deployment/skills/expo-cicd-workflows
+#   target: expo-cicd-workflows
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/expo-deployment/skills/expo-deployment
+#   target: expo-deployment
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/expo/skills
+#   ref: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+#   path: plugins/upgrading-expo/skills/upgrading-expo
+#   target: upgrading-expo
+#   commit: 0b19547886fad065d37ae3f776050f6bb89ef7ee
+# - repository: https://github.com/OthmanAdi/planning-with-files
+#   ref: 4292f000a15ecf07a6d0900ab495b80864de2a15
+#   path: skills/planning-with-files
+#   target: planning-with-files
+#   commit: 4292f000a15ecf07a6d0900ab495b80864de2a15
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/accessibility
+#   target: accessibility
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/best-practices
+#   target: web-quality-best-practices
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/core-web-vitals
+#   target: core-web-vitals
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/performance
+#   target: performance
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/seo
+#   target: seo
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/addyosmani/web-quality-skills
+#   ref: 6a231a73b79ff35bcee04dec85996415979aa928
+#   path: skills/web-quality-audit
+#   target: web-quality-audit
+#   commit: 6a231a73b79ff35bcee04dec85996415979aa928
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/antfu
+#   target: antfu
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/nuxt
+#   target: nuxt
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/pinia
+#   target: pinia
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/pnpm
+#   target: pnpm
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/slidev
+#   target: slidev
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/tsdown
+#   target: tsdown
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/turborepo
+#   target: antfu-turborepo
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/unocss
+#   target: unocss
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vitepress
+#   target: vitepress
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vitest
+#   target: vitest
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vite
+#   target: vite
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vue-best-practices
+#   target: vue-best-practices
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vue-router-best-practices
+#   target: vue-router-best-practices
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vue-testing-best-practices
+#   target: vue-testing-best-practices
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vueuse-functions
+#   target: vueuse-functions
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/vue
+#   target: vue
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/antfu/skills
+#   ref: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+#   path: skills/web-design-guidelines
+#   target: antfu-web-design-guidelines
+#   commit: 3fb90f01f5298b00de0a2500aab1ddd1357e6eb2
+# - repository: https://github.com/better-auth/skills
+#   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+#   path: better-auth/best-practices
+#   target: best-practices
+#   commit: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+# - repository: https://github.com/better-auth/skills
+#   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+#   path: better-auth/create-auth
+#   target: create-auth
+#   commit: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+# - repository: https://github.com/better-auth/skills
+#   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+#   path: better-auth/emailAndPassword
+#   target: emailAndPassword
+#   commit: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+# - repository: https://github.com/better-auth/skills
+#   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+#   path: better-auth/organization
+#   target: organization
+#   commit: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+# - repository: https://github.com/better-auth/skills
+#   ref: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+#   path: better-auth/twoFactor
+#   target: twoFactor
+#   commit: f7c870fc9f9040f22ec39230ffc0f8b487e52893
+# - repository: https://github.com/callstackincubator/agent-skills
+#   ref: 590b98104b97b47194035355edc0a53ea9281e6e
+#   path: .claude/skills/validate-skills
+#   target: validate-skills
+#   commit: 590b98104b97b47194035355edc0a53ea9281e6e
+# - repository: https://github.com/callstackincubator/agent-skills
+#   ref: 590b98104b97b47194035355edc0a53ea9281e6e
+#   path: skills/github
+#   target: github
+#   commit: 590b98104b97b47194035355edc0a53ea9281e6e
+# - repository: https://github.com/callstackincubator/agent-skills
+#   ref: 590b98104b97b47194035355edc0a53ea9281e6e
+#   path: skills/react-native-best-practices
+#   target: react-native-best-practices
+#   commit: 590b98104b97b47194035355edc0a53ea9281e6e
+# - repository: https://github.com/callstackincubator/agent-skills
+#   ref: 590b98104b97b47194035355edc0a53ea9281e6e
+#   path: skills/upgrading-react-native
+#   target: upgrading-react-native
+#   commit: 590b98104b97b47194035355edc0a53ea9281e6e
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/agents-sdk
+#   target: agents-sdk
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/building-ai-agent-on-cloudflare
+#   target: building-ai-agent-on-cloudflare
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/building-mcp-server-on-cloudflare
+#   target: building-mcp-server-on-cloudflare
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/cloudflare
+#   target: cloudflare
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/durable-objects
+#   target: durable-objects
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/sandbox-sdk
+#   target: sandbox-sdk
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/web-perf
+#   target: web-perf
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/workers-best-practices
+#   target: workers-best-practices
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/cloudflare/skills
+#   ref: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+#   path: skills/wrangler
+#   target: wrangler
+#   commit: fe4f2e9999991b36568e3d81a13de06a2b26bb20
+# - repository: https://github.com/dammyjay93/interface-design
+#   ref: 8c407c1c42890010a9eb403a9f419b1eeadcfdad
+#   path: .claude/skills/interface-design
+#   target: interface-design
+#   commit: 8c407c1c42890010a9eb403a9f419b1eeadcfdad
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/design-md
+#   target: design-md
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/enhance-prompt
+#   target: enhance-prompt
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/react-components
+#   target: react-components
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/remotion
+#   target: remotion
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/shadcn-ui
+#   target: shadcn-ui
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/google-labs-code/stitch-skills
+#   ref: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+#   path: skills/stitch-loop
+#   target: stitch-loop
+#   commit: 51d6d5ab56b9b46e1947bc4dabcd7f53bd343b3e
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: .claude/skills/release-skills
+#   target: baoyu-release-skills
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-article-illustrator
+#   target: baoyu-article-illustrator
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-comic
+#   target: baoyu-comic
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-compress-image
+#   target: baoyu-compress-image
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-cover-image
+#   target: baoyu-cover-image
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-danger-gemini-web
+#   target: baoyu-danger-gemini-web
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-danger-x-to-markdown
+#   target: baoyu-danger-x-to-markdown
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-format-markdown
+#   target: baoyu-format-markdown
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-image-gen
+#   target: baoyu-image-gen
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-infographic
+#   target: baoyu-infographic
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-markdown-to-html
+#   target: baoyu-markdown-to-html
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-post-to-wechat
+#   target: baoyu-post-to-wechat
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-post-to-x
+#   target: baoyu-post-to-x
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-slide-deck
+#   target: baoyu-slide-deck
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-url-to-markdown
+#   target: baoyu-url-to-markdown
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/jimliu/baoyu-skills
+#   ref: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+#   path: skills/baoyu-xhs-images
+#   target: baoyu-xhs-images
+#   commit: d59ecf22c12ae1189a2c8ca9951260d0eca777c2
+# - repository: https://github.com/remotion-dev/skills
+#   ref: 8969e8729f3e91fc6e8bfbe486c977fdbd25d0e1
+#   path: skills/remotion
+#   target: remotion-dev-remotion
+#   commit: 8969e8729f3e91fc6e8bfbe486c977fdbd25d0e1
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/accessibility-compliance/skills/screen-reader-testing
+#   target: screen-reader-testing
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/accessibility-compliance/skills/wcag-audit-patterns
+#   target: wcag-audit-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/multi-reviewer-patterns
+#   target: multi-reviewer-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/parallel-debugging
+#   target: parallel-debugging
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/parallel-feature-development
+#   target: parallel-feature-development
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/task-coordination-strategies
+#   target: task-coordination-strategies
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/team-communication-protocols
+#   target: team-communication-protocols
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/agent-teams/skills/team-composition-patterns
+#   target: team-composition-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/api-scaffolding/skills/fastapi-templates
+#   target: fastapi-templates
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/api-design-principles
+#   target: api-design-principles
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/architecture-patterns
+#   target: architecture-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/cqrs-implementation
+#   target: cqrs-implementation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/event-store-design
+#   target: event-store-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/microservices-patterns
+#   target: microservices-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/projection-patterns
+#   target: projection-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/saga-orchestration
+#   target: saga-orchestration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/temporal-python-testing
+#   target: temporal-python-testing
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/backend-development/skills/workflow-orchestration-patterns
+#   target: workflow-orchestration-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/blockchain-web3/skills/defi-protocol-templates
+#   target: defi-protocol-templates
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/blockchain-web3/skills/nft-standards
+#   target: nft-standards
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/blockchain-web3/skills/solidity-security
+#   target: solidity-security
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/blockchain-web3/skills/web3-testing
+#   target: web3-testing
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/business-analytics/skills/data-storytelling
+#   target: data-storytelling
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/business-analytics/skills/kpi-dashboard-design
+#   target: kpi-dashboard-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cicd-automation/skills/deployment-pipeline-design
+#   target: deployment-pipeline-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cicd-automation/skills/github-actions-templates
+#   target: github-actions-templates
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cicd-automation/skills/gitlab-ci-patterns
+#   target: gitlab-ci-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cicd-automation/skills/secrets-management
+#   target: secrets-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/cost-optimization
+#   target: cost-optimization
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/hybrid-cloud-networking
+#   target: hybrid-cloud-networking
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/istio-traffic-management
+#   target: istio-traffic-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/linkerd-patterns
+#   target: linkerd-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/mtls-configuration
+#   target: mtls-configuration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/multi-cloud-architecture
+#   target: multi-cloud-architecture
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/service-mesh-observability
+#   target: service-mesh-observability
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/cloud-infrastructure/skills/terraform-module-library
+#   target: terraform-module-library
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/conductor/skills/context-driven-development
+#   target: context-driven-development
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/conductor/skills/track-management
+#   target: track-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/conductor/skills/workflow-patterns
+#   target: workflow-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/data-engineering/skills/airflow-dag-patterns
+#   target: airflow-dag-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/data-engineering/skills/data-quality-frameworks
+#   target: data-quality-frameworks
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/data-engineering/skills/dbt-transformation-patterns
+#   target: dbt-transformation-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/data-engineering/skills/spark-optimization
+#   target: spark-optimization
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/database-design/skills/postgresql
+#   target: postgresql
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/auth-implementation-patterns
+#   target: auth-implementation-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/bazel-build-optimization
+#   target: bazel-build-optimization
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/code-review-excellence
+#   target: code-review-excellence
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/debugging-strategies
+#   target: debugging-strategies
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/e2e-testing-patterns
+#   target: e2e-testing-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/error-handling-patterns
+#   target: error-handling-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/git-advanced-workflows
+#   target: git-advanced-workflows
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/monorepo-management
+#   target: monorepo-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/nx-workspace-patterns
+#   target: nx-workspace-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/sql-optimization-patterns
+#   target: sql-optimization-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/developer-essentials/skills/turborepo-caching
+#   target: turborepo-caching
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/documentation-generation/skills/architecture-decision-records
+#   target: architecture-decision-records
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/documentation-generation/skills/changelog-automation
+#   target: changelog-automation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/documentation-generation/skills/openapi-spec-generation
+#   target: openapi-spec-generation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/dotnet-contribution/skills/dotnet-backend-patterns
+#   target: dotnet-backend-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/framework-migration/skills/angular-migration
+#   target: angular-migration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/framework-migration/skills/database-migration
+#   target: database-migration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/framework-migration/skills/dependency-upgrade
+#   target: dependency-upgrade
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/framework-migration/skills/react-modernization
+#   target: react-modernization
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/frontend-mobile-development/skills/nextjs-app-router-patterns
+#   target: nextjs-app-router-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/frontend-mobile-development/skills/react-native-architecture
+#   target: react-native-architecture
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/frontend-mobile-development/skills/react-state-management
+#   target: react-state-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/frontend-mobile-development/skills/tailwind-design-system
+#   target: tailwind-design-system
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/game-development/skills/godot-gdscript-patterns
+#   target: godot-gdscript-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/game-development/skills/unity-ecs-patterns
+#   target: unity-ecs-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/hr-legal-compliance/skills/employment-contract-templates
+#   target: employment-contract-templates
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/hr-legal-compliance/skills/gdpr-data-handling
+#   target: gdpr-data-handling
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/incident-response/skills/incident-runbook-templates
+#   target: incident-runbook-templates
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/incident-response/skills/on-call-handoff-patterns
+#   target: on-call-handoff-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/incident-response/skills/postmortem-writing
+#   target: postmortem-writing
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/javascript-typescript/skills/javascript-testing-patterns
+#   target: javascript-testing-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/javascript-typescript/skills/modern-javascript-patterns
+#   target: modern-javascript-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/javascript-typescript/skills/nodejs-backend-patterns
+#   target: nodejs-backend-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/javascript-typescript/skills/typescript-advanced-types
+#   target: typescript-advanced-types
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/kubernetes-operations/skills/gitops-workflow
+#   target: gitops-workflow
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/kubernetes-operations/skills/helm-chart-scaffolding
+#   target: helm-chart-scaffolding
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/kubernetes-operations/skills/k8s-manifest-generator
+#   target: k8s-manifest-generator
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/kubernetes-operations/skills/k8s-security-policies
+#   target: k8s-security-policies
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/embedding-strategies
+#   target: embedding-strategies
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/hybrid-search-implementation
+#   target: hybrid-search-implementation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/langchain-architecture
+#   target: langchain-architecture
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/llm-evaluation
+#   target: llm-evaluation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/prompt-engineering-patterns
+#   target: prompt-engineering-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/rag-implementation
+#   target: rag-implementation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/similarity-search-patterns
+#   target: similarity-search-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/llm-application-dev/skills/vector-index-tuning
+#   target: vector-index-tuning
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/machine-learning-ops/skills/ml-pipeline-workflow
+#   target: ml-pipeline-workflow
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/observability-monitoring/skills/distributed-tracing
+#   target: distributed-tracing
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/observability-monitoring/skills/grafana-dashboards
+#   target: grafana-dashboards
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/observability-monitoring/skills/prometheus-configuration
+#   target: prometheus-configuration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/observability-monitoring/skills/slo-implementation
+#   target: slo-implementation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/payment-processing/skills/billing-automation
+#   target: billing-automation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/payment-processing/skills/paypal-integration
+#   target: paypal-integration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/payment-processing/skills/pci-compliance
+#   target: pci-compliance
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/payment-processing/skills/stripe-integration
+#   target: stripe-integration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/async-python-patterns
+#   target: async-python-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-anti-patterns
+#   target: python-anti-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-background-jobs
+#   target: python-background-jobs
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-code-style
+#   target: python-code-style
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-configuration
+#   target: python-configuration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-design-patterns
+#   target: python-design-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-error-handling
+#   target: python-error-handling
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-observability
+#   target: python-observability
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-packaging
+#   target: python-packaging
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-performance-optimization
+#   target: python-performance-optimization
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-project-structure
+#   target: python-project-structure
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-resilience
+#   target: python-resilience
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-resource-management
+#   target: python-resource-management
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-testing-patterns
+#   target: python-testing-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/python-type-safety
+#   target: python-type-safety
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/python-development/skills/uv-package-manager
+#   target: uv-package-manager
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/quantitative-trading/skills/backtesting-frameworks
+#   target: backtesting-frameworks
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/quantitative-trading/skills/risk-metrics-calculation
+#   target: risk-metrics-calculation
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/reverse-engineering/skills/anti-reversing-techniques
+#   target: anti-reversing-techniques
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/reverse-engineering/skills/binary-analysis-patterns
+#   target: binary-analysis-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/reverse-engineering/skills/memory-forensics
+#   target: memory-forensics
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/reverse-engineering/skills/protocol-reverse-engineering
+#   target: protocol-reverse-engineering
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/security-scanning/skills/attack-tree-construction
+#   target: attack-tree-construction
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/security-scanning/skills/sast-configuration
+#   target: sast-configuration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/security-scanning/skills/security-requirement-extraction
+#   target: security-requirement-extraction
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/security-scanning/skills/stride-analysis-patterns
+#   target: stride-analysis-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/security-scanning/skills/threat-mitigation-mapping
+#   target: threat-mitigation-mapping
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/shell-scripting/skills/bash-defensive-patterns
+#   target: bash-defensive-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/shell-scripting/skills/bats-testing-patterns
+#   target: bats-testing-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/shell-scripting/skills/shellcheck-configuration
+#   target: shellcheck-configuration
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/startup-business-analyst/skills/competitive-landscape
+#   target: competitive-landscape
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/startup-business-analyst/skills/market-sizing-analysis
+#   target: market-sizing-analysis
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/startup-business-analyst/skills/startup-financial-modeling
+#   target: startup-financial-modeling
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/startup-business-analyst/skills/startup-metrics-framework
+#   target: startup-metrics-framework
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/startup-business-analyst/skills/team-composition-analysis
+#   target: team-composition-analysis
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/systems-programming/skills/go-concurrency-patterns
+#   target: go-concurrency-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/systems-programming/skills/memory-safety-patterns
+#   target: memory-safety-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/systems-programming/skills/rust-async-patterns
+#   target: rust-async-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/accessibility-compliance
+#   target: accessibility-compliance
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/design-system-patterns
+#   target: design-system-patterns
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/interaction-design
+#   target: interaction-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/mobile-android-design
+#   target: mobile-android-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/mobile-ios-design
+#   target: mobile-ios-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/react-native-design
+#   target: react-native-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/responsive-design
+#   target: responsive-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/visual-design-foundations
+#   target: visual-design-foundations
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# - repository: https://github.com/wshobson/agents
+#   ref: 5d65aa10638bcc1b390738e11f9bff213f61955a
+#   path: plugins/ui-design/skills/web-component-design
+#   target: web-component-design
+#   commit: 5d65aa10638bcc1b390738e11f9bff213f61955a
+# END external-skill-sources (managed by scripts/vendor-external-skills.sh)

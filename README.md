@@ -79,6 +79,7 @@ docker build -t agent-sandbox:latest .
 ## Shared Skills (Vendored)
 
 루트 `skills/` 폴더에는 기본적으로 `https://github.com/anthropics/skills/tree/main/skills` 스킬이 포함되며, 운영에 필요한 추가 스킬도 함께 벤더링합니다.
+추가 번들은 `vercel-labs/agent-skills`, `vercel-labs/next-skills`, `vercel/*` 계열(`ai-sdk`, `workflow`, `turborepo` 등), `expo/skills`, `supabase/agent-skills`, `coreyhaines31/marketingskills`와 함께 `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 포함합니다.
 
 컨테이너 시작 시 `scripts/start.sh`가 아래 경로에 스킬을 자동 설치합니다.
 
@@ -92,6 +93,8 @@ docker build -t agent-sandbox:latest .
 - 아직 없는 스킬만 추가 설치됩니다.
 - Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
 - `find-skills`(`vercel-labs/skills`)도 공유 스킬로 포함되어 시작 시 자동 설치됩니다.
+- 외부 스킬 번들은 `scripts/vendor-external-skills.sh`로 재동기화할 수 있습니다.
+- 외부 스킬 목록의 단일 소스는 `skills/external-manifest.txt`이며, 벤더링/스모크 테스트가 모두 이 파일을 기준으로 동작합니다.
 - `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
 
@@ -191,6 +194,8 @@ Built-in 에이전트 role:
 - `default` (mixed tasks)
 - `explorer` (코드베이스 조사/리스크 확인, no edits)
 - `worker` (구현/버그 수정/테스트)
+
+참고: 일부 환경에서는 `explorer`가 디렉터리 read에서 `Permission denied`를 반환할 수 있습니다. 이 경우 코드 리뷰/탐색은 `worker` role로 fallback하는 것을 권장합니다.
 
 예시 프롬프트:
 
@@ -450,7 +455,9 @@ docker compose up
 - `scripts/update-versions.sh`: pinned 버전 점검/업데이트 도우미
 - `scripts/docker-storage-guard.sh`: Docker reclaimable 용량 임계치 기반 점검/정리 도우미
 - `scripts/home-storage-guard.sh`: sandbox home 캐시 점검/정리 도우미
+- `scripts/vendor-external-skills.sh`: 요청된 외부 스킬 번들을 `skills/`로 벤더링하는 동기화 스크립트
 - `skills/`: 공유 스킬 번들(Anthropic + 운영 추가 스킬 vendored)
+- `skills/external-manifest.txt`: 외부 벤더링 스킬 소스/핀(ref)/타깃 이름 단일 소스
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
 - `configs/`: 기본 zsh/zim/tmux/starship/vim/nvim 설정
 - `configs/templates/`: 공용 프롬프트/커맨드/설정 템플릿 시드 파일
