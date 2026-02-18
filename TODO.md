@@ -25,6 +25,7 @@ Optionally tag with priority and category:
 - [ ] [P2] (setup) 상위 에이전트 실행 체인 구성 — 컨테이너 내부에서 openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 같은 에이전트를 실행하고, 이 에이전트들을 통해 Codex/Claude를 호출·실행하는 워크플로우 및 기본 설정 제공
 ## Done
 
+- [x] [P1] (setup) shared skills 최신화 정책 재정비 — `start.sh`에 hash state 기반 managed sync(로컬 수정 감지, legacy 백업/채택, bundle-change 최적화)를 도입해 기존 persisted home도 안전하게 최신 번들 반영, 외부 스킬 주간 갱신 워크플로우(`.github/workflows/update-external-skills.yml`)와 `skills.sh` 실험용 헬퍼(`scripts/skills-helper.sh`) 추가
 - [x] [P1] (setup) 외부 스킬 번들 2차 확장 — `antfu/skills`, `callstackincubator/agent-skills`, `better-auth/skills`, `google-labs-code/stitch-skills`, `dammyjay93/interface-design`, `jimliu/baoyu-skills`, `wshobson/agents`, `cloudflare/skills`, `addyosmani/web-quality-skills`, `OthmanAdi/planning-with-files`, `remotion-dev/skills`를 `external-manifest` 기반으로 벤더링해 startup shared-skills 자동 설치 경로에 통합
 - [x] [P2] (stability) 서브에이전트 explorer `Permission denied` 대응 가이드 — 일부 런타임에서 explorer 디렉터리 read 제한이 발생할 수 있음을 문서화하고, 코드 리뷰/탐색 fallback을 worker role로 표준화
 - [x] [P1] (quality) 외부 스킬 벤더링 검증 독립성/재현성 보강 — `skills/external-manifest.txt` 단일 소스 도입, `vendor-external-skills.sh` pinned ref 기반 동기화 + stale target prune 추가, `smoke-test.sh` manifest 기반 누락 검증 및 `SMOKE_TEST_SOURCE`별 start.sh 검사 경로 보정

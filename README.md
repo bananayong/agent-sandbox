@@ -89,14 +89,18 @@ docker build -t agent-sandbox:latest .
 
 동작 원칙:
 
-- 같은 이름의 스킬 폴더가 이미 있으면 기본적으로 덮어쓰지 않습니다(사용자 커스텀 보존).
-- 아직 없는 스킬만 추가 설치됩니다.
+- 기본 정책은 additive 설치입니다(없는 스킬만 추가).
+- 공유 스킬은 hash state 기반 managed sync가 기본 활성화되어, 이미지 번들이 바뀌면 기존 홈도 자동 최신화됩니다.
+- managed sync는 로컬 수정 감지를 수행하며, 사용자가 수정한 스킬은 덮어쓰지 않고 유지합니다.
+- state 파일이 없는 legacy 홈은 기본적으로 기존 사본을 백업한 뒤 managed state로 전환합니다.
+  - 비활성화: `AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT=0`
 - Codex/Gemini는 내장 스킬 충돌 방지를 위해 `skill-creator`만 자동 설치에서 제외됩니다.
 - `find-skills`(`vercel-labs/skills`)도 공유 스킬로 포함되어 시작 시 자동 설치됩니다.
 - 외부 스킬 번들은 `scripts/vendor-external-skills.sh`로 재동기화할 수 있습니다.
 - 외부 스킬 목록의 단일 소스는 `skills/external-manifest.txt`이며, 벤더링/스모크 테스트가 모두 이 파일을 기준으로 동작합니다.
 - `playwright-efficient-web-research`는 운영 가이드 일관성을 위해 시작 시 강제 동기화됩니다.
 - 현재 벤더링 기준 upstream 정보는 `skills/UPSTREAM.txt`에 기록합니다.
+- 외부 스킬 번들 최신화 PR은 `.github/workflows/update-external-skills.yml`(주간 + 수동 실행)로 자동화되어 있습니다.
 
 ## Ars Contexta Auto-Install
 
@@ -456,6 +460,7 @@ docker compose up
 - `scripts/docker-storage-guard.sh`: Docker reclaimable 용량 임계치 기반 점검/정리 도우미
 - `scripts/home-storage-guard.sh`: sandbox home 캐시 점검/정리 도우미
 - `scripts/vendor-external-skills.sh`: 요청된 외부 스킬 번들을 `skills/`로 벤더링하는 동기화 스크립트
+- `scripts/skills-helper.sh`: `skills.sh` 기반 탐색/설치/업데이트를 위한 실험용 헬퍼 (`list/find/add/check/update/status`)
 - `skills/`: 공유 스킬 번들(Anthropic + 운영 추가 스킬 vendored)
 - `skills/external-manifest.txt`: 외부 벤더링 스킬 소스/핀(ref)/타깃 이름 단일 소스
 - `skills/UPSTREAM.txt`: 벤더링 기준 upstream repo/path/commit 기록
@@ -488,6 +493,10 @@ scripts/update-versions.sh update
 자동화가 필요하면 GitHub Actions 워크플로우 `.github/workflows/update-pinned-versions.yml`를 사용하세요.
 - 매주 월요일 05:17 UTC에 실행되며, Actions 탭에서 `workflow_dispatch`로 수동 실행할 수도 있습니다.
 - 내부에서 `bash scripts/update-versions.sh update`를 실행하고 실제 diff가 있을 때만 PR을 생성/업데이트합니다.
+
+외부 스킬 벤더링 갱신은 `.github/workflows/update-external-skills.yml`이 담당합니다.
+- 매주 수요일 05:43 UTC에 `bash scripts/vendor-external-skills.sh` + repo smoke test를 실행합니다.
+- 변경이 있으면 `automation/update-external-skills` 브랜치로 자동 PR을 생성합니다.
 
 ## Documentation Convention (주석 원칙)
 

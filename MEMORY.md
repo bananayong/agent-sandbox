@@ -36,6 +36,10 @@ This is intentionally compact: only currently relevant guidance is kept.
 - External bundle refresh is script-driven via `scripts/vendor-external-skills.sh`; source-of-truth mapping/ref pinning is `skills/external-manifest.txt`.
 - `scripts/vendor-external-skills.sh` prunes stale external targets that were removed from the manifest to avoid unintended startup installs.
 - `scripts/smoke-test.sh` validates external skills against `skills/external-manifest.txt` (not generated metadata) for independent completeness checks.
+- Shared skills startup policy now uses hash-state managed sync (`FORCE_SYNC_SHARED_SKILLS="*"`), so persisted homes are auto-refreshed on bundle changes while preserving locally edited skills.
+- Managed sync state is namespaced per agent under `~/.local/state/agent-sandbox/shared-skills/<agent>/`; legacy homes without state are backed up then adopted by default (disable via `AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT=0`).
+- External skills refresh automation runs in `.github/workflows/update-external-skills.yml` (weekly schedule + manual dispatch), executing vendoring + repo-mode smoke tests before PR creation.
+- `scripts/skills-helper.sh` provides an explicit skills.sh experimentation path (`list/find/add/check/update/status`) without replacing pinned vendoring.
 - Some subagent runtimes can return `Permission denied` with built-in `explorer` role on directory reads; operational fallback is `worker` role for review/research tasks.
 - `skill-creator` is excluded for Codex/Gemini to avoid overriding native behavior.
 - `playwright-efficient-web-research` is force-synced as a managed shared skill.

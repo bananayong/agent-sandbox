@@ -68,6 +68,10 @@ install_default_templates() {
   done < <(find "$source_root" -type f -print0 | sort -z)
 }
 
+# Cache hashes for source skill directories so repeated installs across
+# multiple agents don't re-hash the same source tree.
+declare -A SHARED_SKILL_HASH_CACHE=()
+
 # Update a managed config file, overwriting even if it already exists.
 # Prints a unified diff before replacing so users can see what changed
 # and restore manually if needed. Skips when contents are identical.
@@ -233,17 +237,81 @@ ensure_codex_status_line() {
 # Optional 3rd arg is a comma-separated exclude list by skill folder name.
 # Optional 4th arg is a comma-separated force-sync list: matching skills are
 # overwritten from image defaults every startup to keep managed guidance fresh.
+# Optional 5th arg is the agent namespace used for managed sync state files.
+#
+# Managed sync behavior (for force-sync targets):
+# - Uses hash state to detect local modifications and avoid clobbering edits.
+# - Updates only when source bundle changed or target is missing state.
+# - Legacy targets (no state file) are backed up once, then adopted by default.
+#
+# Legacy adoption can be disabled by setting:
+#   AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT=0
+hash_skill_dir() {
+  local skill_dir="$1"
+  local exclude_file="${2:-}"
+  local relative_path=""
+
+  (
+    cd "$skill_dir"
+    find . -type f -print0 | sort -z | while IFS= read -r -d '' file_path; do
+      relative_path="${file_path#./}"
+      if [[ -n "$exclude_file" ]] && [[ "$relative_path" == "$exclude_file" ]]; then
+        continue
+      fi
+      sha256sum "$relative_path"
+    done
+  ) | sha256sum | awk '{print $1}'
+}
+
+compute_shared_skills_bundle_id() {
+  local source_root="$1"
+  local upstream_file="$source_root/UPSTREAM.txt"
+  local manifest_file="$source_root/external-manifest.txt"
+  local metadata=""
+
+  if [[ -f "$upstream_file" ]]; then
+    metadata+="$upstream_file $(sha256sum "$upstream_file" | awk '{print $1}')"'\n'
+  fi
+  if [[ -f "$manifest_file" ]]; then
+    metadata+="$manifest_file $(sha256sum "$manifest_file" | awk '{print $1}')"'\n'
+  fi
+
+  if [[ -z "$metadata" ]]; then
+    return 1
+  fi
+
+  printf '%s' "$metadata" | sha256sum | awk '{print $1}'
+}
+
 install_shared_skills() {
   local source_root="$1"
   local target_root="$2"
   local exclude_csv="${3:-}"
   local force_sync_csv="${4:-}"
+  local state_namespace="${5:-shared}"
+  local managed_state_root="$HOME_DIR/.local/state/agent-sandbox/shared-skills/$state_namespace"
+  local managed_bundle_state_file="$managed_state_root/.bundle-id"
+  local managed_bundle_id=""
+  local previous_managed_bundle_id=""
+  local managed_bundle_changed=1
+  local legacy_adopt_managed_skills="${AGENT_SANDBOX_MANAGED_SKILLS_LEGACY_ADOPT:-1}"
+  local managed_state_exclude_file=".agent-sandbox-managed-skill.sha256"
 
   if [[ ! -d "$source_root" ]]; then
     return
   fi
 
   mkdir -p "$target_root"
+  mkdir -p "$managed_state_root"
+
+  if managed_bundle_id="$(compute_shared_skills_bundle_id "$source_root" 2>/dev/null)"; then
+    if [[ -f "$managed_bundle_state_file" ]]; then
+      previous_managed_bundle_id="$(<"$managed_bundle_state_file")"
+      if [[ "$managed_bundle_id" == "$previous_managed_bundle_id" ]]; then
+        managed_bundle_changed=0
+      fi
+    fi
+  fi
 
   local source_skill
   for source_skill in "$source_root"/*; do
@@ -253,9 +321,14 @@ install_shared_skills() {
 
     local skill_name
     local target_skill
+    local managed_state_file
     local should_force_sync=0
+    local source_hash=""
+    local target_hash=""
+    local last_synced_hash=""
     skill_name="$(basename "$source_skill")"
     target_skill="$target_root/$skill_name"
+    managed_state_file="$managed_state_root/$skill_name.sha256"
 
     if [[ -n "$exclude_csv" ]]; then
       local exclude_name
@@ -276,28 +349,92 @@ install_shared_skills() {
       local force_sync_name
       IFS=',' read -r -a force_sync_list <<< "$force_sync_csv"
       for force_sync_name in "${force_sync_list[@]}"; do
-        if [[ "$skill_name" == "$force_sync_name" ]]; then
+        force_sync_name="${force_sync_name//[[:space:]]/}"
+        if [[ "$force_sync_name" == "*" ]] || [[ "$skill_name" == "$force_sync_name" ]]; then
           should_force_sync=1
           break
         fi
       done
     fi
 
-    # Respect user-managed/customized skills with the same name unless this
-    # skill is explicitly managed via force-sync list.
-    if [[ -e "$target_skill" ]] && [[ "$should_force_sync" -ne 1 ]]; then
+    # Default path: preserve existing user-managed/customized skills.
+    if [[ "$should_force_sync" -ne 1 ]]; then
+      if [[ -e "$target_skill" ]]; then
+        continue
+      fi
+
+      echo "[init] Installing shared skill: $target_skill"
+      cp -r "$source_skill" "$target_skill"
       continue
     fi
 
-    if [[ "$should_force_sync" -eq 1 ]] && [[ -e "$target_skill" ]]; then
-      echo "[init] Updating managed shared skill: $target_skill"
-      rm -rf "$target_skill"
-    else
-      echo "[init] Installing shared skill: $target_skill"
+    if [[ -z "${SHARED_SKILL_HASH_CACHE[$source_skill]:-}" ]]; then
+      SHARED_SKILL_HASH_CACHE["$source_skill"]="$(hash_skill_dir "$source_skill" "$managed_state_exclude_file")"
+    fi
+    source_hash="${SHARED_SKILL_HASH_CACHE[$source_skill]}"
+
+    if [[ ! -e "$target_skill" ]]; then
+      echo "[init] Installing managed shared skill: $target_skill"
+      cp -r "$source_skill" "$target_skill"
+      printf '%s\n' "$source_hash" > "$managed_state_file"
+      continue
     fi
 
+    # Fast path: nothing changed upstream for this bundle and this skill already
+    # has state, so skip hash checks to keep startup snappy.
+    if [[ "$managed_bundle_changed" -eq 0 ]] && [[ -f "$managed_state_file" ]]; then
+      continue
+    fi
+
+    target_hash="$(hash_skill_dir "$target_skill" "$managed_state_exclude_file")"
+
+    # Existing managed state: only update when target is still pristine.
+    if [[ -f "$managed_state_file" ]]; then
+      last_synced_hash="$(<"$managed_state_file")"
+      if [[ "$target_hash" != "$last_synced_hash" ]]; then
+        echo "[init] Skipping managed shared skill with local edits: $target_skill"
+        continue
+      fi
+
+      if [[ "$source_hash" != "$last_synced_hash" ]]; then
+        echo "[init] Updating managed shared skill: $target_skill"
+        rm -rf "$target_skill"
+        cp -r "$source_skill" "$target_skill"
+      fi
+
+      printf '%s\n' "$source_hash" > "$managed_state_file"
+      continue
+    fi
+
+    # Legacy target without managed state.
+    if [[ "$target_hash" == "$source_hash" ]]; then
+      printf '%s\n' "$source_hash" > "$managed_state_file"
+      continue
+    fi
+
+    if [[ "$legacy_adopt_managed_skills" != "1" ]]; then
+      echo "[init] Skipping legacy managed skill without state: $target_skill"
+      continue
+    fi
+
+    local legacy_backup_root="$managed_state_root/backups/$skill_name"
+    local legacy_backup_timestamp=""
+    local legacy_backup_path=""
+    legacy_backup_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    legacy_backup_path="$legacy_backup_root/$legacy_backup_timestamp"
+    mkdir -p "$legacy_backup_root"
+    cp -r "$target_skill" "$legacy_backup_path"
+
+    echo "[init] Adopting legacy managed shared skill: $target_skill"
+    echo "[init]   Previous copy backed up to: $legacy_backup_path"
+    rm -rf "$target_skill"
     cp -r "$source_skill" "$target_skill"
+    printf '%s\n' "$source_hash" > "$managed_state_file"
   done
+
+  if [[ -n "$managed_bundle_id" ]]; then
+    printf '%s\n' "$managed_bundle_id" > "$managed_bundle_state_file"
+  fi
 }
 
 copy_default /etc/skel/.default.zshrc        "$HOME_DIR/.zshrc"
@@ -369,12 +506,13 @@ fi
 # Codex/Gemini keep their native "skill-creator" to avoid overriding
 # built-in workflow behavior with a third-party variant.
 SHARED_SKILLS_ROOT="/opt/agent-sandbox/skills"
-# Keep this list narrow: only skills that should be centrally managed and
-# always updated even for existing persisted homes.
-FORCE_SYNC_SHARED_SKILLS="playwright-efficient-web-research"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "" "$FORCE_SYNC_SHARED_SKILLS"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
-install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS"
+# Managed sync defaults:
+# - `*` enables hash-based managed sync for all shared skills.
+# - explicit names keep compatibility with existing policy checks/documentation.
+FORCE_SYNC_SHARED_SKILLS="*,playwright-efficient-web-research"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.claude/skills" "" "$FORCE_SYNC_SHARED_SKILLS" "claude"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.codex/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS" "codex"
+install_shared_skills "$SHARED_SKILLS_ROOT" "$HOME_DIR/.gemini/skills" "skill-creator" "$FORCE_SYNC_SHARED_SKILLS" "gemini"
 
 # Agent settings are managed: always synced with image defaults.
 # This ensures runtime defaults reach existing users after image updates.

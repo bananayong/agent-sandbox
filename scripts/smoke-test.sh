@@ -298,6 +298,8 @@ check_shared_skills_install_policy() {
   local gemini_ok=0
   local claude_ok=0
   local managed_sync_ok=0
+  local managed_all_ok=0
+  local managed_hash_sync_ok=0
   local managed_sync_value=""
 
   if grep -Fq "install_shared_skills \"\$SHARED_SKILLS_ROOT\" \"\$HOME_DIR/.codex/skills\" \"skill-creator\"" "$start_script"; then
@@ -324,17 +326,136 @@ check_shared_skills_install_policy() {
     IFS=',' read -r -a managed_sync_list <<< "$managed_sync_value"
     for managed_sync_name in "${managed_sync_list[@]}"; do
       managed_sync_name="${managed_sync_name//[[:space:]]/}"
+      if [[ "$managed_sync_name" == "*" ]]; then
+        managed_all_ok=1
+      fi
       if [[ "$managed_sync_name" == "playwright-efficient-web-research" ]]; then
         managed_sync_ok=1
-        break
       fi
     done
   fi
 
-  if [[ "$codex_ok" -eq 1 ]] && [[ "$gemini_ok" -eq 1 ]] && [[ "$claude_ok" -eq 1 ]] && [[ "$managed_sync_ok" -eq 1 ]]; then
+  if grep -Fq "hash_skill_dir()" "$start_script" \
+    && grep -Fq "legacy_adopt_managed_skills" "$start_script" \
+    && grep -Fq "managed_bundle_changed" "$start_script"; then
+    managed_hash_sync_ok=1
+  fi
+
+  if [[ "$codex_ok" -eq 1 ]] \
+    && [[ "$gemini_ok" -eq 1 ]] \
+    && [[ "$claude_ok" -eq 1 ]] \
+    && [[ "$managed_sync_ok" -eq 1 ]] \
+    && [[ "$managed_all_ok" -eq 1 ]] \
+    && [[ "$managed_hash_sync_ok" -eq 1 ]]; then
     echo "  OK   shared-skills-install-policy"
   else
-    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, managed_sync=${managed_sync_ok})"
+    echo "  FAIL shared-skills-install-policy (codex=${codex_ok}, gemini=${gemini_ok}, claude=${claude_ok}, managed_sync=${managed_sync_ok}, managed_all=${managed_all_ok}, managed_hash_sync=${managed_hash_sync_ok})"
+    FAILED=1
+  fi
+}
+
+check_external_skills_refresh_workflow() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local workflow_path=".github/workflows/update-external-skills.yml"
+  local has_schedule=0
+  local has_dispatch=0
+  local has_vendor_step=0
+  local has_smoke_step=0
+  local has_pr_step=0
+
+  if [[ "$source_mode" != "repo" ]]; then
+    if [[ "$source_mode" == "auto" && -f "$workflow_path" ]]; then
+      :
+    else
+      echo "  OK   external-skills-refresh-workflow (repo-only check skipped)"
+      return
+    fi
+  fi
+
+  if [[ ! -f "$workflow_path" ]]; then
+    echo "  FAIL external-skills-refresh-workflow ($workflow_path missing)"
+    FAILED=1
+    return
+  fi
+
+  if grep -Fq "schedule:" "$workflow_path"; then
+    has_schedule=1
+  fi
+
+  if grep -Fq "workflow_dispatch:" "$workflow_path"; then
+    has_dispatch=1
+  fi
+
+  if grep -Fq "bash scripts/vendor-external-skills.sh" "$workflow_path"; then
+    has_vendor_step=1
+  fi
+
+  if grep -Fq "SMOKE_TEST_SOURCE=repo bash scripts/smoke-test.sh --build" "$workflow_path"; then
+    has_smoke_step=1
+  fi
+
+  if grep -Fq "peter-evans/create-pull-request@" "$workflow_path"; then
+    has_pr_step=1
+  fi
+
+  if [[ "$has_schedule" -eq 1 ]] \
+    && [[ "$has_dispatch" -eq 1 ]] \
+    && [[ "$has_vendor_step" -eq 1 ]] \
+    && [[ "$has_smoke_step" -eq 1 ]] \
+    && [[ "$has_pr_step" -eq 1 ]]; then
+    echo "  OK   external-skills-refresh-workflow"
+  else
+    echo "  FAIL external-skills-refresh-workflow (schedule=${has_schedule}, dispatch=${has_dispatch}, vendor=${has_vendor_step}, smoke=${has_smoke_step}, pr=${has_pr_step})"
+    FAILED=1
+  fi
+}
+
+check_skills_cli_helper_script() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local helper_path="scripts/skills-helper.sh"
+  local has_help=0
+  local has_check=0
+  local has_update=0
+  local has_install=0
+
+  if [[ "$source_mode" != "repo" ]]; then
+    if [[ "$source_mode" == "auto" && -f "$helper_path" ]]; then
+      :
+    else
+      echo "  OK   skills-cli-helper-script (repo-only check skipped)"
+      return
+    fi
+  fi
+
+  if [[ ! -f "$helper_path" ]]; then
+    echo "  FAIL skills-cli-helper-script ($helper_path missing)"
+    FAILED=1
+    return
+  fi
+
+  if grep -Fq "Usage:" "$helper_path"; then
+    has_help=1
+  fi
+
+  if grep -Fq "skills check" "$helper_path"; then
+    has_check=1
+  fi
+
+  if grep -Fq "skills update" "$helper_path"; then
+    has_update=1
+  fi
+
+  if grep -Fq "skills add" "$helper_path"; then
+    has_install=1
+  fi
+
+  if [[ "$has_help" -eq 1 ]] \
+    && [[ "$has_check" -eq 1 ]] \
+    && [[ "$has_update" -eq 1 ]] \
+    && [[ "$has_install" -eq 1 ]]; then
+    echo "  OK   skills-cli-helper-script"
+  else
+    echo "  FAIL skills-cli-helper-script (help=${has_help}, check=${has_check}, update=${has_update}, install=${has_install})"
     FAILED=1
   fi
 }
@@ -1536,6 +1657,8 @@ echo "--- Shared Skills ---"
 check_shared_skills_bundle
 check_shared_skills_metadata
 check_shared_skills_install_policy
+check_external_skills_refresh_workflow
+check_skills_cli_helper_script
 
 echo ""
 echo "--- Shared Templates ---"
