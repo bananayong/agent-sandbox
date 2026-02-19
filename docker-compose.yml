@@ -66,6 +66,8 @@ services:
       - SSL_CERT_FILE
       - SSL_CERT_DIR
       - NODE_EXTRA_CA_CERTS
+      # Optional jdtls source override list (comma/space separated base URLs).
+      - AGENT_SANDBOX_JDTLS_BASE_URLS
       # Node TLS compatibility: cap TLS to 1.2 and prefer IPv4 to avoid
       # UND_ERR_SOCKET / BAD_RECORD_MAC on unstable network paths.
       - "NODE_OPTIONS=${NODE_OPTIONS:---tls-max-v1.2 --tls-min-v1.2 --dns-result-order=ipv4first}"

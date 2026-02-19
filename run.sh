@@ -133,6 +133,7 @@ Examples:
 
 Environment:
   AGENT_SANDBOX_DNS_SERVERS   DNS servers for container (comma/space separated)
+  AGENT_SANDBOX_JDTLS_BASE_URLS  Ordered jdtls base URLs for mirror/CDN override
 EOF
 }
 
@@ -484,6 +485,13 @@ run_container() {
     fi
   done
 
+  # Forward optional startup tuning knobs used by entrypoint onboarding.
+  for key in AGENT_SANDBOX_JDTLS_BASE_URLS; do
+    if [[ -n "${!key:-}" ]]; then
+      docker_args+=(-e "$key")
+    fi
+  done
+
   # Default-disable Claude nonessential traffic (telemetry/event export), which
   # is a common failure point on networks that trigger TLS BAD_RECORD_MAC.
   docker_args+=(-e "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")
@@ -602,17 +610,18 @@ else
 fi
 
 # Execute action flags first, then run container flow.
-if $DO_RESET; then
+# Compare explicit string values instead of executing variable contents.
+if [[ "$DO_RESET" == true ]]; then
   reset_home
   exit 0
 fi
 
-if $DO_STOP; then
+if [[ "$DO_STOP" == true ]]; then
   stop_container
   exit 0
 fi
 
-if $DO_BUILD; then
+if [[ "$DO_BUILD" == true ]]; then
   build_image
 fi
 

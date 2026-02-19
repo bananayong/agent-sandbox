@@ -72,7 +72,7 @@ docker build -t agent-sandbox:latest .
 2. shared skills, 공용 templates, Claude slash commands/skills/agents를 에이전트 디렉토리에 설치
 3. 런타임 안정화 기본값(telemetry/TLS/auto-approve) 적용 + DNS 진단
 4. `zimfw` 부트스트랩 및 모듈 설치
-5. git delta, 기본 에디터(vim/neovim/micro), gh-copilot, Superpowers/bkit/Ars Contexta, tmux TPM/plugin 부트스트랩 등 1회성 세팅
+5. git delta, 기본 에디터(vim/neovim/micro), jenv/OpenJDK/jdtls(Java LSP) 온보딩, gh-copilot, Superpowers/bkit/Ars Contexta, tmux TPM/plugin 부트스트랩 등 1회성 세팅
 6. Docker 소켓 접근성 확인 (마운트되었으나 권한 부족 시 진단 메시지 출력)
 7. tmux 세션(`main`) 시작 후 셸 실행 (`TMUX` 내부면 `exec "$@"`로 fallback)
 
@@ -206,13 +206,23 @@ playwright-cli -s=research close
 
 `configs/codex/config.toml` 기본값에 아래 항목이 포함됩니다.
 
+- `approval_policy = "never"` (실행 승인 프롬프트 비활성)
+- `sandbox_mode = "danger-full-access"` (컨테이너 외부 샌드박스 전제)
+- `[projects."/workspace"].trust_level = "trusted"` (서브에이전트 탐색 경로 신뢰)
 - `[features].multi_agent = true` (실험 기능)
 - `[features].undo = true` (작업 복구 편의)
 - `[features].apps = true` (ChatGPT Apps/Connectors)
 - `[agents].max_threads = 12` (Codex 기본 6에서 상향)
 
+보안 주의:
+- 위 기본값은 편의성을 우선하므로, `approval_policy = "never"` + `sandbox_mode = "danger-full-access"` 조합에서 에이전트는 `/workspace`에 대해 승인 프롬프트 없이 명령을 실행할 수 있습니다.
+- 운영 정책이 더 엄격해야 하면 `~/.codex/config.toml`에서 `approval_policy`/`sandbox_mode`를 직접 조정하세요.
+
 추가로 `start.sh`는 기존 사용자 홈(`~/.codex/config.toml`)에도 아래 키가 비어 있으면 자동 보강합니다.
 
+- `approval_policy`
+- `sandbox_mode`
+- `[projects."/workspace"].trust_level`
 - `[tui].status_line`
 - `[features].multi_agent`
 - `[features].undo`
@@ -225,7 +235,7 @@ Built-in 에이전트 role:
 - `explorer` (코드베이스 조사/리스크 확인, no edits)
 - `worker` (구현/버그 수정/테스트)
 
-참고: 일부 환경에서는 `explorer`가 디렉터리 read에서 `Permission denied`를 반환할 수 있습니다. 이 경우 코드 리뷰/탐색은 `worker` role로 fallback하는 것을 권장합니다.
+참고: 기본값에 `/workspace` trust + `danger-full-access`가 포함되어 subagent 생성 시 탐색 권한 이슈를 줄입니다.
 
 예시 프롬프트:
 
@@ -259,7 +269,7 @@ spawn worker for src/auth/* and implement token refresh & run tests
   - 첫 실행 시 누락된 추천 플러그인 자동 설치: `detectindent`, `fzf`, `lsp`, `quickfix`, `bookmark`, `manipulator`, `nordcolors`, `monokai-dark`, `gotham-colors`
   - 기본 테마: `gruvbox-tc` (안정 기본값), 추가 테마: `nord-tc`, `monokai-dark`, `gotham`
   - Vim-like 키맵: `Ctrl-p`(fzf 파일 열기), `<Ctrl-w>{h,j,k,l,v,s,q,t}`(분할/탭 이동), `F8`(quickfix `fexec` 커맨드 프롬프트), `Shift-F8`(quickfix 점프), `F2` 계열(bookmark)
-  - LSP 기본 서버 매핑: `pyright`, `typescript-language-server`, `yaml-language-server`, `vscode-json-language-server`, `vscode-html-language-server`, `vscode-css-language-server`, `bash-language-server`, `docker-langserver`
+  - LSP 기본 서버 매핑: `pyright`, `typescript-language-server`, `yaml-language-server`, `vscode-json-language-server`, `vscode-html-language-server`, `vscode-css-language-server`, `bash-language-server`, `docker-langserver`, `jdtls`
 
 첫 실행 후 동기화 명령:
 
@@ -273,6 +283,37 @@ nvim --headless "+Lazy! sync" +qa
 # micro
 micro -plugin list
 micro -plugin update
+```
+
+## Java Onboarding (jenv/OpenJDK/LSP)
+
+Java 런타임은 고정 패키지 bake 대신 onboarding 방식으로 구성됩니다.
+
+- `jenv`는 이미지에 기본 설치됩니다.
+- `start.sh`가 첫 실행(또는 누락 시) 자동으로 Temurin OpenJDK 21을 다운로드해 `jenv add`를 수행합니다.
+- `jenv global`은 기존 사용자 설정을 덮어쓰지 않습니다(현재 global이 비어 있거나 `system`일 때만 Java 21로 초기화).
+- 같은 흐름에서 `jdtls`(Eclipse JDT Language Server)를 `~/.local/share/agent-sandbox/jdtls`에 설치하고 `~/.local/bin/jdtls` wrapper를 생성합니다.
+- `jdtls` tarball은 `~/.cache/agent-sandbox/jdtls`에 캐시되며, 다운로드 실패 시 `*.partial` resumable 캐시를 유지해 다음 startup에서 이어받습니다.
+- 최신 marker 조회/다운로드가 실패해도 cache에 유효 tarball이 있으면 fallback으로 즉시 복구합니다.
+- 기본 jdtls source는 `https://mirror.kakao.com/eclipse/jdtls/snapshots`를 우선 사용하고, `https://download.eclipse.org/jdtls/snapshots`를 자동 fallback으로 함께 시도합니다.
+- `AGENT_SANDBOX_JDTLS_BASE_URLS`를 지정하면 `jdtls` source base URL 우선순위를 제어할 수 있습니다(쉼표/공백 구분, 마지막 fallback으로 기본 mirror/upstream 소스가 자동 포함).
+- jdtls/OpenJDK archive는 sha256 검증이 통과한 payload만 사용합니다(검증 실패 시 non-blocking skip).
+- Java onboarding은 기본적으로 background 실행되어 shell startup을 막지 않습니다.
+- `~/.config/agent-sandbox/java-defaults.zsh`가 `jenv` shim/JAVA_HOME을 셸에 연결합니다.
+- Starship 프롬프트는 `custom.jenv` 모듈에서 `☕ <jenv version-name> (<java -version>)` 형태로 활성 Java 정보를 함께 표시합니다.
+
+빠른 점검:
+
+```bash
+jenv versions
+java -version
+which jdtls
+```
+
+가까운 미러 우선 사용 예시:
+
+```bash
+AGENT_SANDBOX_JDTLS_BASE_URLS="https://<nearby-mirror>/eclipse/jdtls/snapshots https://download.eclipse.org/jdtls/snapshots" ./run.sh .
 ```
 
 ## Environment Variables
@@ -304,6 +345,7 @@ micro -plugin update
 - `AGENT_SANDBOX_DNS_SERVERS` — 컨테이너 DNS 서버 목록 (IPv4 권장, 쉼표/공백 구분, 예: `10.0.0.2,1.1.1.1`)
 - `AGENT_SANDBOX_MATCH_HOST_USER` — rootless Docker에서 host UID/GID로 컨테이너 실행 (`auto` | `1` | `0`, 기본 `auto`)
 - `AGENT_SANDBOX_NET_MTU` — Docker 네트워크 MTU (기본 `1280`)
+- `AGENT_SANDBOX_JDTLS_BASE_URLS` — Java LSP(`jdtls`) 다운로드 base URL 우선순위 (쉼표/공백 구분)
 
 **`run.sh` 주요 옵션:**
 - `--name`, `-n` — 컨테이너 이름 지정 (기본: `agent-sandbox`)
@@ -375,9 +417,17 @@ base64 < ~/.codex/auth.json | tr -d '\n' | gh secret set CODEX_AUTH_JSON_B64
 ## Included Tools (요약)
 
 - Base: Debian bookworm-slim, zsh, tmux, git, python3, node 22, bun
-- Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq, uv
+- Dev CLI: gh, docker cli/compose/buildx, jq, ripgrep, fd, fzf, yq, uv, jenv
 - UX: starship, eza, bat, zoxide, vim, neovim, micro, delta, lazygit, gitui, tokei
+- Java: Temurin OpenJDK onboarding + `jdtls` wrapper
 - Agents: claude, codex, gemini, opencode
+
+에이전트별/공용 도구 확인:
+
+```bash
+agent-tools --agent all
+agent-tools --agent codex
+```
 
 참고: `broot`는 현재 빌드 안정성 이슈로 비활성화되어 있습니다.
 추가로 slim 이미지의 man 제외 정책은 유지하되, 핵심 CLI(`curl`,`zsh`,`htop`,`nnn`,`ncdu` 및 바이너리 설치 툴) man 페이지를 선택 설치해 `man` 조회를 보장합니다.

@@ -1,6 +1,16 @@
 # Default Codex CLI UI config for agent-sandbox.
 # start.sh installs this on first run and injects status_line for legacy homes.
 
+# Keep shell execution unblocked in this externally sandboxed container.
+# This prevents subagent/explorer permission dead-ends caused by CLI prompts.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[projects."/workspace"]
+# Trust the mounted workspace root so child agents can inspect any project
+# placed under /workspace without interactive trust bootstrap.
+trust_level = "trusted"
+
 [tui]
 # Compact, high-signal status line for day-to-day coding sessions.
 # Codex currently exposes built-in status items only, so we combine varied

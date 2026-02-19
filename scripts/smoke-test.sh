@@ -800,12 +800,30 @@ extract_toml_section_key_value() {
   ' "$config_path"
 }
 
+extract_toml_top_level_key_value() {
+  local config_path="$1"
+  local key_name="$2"
+
+  awk -v key_name="$key_name" '
+    $0 ~ ("^[[:space:]]*" key_name "[[:space:]]*=") {
+      line = $0
+      sub("^[[:space:]]*" key_name "[[:space:]]*=[[:space:]]*", "", line)
+      sub("[[:space:]]*(#.*)?$", "", line)
+      print line
+      exit
+    }
+  ' "$config_path"
+}
+
 check_codex_default_config() {
   local start_script
   local codex_skel_config
   local expected_items
   local actual_items
   local status_items_ok=1
+  local approval_policy_ok=0
+  local sandbox_mode_ok=0
+  local workspace_trust_ok=0
   local multi_agent_ok=0
   local undo_ok=0
   local apps_ok=0
@@ -820,6 +838,9 @@ check_codex_default_config() {
   codex_skel_config="$CODEX_DEFAULT_CONFIG"
 
   local has_start_hook=0
+  local has_approval_merge_hook=0
+  local has_sandbox_merge_hook=0
+  local has_workspace_trust_merge_hook=0
   local has_multi_agent_merge_hook=0
   local has_undo_merge_hook=0
   local has_apps_merge_hook=0
@@ -828,6 +849,21 @@ check_codex_default_config() {
   # shellcheck disable=SC2016
   if grep -Eq 'ensure_codex_status_line[[:space:]]+/etc/skel/.codex/config.toml[[:space:]]+"\$HOME_DIR/.codex/config.toml"' "$start_script"; then
     has_start_hook=1
+  fi
+
+  if grep -Fq 'toml_top_level_has_key "$dest" "approval_policy"' "$start_script" \
+    && grep -Fq "prepend_toml_top_level_key \"\$dest\" 'approval_policy = \"never\"'" "$start_script"; then
+    has_approval_merge_hook=1
+  fi
+
+  if grep -Fq 'toml_top_level_has_key "$dest" "sandbox_mode"' "$start_script" \
+    && grep -Fq "prepend_toml_top_level_key \"\$dest\" 'sandbox_mode = \"danger-full-access\"'" "$start_script"; then
+    has_sandbox_merge_hook=1
+  fi
+
+  if grep -Fq "toml_section_has_key \"\$dest\" 'projects.\"/workspace\"' \"trust_level\"" "$start_script" \
+    && grep -Fq "insert_toml_key_into_section \"\$dest\" 'projects.\"/workspace\"' 'trust_level = \"trusted\"'" "$start_script"; then
+    has_workspace_trust_merge_hook=1
   fi
 
   if grep -Fq 'toml_section_has_key "$dest" "features" "multi_agent"' "$start_script" \
@@ -873,6 +909,18 @@ check_codex_default_config() {
     done
   fi
 
+  if [[ "$(extract_toml_top_level_key_value "$codex_skel_config" "approval_policy")" == "\"never\"" ]]; then
+    approval_policy_ok=1
+  fi
+
+  if [[ "$(extract_toml_top_level_key_value "$codex_skel_config" "sandbox_mode")" == "\"danger-full-access\"" ]]; then
+    sandbox_mode_ok=1
+  fi
+
+  if [[ "$(extract_toml_section_key_value "$codex_skel_config" 'projects."/workspace"' "trust_level")" == "\"trusted\"" ]]; then
+    workspace_trust_ok=1
+  fi
+
   if [[ "$(extract_toml_section_key_value "$codex_skel_config" "features" "multi_agent")" == "true" ]]; then
     multi_agent_ok=1
   fi
@@ -890,18 +938,24 @@ check_codex_default_config() {
   fi
 
   if [[ "$has_start_hook" -eq 1 ]] \
+    && [[ "$has_approval_merge_hook" -eq 1 ]] \
+    && [[ "$has_sandbox_merge_hook" -eq 1 ]] \
+    && [[ "$has_workspace_trust_merge_hook" -eq 1 ]] \
     && [[ "$has_multi_agent_merge_hook" -eq 1 ]] \
     && [[ "$has_undo_merge_hook" -eq 1 ]] \
     && [[ "$has_apps_merge_hook" -eq 1 ]] \
     && [[ "$has_max_threads_merge_hook" -eq 1 ]] \
     && [[ "$status_items_ok" -eq 1 ]] \
+    && [[ "$approval_policy_ok" -eq 1 ]] \
+    && [[ "$sandbox_mode_ok" -eq 1 ]] \
+    && [[ "$workspace_trust_ok" -eq 1 ]] \
     && [[ "$multi_agent_ok" -eq 1 ]] \
     && [[ "$undo_ok" -eq 1 ]] \
     && [[ "$apps_ok" -eq 1 ]] \
     && [[ "$max_threads_ok" -eq 1 ]]; then
     echo "  OK   codex-default-config"
   else
-    echo "  FAIL codex-default-config (status_items_ok=${status_items_ok}, multi_agent_ok=${multi_agent_ok}, undo_ok=${undo_ok}, apps_ok=${apps_ok}, max_threads_ok=${max_threads_ok}, start_hook=${has_start_hook}, multi_agent_hook=${has_multi_agent_merge_hook}, undo_hook=${has_undo_merge_hook}, apps_hook=${has_apps_merge_hook}, max_threads_hook=${has_max_threads_merge_hook})"
+    echo "  FAIL codex-default-config (status_items_ok=${status_items_ok}, approval_policy_ok=${approval_policy_ok}, sandbox_mode_ok=${sandbox_mode_ok}, workspace_trust_ok=${workspace_trust_ok}, multi_agent_ok=${multi_agent_ok}, undo_ok=${undo_ok}, apps_ok=${apps_ok}, max_threads_ok=${max_threads_ok}, start_hook=${has_start_hook}, approval_hook=${has_approval_merge_hook}, sandbox_hook=${has_sandbox_merge_hook}, workspace_trust_hook=${has_workspace_trust_merge_hook}, multi_agent_hook=${has_multi_agent_merge_hook}, undo_hook=${has_undo_merge_hook}, apps_hook=${has_apps_merge_hook}, max_threads_hook=${has_max_threads_merge_hook})"
     FAILED=1
   fi
 }
@@ -1321,6 +1375,250 @@ check_editor_defaults() {
   fi
 }
 
+check_java_onboarding_policy() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local start_script="/usr/local/bin/start.sh"
+  local zshrc_template="/etc/skel/.default.zshrc"
+  local java_defaults_template="/etc/skel/.config/agent-sandbox/java-defaults.zsh"
+  local codex_settings="/etc/skel/.codex/settings.json"
+  local claude_settings="/etc/skel/.claude/settings.json"
+  local gemini_settings="/etc/skel/.gemini/settings.json"
+  local micro_settings="/etc/skel/.config/micro/settings.json"
+  local dockerfile_path=""
+  local has_start_helper=0
+  local has_jdtls_helper=0
+  local has_start_invocation=0
+  local has_jenv_root_pin=0
+  local has_jdtls_cache_fallback=0
+  local has_checksum_guard=0
+  local has_async_startup_guard=0
+  local has_java_defaults_sync=0
+  local has_java_hook=0
+  local has_zsh_source=0
+  local has_java_defaults_content=0
+  local has_docker_jenv=0
+  local codex_java_lsp=0
+  local claude_java_lsp=0
+  local gemini_java_lsp=0
+  local micro_java_lsp=0
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      start_script="scripts/start.sh"
+      zshrc_template="configs/zshrc"
+      java_defaults_template="configs/java-defaults.zsh"
+      codex_settings="configs/codex/settings.json"
+      claude_settings="configs/claude/settings.json"
+      gemini_settings="configs/gemini/settings.json"
+      micro_settings="configs/micro/settings.json"
+      dockerfile_path="Dockerfile"
+      ;;
+    auto)
+      if [[ ! -f "$start_script" ]] && [[ -f "scripts/start.sh" ]]; then
+        start_script="scripts/start.sh"
+      fi
+      if [[ ! -f "$zshrc_template" ]] && [[ -f "configs/zshrc" ]]; then
+        zshrc_template="configs/zshrc"
+      fi
+      if [[ ! -f "$java_defaults_template" ]] && [[ -f "configs/java-defaults.zsh" ]]; then
+        java_defaults_template="configs/java-defaults.zsh"
+      fi
+      if [[ ! -f "$codex_settings" ]] && [[ -f "configs/codex/settings.json" ]]; then
+        codex_settings="configs/codex/settings.json"
+      fi
+      if [[ ! -f "$claude_settings" ]] && [[ -f "configs/claude/settings.json" ]]; then
+        claude_settings="configs/claude/settings.json"
+      fi
+      if [[ ! -f "$gemini_settings" ]] && [[ -f "configs/gemini/settings.json" ]]; then
+        gemini_settings="configs/gemini/settings.json"
+      fi
+      if [[ ! -f "$micro_settings" ]] && [[ -f "configs/micro/settings.json" ]]; then
+        micro_settings="configs/micro/settings.json"
+      fi
+      if [[ -f "Dockerfile" ]]; then
+        dockerfile_path="Dockerfile"
+      fi
+      ;;
+    *)
+      echo "  FAIL java-onboarding-policy (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$start_script" ]] || [[ ! -f "$zshrc_template" ]] || [[ ! -f "$java_defaults_template" ]]; then
+    echo "  FAIL java-onboarding-policy (missing startup/java template files)"
+    FAILED=1
+    return
+  fi
+
+  if grep -Fq "ensure_java_onboarding()" "$start_script"; then
+    has_start_helper=1
+  fi
+
+  if grep -Fq "ensure_jdtls_runtime()" "$start_script"; then
+    has_jdtls_helper=1
+  fi
+
+  if grep -Eq '^[[:space:]]*(ensure_java_onboarding|run_java_onboarding_async)[[:space:]]*$' "$start_script"; then
+    has_start_invocation=1
+  fi
+
+  if grep -Fq 'export JENV_ROOT="$HOME_DIR/.jenv"' "$start_script"; then
+    has_jenv_root_pin=1
+  fi
+
+  if grep -Eq 'using cached( verified)? jdtls archive fallback' "$start_script"; then
+    has_jdtls_cache_fallback=1
+  fi
+
+  if grep -Fq "extract_sha256_token()" "$start_script" \
+    && grep -Fq "file_matches_sha256()" "$start_script" \
+    && grep -Fq "binary.package.checksum" "$start_script"; then
+    has_checksum_guard=1
+  fi
+
+  if grep -Fq "run_java_onboarding_async()" "$start_script" \
+    && grep -Eq '^[[:space:]]*run_java_onboarding_async[[:space:]]*$' "$start_script"; then
+    has_async_startup_guard=1
+  fi
+
+  if grep -Fq '/etc/skel/.config/agent-sandbox/java-defaults.zsh "$HOME_DIR/.config/agent-sandbox/java-defaults.zsh"' "$start_script"; then
+    has_java_defaults_sync=1
+  fi
+
+  if grep -Fq 'JAVA_DEFAULTS_HOOK=' "$start_script" \
+    && grep -Fq 'source ~/.config/agent-sandbox/java-defaults.zsh' "$start_script"; then
+    has_java_hook=1
+  fi
+
+  if grep -Fq 'source ~/.config/agent-sandbox/java-defaults.zsh' "$zshrc_template"; then
+    has_zsh_source=1
+  fi
+
+  if grep -Fq 'JENV_ROOT' "$java_defaults_template" \
+    && grep -Fq 'jenv init' "$java_defaults_template"; then
+    has_java_defaults_content=1
+  fi
+
+  if [[ -n "$dockerfile_path" ]]; then
+    if grep -Fq "/opt/jenv" "$dockerfile_path"; then
+      has_docker_jenv=1
+    fi
+  else
+    has_docker_jenv=1
+  fi
+
+  if [[ -f "$codex_settings" ]] && grep -Fq '"java"' "$codex_settings" && grep -Fq '"jdtls"' "$codex_settings"; then
+    codex_java_lsp=1
+  fi
+
+  if [[ -f "$claude_settings" ]] && grep -Fq '"java"' "$claude_settings" && grep -Fq '"jdtls"' "$claude_settings"; then
+    claude_java_lsp=1
+  fi
+
+  if [[ -f "$gemini_settings" ]] && grep -Fq '"java"' "$gemini_settings" && grep -Fq '"jdtls"' "$gemini_settings"; then
+    gemini_java_lsp=1
+  fi
+
+  if [[ -f "$micro_settings" ]] && grep -Fq 'java=jdtls' "$micro_settings"; then
+    micro_java_lsp=1
+  fi
+
+  if [[ "$has_start_helper" -eq 1 ]] \
+    && [[ "$has_jdtls_helper" -eq 1 ]] \
+    && [[ "$has_start_invocation" -eq 1 ]] \
+    && [[ "$has_jenv_root_pin" -eq 1 ]] \
+    && [[ "$has_jdtls_cache_fallback" -eq 1 ]] \
+    && [[ "$has_checksum_guard" -eq 1 ]] \
+    && [[ "$has_async_startup_guard" -eq 1 ]] \
+    && [[ "$has_java_defaults_sync" -eq 1 ]] \
+    && [[ "$has_java_hook" -eq 1 ]] \
+    && [[ "$has_zsh_source" -eq 1 ]] \
+    && [[ "$has_java_defaults_content" -eq 1 ]] \
+    && [[ "$has_docker_jenv" -eq 1 ]] \
+    && [[ "$codex_java_lsp" -eq 1 ]] \
+    && [[ "$claude_java_lsp" -eq 1 ]] \
+    && [[ "$gemini_java_lsp" -eq 1 ]] \
+    && [[ "$micro_java_lsp" -eq 1 ]]; then
+    echo "  OK   java-onboarding-policy"
+  else
+    echo "  FAIL java-onboarding-policy (start_helper=${has_start_helper}, jdtls_helper=${has_jdtls_helper}, invocation=${has_start_invocation}, jenv_root_pin=${has_jenv_root_pin}, jdtls_cache_fallback=${has_jdtls_cache_fallback}, checksum_guard=${has_checksum_guard}, async_guard=${has_async_startup_guard}, sync=${has_java_defaults_sync}, hook=${has_java_hook}, zsh=${has_zsh_source}, java_defaults=${has_java_defaults_content}, docker_jenv=${has_docker_jenv}, codex_lsp=${codex_java_lsp}, claude_lsp=${claude_java_lsp}, gemini_lsp=${gemini_java_lsp}, micro_lsp=${micro_java_lsp})"
+    FAILED=1
+  fi
+}
+
+check_agent_tool_inventory_policy() {
+  local source_mode="${SMOKE_TEST_SOURCE:-auto}"
+  local tool_script="/usr/local/bin/agent-tools"
+  local dockerfile_path=""
+  local has_usage=0
+  local has_agents=0
+  local has_common_tools=0
+  local has_docker_copy=0
+
+  case "$source_mode" in
+    installed)
+      ;;
+    repo)
+      tool_script="scripts/agent-tools.sh"
+      dockerfile_path="Dockerfile"
+      ;;
+    auto)
+      if [[ ! -f "$tool_script" ]] && [[ -f "scripts/agent-tools.sh" ]]; then
+        tool_script="scripts/agent-tools.sh"
+      fi
+      if [[ -f "Dockerfile" ]]; then
+        dockerfile_path="Dockerfile"
+      fi
+      ;;
+    *)
+      echo "  FAIL agent-tool-inventory (invalid SMOKE_TEST_SOURCE=${source_mode})"
+      FAILED=1
+      return
+      ;;
+  esac
+
+  if [[ ! -f "$tool_script" ]]; then
+    echo "  FAIL agent-tool-inventory ($tool_script missing)"
+    FAILED=1
+    return
+  fi
+
+  if grep -Fq "Usage: agent-tools" "$tool_script"; then
+    has_usage=1
+  fi
+
+  if grep -Fq "codex" "$tool_script" \
+    && grep -Fq "claude" "$tool_script" \
+    && grep -Fq "gemini" "$tool_script"; then
+    has_agents=1
+  fi
+
+  if grep -Fq "common-tools" "$tool_script"; then
+    has_common_tools=1
+  fi
+
+  if [[ -n "$dockerfile_path" ]] \
+    && grep -Fq "scripts/agent-tools.sh /usr/local/bin/agent-tools" "$dockerfile_path"; then
+    has_docker_copy=1
+  elif [[ -z "$dockerfile_path" ]]; then
+    has_docker_copy=1
+  fi
+
+  if [[ "$has_usage" -eq 1 ]] \
+    && [[ "$has_agents" -eq 1 ]] \
+    && [[ "$has_common_tools" -eq 1 ]] \
+    && [[ "$has_docker_copy" -eq 1 ]]; then
+    echo "  OK   agent-tool-inventory"
+  else
+    echo "  FAIL agent-tool-inventory (usage=${has_usage}, agents=${has_agents}, common=${has_common_tools}, docker_copy=${has_docker_copy})"
+    FAILED=1
+  fi
+}
+
 find_playwright_chromium_binary() {
   local browsers_root="$1"
 
@@ -1686,6 +1984,8 @@ echo ""
 echo "--- Agent Defaults ---"
 check_agent_settings_install_policy
 check_codex_default_config
+check_java_onboarding_policy
+check_agent_tool_inventory_policy
 check_arscontexta_install_policy
 check_tmux_plugin_bootstrap
 check_tealdeer_update_bootstrap
@@ -1703,7 +2003,20 @@ check "node"      node --version
 check "bun"       bun --version
 check "python3"   python3 --version
 check "uv"        uv --version
+if command -v jenv >/dev/null 2>&1; then
+  check "jenv"    jenv --version
+else
+  echo "  OK   jenv (runtime check skipped: command not present in current shell image)"
+fi
 check "playwright-cli" playwright-cli --version
+if command -v agent-tools >/dev/null 2>&1; then
+  check "agent-tools" agent-tools --agent codex
+elif [[ -x "scripts/agent-tools.sh" ]]; then
+  check "agent-tools-script" scripts/agent-tools.sh --agent codex
+else
+  echo "  FAIL agent-tools (missing command and repo script)"
+  FAILED=1
+fi
 check_playwright_chromium_companion
 check "vim"       vim --version
 check "nvim"      nvim --version

@@ -142,6 +142,11 @@ if [[ -f ~/.config/agent-sandbox/auto-approve.zsh ]]; then
   source ~/.config/agent-sandbox/auto-approve.zsh
 fi
 
+# Agent Java defaults (jenv shim/JAVA_HOME).
+if [[ -f ~/.config/agent-sandbox/java-defaults.zsh ]]; then
+  source ~/.config/agent-sandbox/java-defaults.zsh
+fi
+
 # ----- Starship prompt (must be last) -----
 if command -v starship &>/dev/null; then
   eval "$(starship init zsh)"

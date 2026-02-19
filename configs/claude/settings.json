@@ -58,6 +58,11 @@
       "command": "pyright-langserver",
       "args": ["--stdio"],
       "filetypes": ["python"]
+    },
+    "java": {
+      "command": "jdtls",
+      "args": [],
+      "filetypes": ["java"]
     }
   }
 }

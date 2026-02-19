@@ -28,7 +28,7 @@
   "tabsize": 2,
   "tabstospaces": true,
   "wordwrap": false,
-  "lsp.server": "python3=pyright-langserver --stdio,python2=pyright-langserver --stdio,typescript=typescript-language-server --stdio,javascript=typescript-language-server --stdio,json=vscode-json-language-server --stdio,yaml=yaml-language-server --stdio,shell=bash-language-server start --stdio,zsh=bash-language-server start --stdio,html=vscode-html-language-server --stdio,css=vscode-css-language-server --stdio,dockerfile=docker-langserver --stdio",
+  "lsp.server": "python3=pyright-langserver --stdio,python2=pyright-langserver --stdio,typescript=typescript-language-server --stdio,javascript=typescript-language-server --stdio,json=vscode-json-language-server --stdio,yaml=yaml-language-server --stdio,shell=bash-language-server start --stdio,zsh=bash-language-server start --stdio,html=vscode-html-language-server --stdio,css=vscode-css-language-server --stdio,java=jdtls,dockerfile=docker-langserver --stdio",
   "lsp.formatOnSave": false,
   "lsp.tabcompletion": true,
   "lsp.autocompleteDetails": false,

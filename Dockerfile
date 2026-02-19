@@ -115,6 +115,7 @@ ARG YAMLLINT_VERSION=1.38.0
 ARG PLAYWRIGHT_CLI_VERSION=0.1.1
 ARG ACTIONLINT_VERSION=1.7.11
 ARG TRIVY_VERSION=0.69.1
+ARG JENV_VERSION=0.6.0
 ARG RIPGREP_VERSION=15.1.0
 ARG RIPGREP_SHA256_AMD64=1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599
 ARG RIPGREP_SHA256_ARM64=2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e
@@ -420,6 +421,10 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/direnv/direnv/releases/download/v${DIRENV_VERSION}/direnv.linux-${DIRENV_ARCH}" -o /usr/local/bin/direnv \
     && chmod +x /usr/local/bin/direnv
 
+# Install jenv (Java version manager) from pinned tag.
+RUN git clone --depth 1 --branch "${JENV_VERSION}" https://github.com/jenv/jenv.git /opt/jenv \
+    && ln -sf /opt/jenv/bin/jenv /usr/local/bin/jenv
+
 # Install Playwright CLI and pin browser payload to Chromium.
 # PLAYWRIGHT_BROWSERS_PATH makes browser binaries available to all users.
 # hadolint ignore=DL3003
@@ -486,7 +491,7 @@ RUN --mount=type=cache,id=agent-sandbox-bun-install-cache,target=/usr/local/inst
 RUN set -e; \
     for cmd in \
       claude codex gemini opencode nvim dust procs btm xh mcfly pre-commit \
-      tldr gitleaks hadolint shellcheck uv direnv actionlint trivy yamllint \
+      tldr gitleaks hadolint shellcheck uv direnv jenv actionlint trivy yamllint \
       playwright-cli ps pkill typescript-language-server bash-language-server \
       docker-langserver vscode-json-language-server yaml-language-server pyright bd; do \
       if ! command -v "$cmd" >/dev/null 2>&1; then \
@@ -535,9 +540,13 @@ COPY --link TOOLS.md /etc/skel/.config/agent-sandbox/TOOLS.md
 COPY --link configs/agent-auto-approve.zsh /etc/skel/.config/agent-sandbox/auto-approve.zsh
 # Managed default editor env hook (nvim-first).
 COPY --link configs/editor-defaults.zsh /etc/skel/.config/agent-sandbox/editor-defaults.zsh
+# Managed Java/jenv env hook.
+COPY --link configs/java-defaults.zsh /etc/skel/.config/agent-sandbox/java-defaults.zsh
 
 # Smoke test script for build-time and runtime tool verification.
 COPY --link --chmod=755 scripts/smoke-test.sh /usr/local/bin/smoke-test.sh
+# Agent tool inventory helper.
+COPY --link --chmod=755 scripts/agent-tools.sh /usr/local/bin/agent-tools
 
 # Entry script handles first-run bootstrap, then exec CMD.
 COPY --link --chmod=755 scripts/start.sh /usr/local/bin/start.sh

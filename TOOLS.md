@@ -36,6 +36,20 @@ codex
 gemini
 ```
 
+### Agent Tool Inventory (per-agent)
+
+```bash
+# 전체 에이전트(codex/claude/gemini) + 공용 도구 상태 확인
+agent-tools --agent all
+
+# 특정 에이전트만 확인
+agent-tools --agent codex
+agent-tools --agent claude
+agent-tools --agent gemini
+```
+
+> `agent-tools`는 각 에이전트의 settings/skills 경로, LSP 커맨드, 공용 CLI 가용 여부를 현재 컨테이너 기준으로 출력한다.
+
 ---
 
 ## Agent Productivity Tools

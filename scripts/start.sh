@@ -125,6 +125,41 @@ toml_section_has_key() {
   ' "$file"
 }
 
+# Check whether a TOML key exists anywhere in the file.
+# For `approval_policy`/`sandbox_mode` we keep keys top-level, but this wider
+# check avoids duplicate prepends in legacy files with unconventional ordering.
+toml_top_level_has_key() {
+  local file="$1"
+  local key="$2"
+
+  awk -v key="$key" '
+    $0 ~ ("^[[:space:]]*" key "[[:space:]]*=") {
+      found = 1
+      exit 0
+    }
+    END {
+      if (found == 1) {
+        exit 0
+      }
+      exit 1
+    }
+  ' "$file"
+}
+
+# Prepend a top-level TOML key/value line.
+prepend_toml_top_level_key() {
+  local file="$1"
+  local key_value="$2"
+  local tmp_file
+
+  tmp_file="$(mktemp)"
+  {
+    printf '%s\n' "$key_value"
+    cat "$file"
+  } > "$tmp_file"
+  mv "$tmp_file" "$file"
+}
+
 # Insert a TOML key/value block into a section.
 # - If the section exists, insert at the end of that section.
 # - If the section does not exist, append a new section with the block.
@@ -173,11 +208,13 @@ insert_toml_key_into_section() {
 }
 
 # Ensure Codex config contains managed defaults required by this image:
+# - top-level approval/sandbox policy
 # - [tui].status_line
 # - [features].undo
 # - [features].multi_agent
 # - [features].apps
 # - [agents].max_threads
+# - [projects."/workspace"].trust_level
 # Rules:
 # - If config does not exist: install the image default as-is.
 # - If a key already exists: keep user customization.
@@ -193,6 +230,16 @@ ensure_codex_status_line() {
     echo "[init] Installing Codex default config: $dest"
     cp "$src" "$dest"
     return
+  fi
+
+  if ! toml_top_level_has_key "$dest" "approval_policy"; then
+    echo "[init] Setting Codex default approval policy: $dest"
+    prepend_toml_top_level_key "$dest" 'approval_policy = "never"'
+  fi
+
+  if ! toml_top_level_has_key "$dest" "sandbox_mode"; then
+    echo "[init] Setting Codex default sandbox mode: $dest"
+    prepend_toml_top_level_key "$dest" 'sandbox_mode = "danger-full-access"'
   fi
 
   status_block='status_line = [
@@ -229,6 +276,11 @@ ensure_codex_status_line() {
   if ! toml_section_has_key "$dest" "agents" "max_threads"; then
     echo "[init] Setting Codex default agent max_threads: $dest"
     insert_toml_key_into_section "$dest" "agents" "max_threads = 12"
+  fi
+
+  if ! toml_section_has_key "$dest" 'projects."/workspace"' "trust_level"; then
+    echo "[init] Trusting /workspace for Codex child agents: $dest"
+    insert_toml_key_into_section "$dest" 'projects."/workspace"' 'trust_level = "trusted"'
   fi
 }
 
@@ -449,6 +501,7 @@ copy_default /etc/skel/.default.pre-commit-config.yaml "$HOME_DIR/.pre-commit-co
 copy_default /etc/skel/.config/agent-sandbox/TOOLS.md  "$HOME_DIR/.config/agent-sandbox/TOOLS.md"
 update_managed /etc/skel/.config/agent-sandbox/auto-approve.zsh "$HOME_DIR/.config/agent-sandbox/auto-approve.zsh"
 update_managed /etc/skel/.config/agent-sandbox/editor-defaults.zsh "$HOME_DIR/.config/agent-sandbox/editor-defaults.zsh"
+update_managed /etc/skel/.config/agent-sandbox/java-defaults.zsh "$HOME_DIR/.config/agent-sandbox/java-defaults.zsh"
 install_default_templates /etc/skel/.agent-sandbox/templates "$HOME_DIR/.agent-sandbox/templates"
 
 # Existing users may already have a persisted ~/.zshrc from older images.
@@ -471,6 +524,17 @@ if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$EDITOR_DEFAULTS_HOOK" "$HOME_DIR/
     echo ""
     echo "# Agent editor defaults (managed by agent-sandbox)."
     echo "$EDITOR_DEFAULTS_HOOK"
+  } >> "$HOME_DIR/.zshrc"
+fi
+
+# Ensure Java defaults are applied for both new and existing persisted homes.
+# This hook enables jenv shims and JAVA_HOME without manual shell edits.
+JAVA_DEFAULTS_HOOK='[[ -f ~/.config/agent-sandbox/java-defaults.zsh ]] && source ~/.config/agent-sandbox/java-defaults.zsh'
+if [[ -f "$HOME_DIR/.zshrc" ]] && ! grep -Fq "$JAVA_DEFAULTS_HOOK" "$HOME_DIR/.zshrc"; then
+  {
+    echo ""
+    echo "# Agent Java defaults (managed by agent-sandbox)."
+    echo "$JAVA_DEFAULTS_HOOK"
   } >> "$HOME_DIR/.zshrc"
 fi
 
@@ -629,6 +693,455 @@ update_tealdeer_cache() {
 
   echo "[init]   WARNING: Continuing startup without refreshed tealdeer cache." >&2
   return 0
+}
+
+extract_sha256_token() {
+  local raw_value="${1:-}"
+
+  printf '%s\n' "$raw_value" | tr -d '\r' | awk '
+    {
+      for (i = 1; i <= NF; i++) {
+        token = tolower($i)
+        if (token ~ /^[0-9a-f]{64}$/) {
+          print token
+          exit
+        }
+      }
+    }
+  '
+}
+
+file_matches_sha256() {
+  local file_path="$1"
+  local expected_sha256="$2"
+  local actual_sha256=""
+
+  if [[ -z "$expected_sha256" ]] || [[ ! -s "$file_path" ]]; then
+    return 1
+  fi
+
+  actual_sha256="$(sha256sum "$file_path" 2>/dev/null | awk '{print tolower($1)}' || true)"
+  [[ -n "$actual_sha256" ]] && [[ "$actual_sha256" == "$expected_sha256" ]]
+}
+
+# Install Eclipse JDT Language Server (jdtls) into persisted home on demand.
+# This keeps Java LSP available without baking a large mutable payload in image.
+ensure_jdtls_runtime() {
+  local jdtls_root="$HOME_DIR/.local/share/agent-sandbox/jdtls"
+  local jdtls_bin="$HOME_DIR/.local/bin/jdtls"
+  local jdtls_cache_dir="$HOME_DIR/.cache/agent-sandbox/jdtls"
+  local jdtls_default_base_url="https://mirror.kakao.com/eclipse/jdtls/snapshots"
+  local jdtls_upstream_base_url="https://download.eclipse.org/jdtls/snapshots"
+  local jdtls_base_urls_env="${AGENT_SANDBOX_JDTLS_BASE_URLS:-}"
+  local jdtls_base_candidates=()
+  local jdtls_base_url=""
+  local latest_marker_url=""
+  local latest_name=""
+  local download_url=""
+  local checksum_url=""
+  local checksum_payload=""
+  local jdtls_expected_sha256=""
+  local archive_path=""
+  local archive_part=""
+  local resolved_archive=""
+  local launcher_jar=""
+  local latest_lookup_any_ok=0
+
+  append_jdtls_base_candidate() {
+    local candidate="$1"
+    local existing=""
+
+    candidate="${candidate%/}"
+    if [[ -z "$candidate" ]]; then
+      return 0
+    fi
+
+    if [[ "$candidate" != https://* ]]; then
+      echo "[init]   WARNING: ignoring non-HTTPS jdtls source: $candidate" >&2
+      return 0
+    fi
+
+    for existing in "${jdtls_base_candidates[@]}"; do
+      if [[ "$existing" == "$candidate" ]]; then
+        return 0
+      fi
+    done
+
+    jdtls_base_candidates+=("$candidate")
+  }
+
+  if [[ -n "$jdtls_base_urls_env" ]]; then
+    local candidate=""
+    for candidate in ${jdtls_base_urls_env//,/ }; do
+      append_jdtls_base_candidate "$candidate"
+    done
+  fi
+  append_jdtls_base_candidate "$jdtls_default_base_url"
+  append_jdtls_base_candidate "$jdtls_upstream_base_url"
+
+  resolve_cached_jdtls_archive() {
+    local cached_archive=""
+    local cached_sha_file=""
+    local cached_expected_sha256=""
+
+    if [[ -n "$archive_path" ]] && [[ -s "$archive_path" ]] && tar -tzf "$archive_path" >/dev/null 2>&1; then
+      cached_sha_file="${archive_path}.sha256"
+      if [[ -s "$cached_sha_file" ]]; then
+        cached_expected_sha256="$(extract_sha256_token "$(cat "$cached_sha_file" 2>/dev/null || true)")"
+        if file_matches_sha256 "$archive_path" "$cached_expected_sha256"; then
+          resolved_archive="$archive_path"
+          return 0
+        fi
+      fi
+    fi
+
+    while IFS= read -r cached_archive; do
+      if [[ -z "$cached_archive" ]] || [[ ! -s "$cached_archive" ]]; then
+        continue
+      fi
+
+      cached_sha_file="${cached_archive}.sha256"
+      if [[ ! -s "$cached_sha_file" ]]; then
+        continue
+      fi
+
+      cached_expected_sha256="$(extract_sha256_token "$(cat "$cached_sha_file" 2>/dev/null || true)")"
+      if [[ -z "$cached_expected_sha256" ]]; then
+        continue
+      fi
+
+      if tar -tzf "$cached_archive" >/dev/null 2>&1 && file_matches_sha256 "$cached_archive" "$cached_expected_sha256"; then
+        resolved_archive="$cached_archive"
+        return 0
+      fi
+    done < <(find "$jdtls_cache_dir" -maxdepth 1 -type f -name 'jdt-language-server-*.tar.gz' -print 2>/dev/null | sort -r)
+
+    return 1
+  }
+
+  launcher_jar="$(find "$jdtls_root/plugins" -maxdepth 1 -type f -name 'org.eclipse.equinox.launcher_*.jar' -print -quit 2>/dev/null || true)"
+
+  if [[ -z "$launcher_jar" ]]; then
+    echo "[init] Installing Java LSP server (jdtls)..."
+    mkdir -p "$jdtls_cache_dir"
+
+    for jdtls_base_url in "${jdtls_base_candidates[@]}"; do
+      latest_name=""
+      latest_marker_url="$jdtls_base_url/latest.txt"
+
+      if ! latest_name="$(
+        timeout --kill-after=5 30 curl -fsSL \
+          --connect-timeout 8 \
+          --max-time 25 \
+          "$latest_marker_url" \
+          </dev/null | tr -d '\r\n'
+      )"; then
+        echo "[init]   WARNING: cannot fetch jdtls latest.txt from $jdtls_base_url (non-blocking)" >&2
+        continue
+      elif [[ -z "$latest_name" ]] || [[ "$latest_name" != jdt-language-server-*.tar.gz ]]; then
+        echo "[init]   WARNING: unexpected jdtls release marker from $jdtls_base_url: ${latest_name:-empty} (non-blocking)" >&2
+        continue
+      fi
+
+      latest_lookup_any_ok=1
+      download_url="$jdtls_base_url/$latest_name"
+      archive_path="$jdtls_cache_dir/$latest_name"
+      archive_part="$archive_path.partial"
+      jdtls_expected_sha256=""
+
+      for checksum_url in \
+        "$jdtls_upstream_base_url/$latest_name.sha256" \
+        "$jdtls_base_url/$latest_name.sha256"; do
+        if checksum_payload="$(
+          timeout --kill-after=5 30 curl -fsSL \
+            --connect-timeout 8 \
+            --max-time 25 \
+            "$checksum_url" \
+            </dev/null
+        )"; then
+          jdtls_expected_sha256="$(extract_sha256_token "$checksum_payload")"
+          if [[ "$jdtls_expected_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+            break
+          fi
+        fi
+      done
+
+      if [[ ! "$jdtls_expected_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "[init]   WARNING: missing jdtls checksum for $latest_name from trusted sources (non-blocking)" >&2
+        continue
+      fi
+
+      # Download only when cache is missing or corrupted.
+      # Keep a resumable partial archive so slow links can converge across restarts.
+      if [[ ! -s "$archive_path" ]] \
+        || ! tar -tzf "$archive_path" >/dev/null 2>&1 \
+        || ! file_matches_sha256 "$archive_path" "$jdtls_expected_sha256"; then
+        if [[ -f "$archive_path" ]] \
+          && { ! tar -tzf "$archive_path" >/dev/null 2>&1 || ! file_matches_sha256 "$archive_path" "$jdtls_expected_sha256"; }; then
+          rm -f "$archive_path" "${archive_path}.sha256"
+        fi
+
+        if ! timeout --kill-after=5 180 curl -fL \
+          --connect-timeout 10 \
+          --max-time 170 \
+          --speed-time 25 \
+          --speed-limit 4096 \
+          --retry 1 \
+          --retry-delay 2 \
+          -C - \
+          "$download_url" \
+          -o "$archive_part" \
+          </dev/null; then
+          echo "[init]   WARNING: jdtls download failed or timed out from $jdtls_base_url (non-blocking, resumable cache kept)" >&2
+          continue
+        elif tar -tzf "$archive_part" >/dev/null 2>&1 && file_matches_sha256 "$archive_part" "$jdtls_expected_sha256"; then
+          mv -f "$archive_part" "$archive_path"
+          printf '%s\n' "$jdtls_expected_sha256" > "${archive_path}.sha256"
+        else
+          echo "[init]   WARNING: downloaded jdtls archive failed integrity verification from $jdtls_base_url (non-blocking, will retry)" >&2
+          rm -f "$archive_part"
+          continue
+        fi
+      fi
+
+      if [[ -s "$archive_path" ]] \
+        && tar -tzf "$archive_path" >/dev/null 2>&1 \
+        && file_matches_sha256 "$archive_path" "$jdtls_expected_sha256"; then
+        printf '%s\n' "$jdtls_expected_sha256" > "${archive_path}.sha256"
+        resolved_archive="$archive_path"
+        break
+      fi
+    done
+
+    if [[ "$latest_lookup_any_ok" -eq 0 ]]; then
+      echo "[init]   WARNING: cannot fetch jdtls latest.txt from any configured source (non-blocking)" >&2
+    fi
+
+    if [[ -z "$resolved_archive" ]]; then
+      if ! resolve_cached_jdtls_archive; then
+        echo "[init]   WARNING: no usable verified jdtls archive available (non-blocking)" >&2
+        return 0
+      fi
+      if [[ -z "$archive_path" ]] || [[ "$resolved_archive" != "$archive_path" ]]; then
+        echo "[init]   WARNING: using cached verified jdtls archive fallback: $(basename "$resolved_archive")" >&2
+      fi
+    fi
+
+    rm -rf "$jdtls_root" 2>/dev/null || true
+    mkdir -p "$jdtls_root"
+    if ! tar -xzf "$resolved_archive" -C "$jdtls_root"; then
+      echo "[init]   WARNING: jdtls archive extraction failed (non-blocking)" >&2
+      return 0
+    fi
+  fi
+
+  launcher_jar="$(find "$jdtls_root/plugins" -maxdepth 1 -type f -name 'org.eclipse.equinox.launcher_*.jar' -print -quit 2>/dev/null || true)"
+  if [[ -z "$launcher_jar" ]]; then
+    echo "[init]   WARNING: jdtls launcher jar missing after install (non-blocking)" >&2
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$jdtls_bin")"
+  cat > "$jdtls_bin" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+JDTLS_HOME="${JDTLS_HOME:-$HOME/.local/share/agent-sandbox/jdtls}"
+JDTLS_CONFIG_DIR="${JDTLS_CONFIG_DIR:-$JDTLS_HOME/config_linux}"
+JDTLS_WORKSPACE_DIR="${JDTLS_WORKSPACE_DIR:-$HOME/.cache/jdtls/workspace}"
+
+if [[ ! -d "$JDTLS_CONFIG_DIR" ]]; then
+  echo "jdtls config directory not found: $JDTLS_CONFIG_DIR" >&2
+  exit 1
+fi
+
+launcher_jar="$(find "$JDTLS_HOME/plugins" -maxdepth 1 -type f -name 'org.eclipse.equinox.launcher_*.jar' -print -quit 2>/dev/null || true)"
+if [[ -z "$launcher_jar" ]]; then
+  echo "jdtls launcher jar not found in $JDTLS_HOME/plugins" >&2
+  exit 1
+fi
+
+mkdir -p "$JDTLS_WORKSPACE_DIR"
+exec java \
+  -Declipse.application=org.eclipse.jdt.ls.core.id1 \
+  -Dosgi.bundles.defaultStartLevel=4 \
+  -Declipse.product=org.eclipse.jdt.ls.core.product \
+  -Dlog.protocol=true \
+  -Dlog.level=ERROR \
+  -Xms256m \
+  --add-modules=ALL-SYSTEM \
+  --add-opens java.base/java.util=ALL-UNNAMED \
+  --add-opens java.base/java.lang=ALL-UNNAMED \
+  -jar "$launcher_jar" \
+  -configuration "$JDTLS_CONFIG_DIR" \
+  -data "$JDTLS_WORKSPACE_DIR" \
+  "$@"
+EOF
+  chmod +x "$jdtls_bin"
+}
+
+# Bootstrap Java toolchain in persisted home:
+# - jenv init + export plugin
+# - Temurin OpenJDK 21 download/add/global setup
+# - jdtls install for Java LSP clients
+ensure_java_onboarding() {
+  if ! command -v jenv &>/dev/null; then
+    echo "[init]   WARNING: jenv command not found; skipping Java onboarding." >&2
+    return 0
+  fi
+
+  # Use sandbox-home-local jenv root unconditionally.
+  # This avoids inheriting stale host/session JENV_ROOT values.
+  export JENV_ROOT="$HOME_DIR/.jenv"
+  mkdir -p "$JENV_ROOT"
+
+  # jenv's export plugin expects PROMPT_COMMAND to be defined.
+  # This entrypoint runs with `set -u`, so temporarily relax nounset while
+  # evaluating jenv init code.
+  local had_nounset=0
+  if [[ "$-" == *u* ]]; then
+    had_nounset=1
+    set +u
+  fi
+  local PROMPT_COMMAND="${PROMPT_COMMAND-}"
+
+  # Initialize jenv in this non-interactive shell so `jenv add/global` works.
+  eval "$(jenv init - 2>/dev/null)" || true
+  if [[ "$had_nounset" -eq 1 ]]; then
+    set -u
+  fi
+
+  if ! jenv plugins 2>/dev/null | grep -Fxq "export"; then
+    jenv enable-plugin export >/dev/null 2>&1 || true
+  fi
+
+  local temurin_arch=""
+  case "$(uname -m)" in
+    x86_64|amd64)
+      temurin_arch="x64"
+      ;;
+    aarch64|arm64)
+      temurin_arch="aarch64"
+      ;;
+    *)
+      echo "[init]   WARNING: unsupported architecture for Temurin auto-install ($(uname -m)); skipping JDK onboarding." >&2
+      ensure_jdtls_runtime
+      return 0
+      ;;
+  esac
+
+  local java_major="21"
+  local jdk_root="$HOME_DIR/.local/share/agent-sandbox/jdks/temurin-${java_major}"
+  local jdk_cache_dir="$HOME_DIR/.cache/agent-sandbox/jdks"
+  local jdk_archive="$jdk_cache_dir/temurin-${java_major}-${temurin_arch}.tar.gz"
+  local jdk_archive_part="$jdk_archive.partial"
+  local metadata_url="https://api.adoptium.net/v3/assets/latest/${java_major}/hotspot?release_type=ga&image_type=jdk&os=linux&architecture=${temurin_arch}&jvm_impl=hotspot&vendor=eclipse"
+  local metadata_payload=""
+  local download_url=""
+  local jdk_expected_sha256=""
+
+  if [[ ! -x "$jdk_root/bin/java" ]]; then
+    echo "[init] Installing Temurin OpenJDK ${java_major} via jenv onboarding..."
+    mkdir -p "$jdk_cache_dir"
+
+    if ! command -v jq &>/dev/null; then
+      echo "[init]   WARNING: jq not available; skipping OpenJDK onboarding integrity checks (non-blocking)" >&2
+    elif ! metadata_payload="$(
+      timeout --kill-after=10 45 curl -fsSL \
+        --connect-timeout 12 \
+        --max-time 35 \
+        "$metadata_url" \
+        </dev/null
+    )"; then
+      echo "[init]   WARNING: cannot fetch OpenJDK metadata from Adoptium API (non-blocking)" >&2
+    else
+      download_url="$(printf '%s\n' "$metadata_payload" | jq -r '.[0].binary.package.link // empty' 2>/dev/null || true)"
+      jdk_expected_sha256="$(printf '%s\n' "$metadata_payload" | jq -r '.[0].binary.package.checksum // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+    fi
+
+    if [[ -n "$download_url" ]] && [[ "$jdk_expected_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+      if [[ ! -s "$jdk_archive" ]] \
+        || ! tar -tzf "$jdk_archive" >/dev/null 2>&1 \
+        || ! file_matches_sha256 "$jdk_archive" "$jdk_expected_sha256"; then
+        if [[ -f "$jdk_archive" ]] \
+          && { ! tar -tzf "$jdk_archive" >/dev/null 2>&1 || ! file_matches_sha256 "$jdk_archive" "$jdk_expected_sha256"; }; then
+          rm -f "$jdk_archive" "${jdk_archive}.sha256"
+        fi
+
+        if ! timeout --kill-after=10 300 curl -fsSL \
+          --connect-timeout 12 \
+          --max-time 290 \
+          --retry 1 \
+          --retry-delay 2 \
+          -C - \
+          "$download_url" \
+          -o "$jdk_archive_part" \
+          </dev/null; then
+          echo "[init]   WARNING: OpenJDK download failed or timed out (non-blocking, resumable cache kept)" >&2
+        elif tar -tzf "$jdk_archive_part" >/dev/null 2>&1 && file_matches_sha256 "$jdk_archive_part" "$jdk_expected_sha256"; then
+          mv -f "$jdk_archive_part" "$jdk_archive"
+          printf '%s\n' "$jdk_expected_sha256" > "${jdk_archive}.sha256"
+        else
+          echo "[init]   WARNING: downloaded OpenJDK payload failed integrity verification (non-blocking, will retry)" >&2
+          rm -f "$jdk_archive_part"
+        fi
+      fi
+
+      if [[ -s "$jdk_archive" ]] \
+        && tar -tzf "$jdk_archive" >/dev/null 2>&1 \
+        && file_matches_sha256 "$jdk_archive" "$jdk_expected_sha256"; then
+        rm -rf "$jdk_root" 2>/dev/null || true
+        mkdir -p "$jdk_root"
+        if tar -xzf "$jdk_archive" --strip-components=1 -C "$jdk_root" \
+          && "$jdk_root/bin/java" -version >/dev/null 2>&1; then
+          :
+        else
+          echo "[init]   WARNING: verified OpenJDK payload failed post-extract validation; skipping jenv add (non-blocking)" >&2
+        fi
+      else
+        echo "[init]   WARNING: no usable verified OpenJDK archive available (non-blocking)" >&2
+      fi
+    else
+      echo "[init]   WARNING: OpenJDK metadata is incomplete; skipping download (non-blocking)" >&2
+    fi
+  fi
+
+  if [[ -x "$jdk_root/bin/java" ]]; then
+    # `jenv add` exits non-zero when version already exists; treat as success.
+    jenv add "$jdk_root" >/dev/null 2>&1 || true
+
+    local current_global=""
+    local preferred_21=""
+    current_global="$(jenv global 2>/dev/null | awk 'NR==1 {print $1}' || true)"
+    preferred_21="$(jenv versions --bare 2>/dev/null | grep -E '(^|[^0-9])21([._+-]|$)' | head -n 1 || true)"
+
+    if [[ -n "$preferred_21" ]] \
+      && { [[ -z "$current_global" ]] || [[ "$current_global" == "system" ]]; }; then
+      jenv global "$preferred_21" >/dev/null 2>&1 || true
+    fi
+
+    jenv rehash >/dev/null 2>&1 || true
+  fi
+
+  ensure_jdtls_runtime
+}
+
+run_java_onboarding_async() {
+  local java_onboarding_lock="${XDG_CACHE_HOME:-$HOME_DIR/.cache}/agent-sandbox/java-onboarding.lock"
+  mkdir -p "$(dirname "$java_onboarding_lock")"
+
+  if command -v flock &>/dev/null; then
+    (
+      exec 9>"$java_onboarding_lock"
+      if ! flock -n 9; then
+        echo "[init] Java onboarding already in progress; skipping duplicate bootstrap." >&2
+        exit 0
+      fi
+      ensure_java_onboarding
+    ) &
+  else
+    ensure_java_onboarding &
+  fi
 }
 
 # Install a curated set of Micro plugins for Vim/Neovim-like workflows.
@@ -1117,6 +1630,11 @@ if command -v nvim &>/dev/null; then
   fi
 fi
 
+# Java onboarding runs in background so shell startup is not blocked by
+# first-run JDK/LSP downloads.
+echo "[init] Scheduling Java toolchain onboarding in background..."
+run_java_onboarding_async
+
 # Install missing Micro plugins from the curated default set.
 install_micro_plugins
 
@@ -1493,6 +2011,10 @@ if [[ -S /var/run/docker.sock ]]; then
     echo "  Fix: relaunch with --group-add $local_sock_gid"
     echo "  Or set DOCKER_GID=$local_sock_gid in docker-compose.yml"
   fi
+fi
+
+if command -v agent-tools &>/dev/null; then
+  echo "[init] Tool inventory helper: agent-tools --agent all"
 fi
 
 echo "[init] Agent sandbox ready!"

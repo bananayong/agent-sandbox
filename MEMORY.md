@@ -5,6 +5,31 @@ Keep only stable guidance with operational impact.
 
 ## Decision Log
 
+### 2026-02-19 — Java Onboarding Resume/Fallback Hardening
+- Context: jdtls/OpenJDK first-run onboarding could repeatedly fail on slow links because each startup retried from scratch, and inherited `JENV_ROOT` values could drift to non-sandbox paths.
+- Decision: force `JENV_ROOT` to `/home/sandbox/.jenv` during onboarding and switch jdtls/OpenJDK downloads to resumable partial-cache flow (`*.partial`) with cache fallback for jdtls archives.
+- Impact: onboarding is deterministic per sandbox home and recovers across repeated startups instead of failing indefinitely on unstable/slow networks.
+
+### 2026-02-19 — jdtls Startup Anti-Stall Policy
+- Context: first-run Java onboarding occasionally appeared frozen while downloading jdtls snapshots, blocking shell startup for several minutes.
+- Decision: jdtls onboarding now uses cached snapshot archives with integrity check (`tar -tzf`) and guarded `curl` options (`connect/max-time`, low-speed abort) to fail fast on poor links.
+- Impact: startup no longer feels hung during jdtls provisioning; repeated retries reuse cache when available.
+
+### 2026-02-19 — Codex Subagent Permission Baseline
+- Context: multi-agent(`explorer`/`worker`) sessions intermittently hit permission/trust dead-ends in mounted workspaces.
+- Decision: codex managed defaults now include `approval_policy="never"`, `sandbox_mode="danger-full-access"`, and `[projects."/workspace"].trust_level="trusted"`, plus startup-time merge for existing homes.
+- Impact: subagent creation/exploration works with fewer permission failures and no manual trust bootstrap.
+
+### 2026-02-19 — Java Onboarding Contract
+- Context: Java toolchain availability drifted across persisted homes and image refresh cycles.
+- Decision: install `jenv` in image, then run startup onboarding to auto-download Temurin OpenJDK 21, register via `jenv add/global`, and provision `jdtls` in persisted home.
+- Impact: reproducible Java runtime + LSP availability without requiring users to bake JDK payloads into image layers.
+
+### 2026-02-19 — Agent Tool Inventory UX
+- Context: operators needed a fast, runtime-accurate answer for what codex/claude/gemini can use inside the container.
+- Decision: add `agent-tools` command that reports per-agent settings/skills/LSP and common CLI availability.
+- Impact: lower setup ambiguity and faster troubleshooting for agent capability questions.
+
 ### 2026-02-18 — Runtime Safety Defaults
 - Context: network-sensitive agent CLIs frequently fail on unstable TLS/DNS paths.
 - Decision: enforce runtime defaults (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `DISABLE_ERROR_REPORTING=1`, `DISABLE_TELEMETRY=1`, `DISABLE_AUTOUPDATER=1`, Node TLS compat with IPv4-first) as baseline behavior.

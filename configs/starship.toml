@@ -6,7 +6,7 @@ scan_timeout = 30
 palette = "neon_dusk"
 
 format = """
-$os$username$hostname$directory$git_branch$git_status$nodejs$bun$python$rust$golang$package\
+$os$username$hostname$directory$git_branch$git_status$nodejs$bun$python${custom.jenv}$rust$golang$package\
 $line_break$character"""
 
 right_format = "$docker_context$cmd_duration$jobs$time$status"
@@ -108,6 +108,22 @@ format = "[$symbol($version) ]($style)"
 symbol = " "
 style = "fg:sky"
 format = "[$symbol$version(\\($virtualenv\\)) ]($style)"
+
+[custom.jenv]
+description = "Show active jenv selection with Java runtime version"
+when = "command -v jenv >/dev/null 2>&1 && command -v java >/dev/null 2>&1 && jenv version-name >/dev/null 2>&1"
+command = """
+current="$(jenv version-name 2>/dev/null || true)"
+java_runtime="$(java -version 2>&1 | awk -F'\"' '/version/ {print $2; exit}')"
+if [ -n "$java_runtime" ]; then
+  printf "☕ %s (%s)" "$current" "$java_runtime"
+else
+  printf "☕ %s" "$current"
+fi
+"""
+shell = ["bash", "--norc", "--noprofile"]
+style = "bold fg:amber"
+format = "[$output ]($style)"
 
 [rust]
 symbol = " "
