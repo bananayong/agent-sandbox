@@ -8,6 +8,7 @@ Project task list. All coding agents use this file as the operational source of 
 - Optional tags: `[P0|P1|P2|P3] (category)`
 
 ## Pending
+- [ ] [P1] (setup) subagents 생성시 접근 권한 이슈 해결
 - [ ] [P1] (setup) jenv 설치 및 OpenJDK 자동 다운로드 및 설치 온보딩 기능 추가. LSP도 같이 설치되도록 구성
 - [ ] [P1] (setup) codex/claude/gemini가 container 내에서 사용할수 있는 tools 목록 알려주기.
 - [ ] [P2] (setup) 상위 에이전트 체인 실행 토폴로지 확정 (openclaw/nanobot/nanoclaw/picoclaw/tinyclaw 역할·호출 순서·실행 경계 정의)
